@@ -62,10 +62,12 @@ Rules:
 
 | Artifact | Base image (versions to verify) | Notes |
 |---|---|---|
-| 4 services | build: `node:24-alpine`; runtime: distroless Node 24 or `node:24-alpine`, ARM64 | multi-stage; `pnpm deploy --filter @cd/<svc> --prod` for a pruned `node_modules`; non-root; read-only root FS; ports 8080 + 8081; `HEALTHCHECK` → `/health` |
+| 4 services | build: `node:24-alpine`; runtime: distroless Node 24 or `node:24-alpine`, ARM64 | multi-stage; `pnpm install --frozen-lockfile --prod --filter @cd/<svc>...` (workspace packages stay symlinks outside node_modules so Node can strip their TS types — `pnpm deploy` breaks this, ADR-052); non-root; read-only root FS; ports 8080 + 8081; `HEALTHCHECK` → `/health` |
 | migrations | same image as the service | entrypoint `migrate`; run as a one-off ECS task before rollout |
 | frontend | build: `node:24-alpine`; runtime: `nginxinc/nginx-unprivileged` | static SPA; runtime config through `/config.js` generated at container start (API URL, Cognito ids), so **one image is promoted across envs**; strict CSP; SPA fallback |
 | 3 Lambdas | `public.ecr.aws/lambda/nodejs:24` (ARM64) | container-image Lambdas (owner choice); one ECR repo each; handler bundled with esbuild |
+
+Standard service env (every service, ADR-053): `PUBLIC_PORT`, `SERVICE_PORT`, `LOG_LEVEL`, `DATABASE_URL` (app role), `DB_POOL_MAX`, `MIGRATOR_DATABASE_URL` (migration task only), `AUTH_URL`, `TOKEN_URL`, `SERVICE_CLIENT_ID`, `SERVICE_CLIENT_SECRET`; plus per-service extras documented in each service README.
 
 Image tags: the git SHA (immutable; ECR tag immutability on). No `latest` in any environment.
 Scanning: Trivy on every PR build (fail on HIGH/CRITICAL with a fix available) + ECR scan on push. SBOM (SPDX) attached as a build artifact.

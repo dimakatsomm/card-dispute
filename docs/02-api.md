@@ -93,13 +93,14 @@ Rules: only Cognito **access** tokens accepted (id tokens rejected). `client_id`
   "email": "thandi@example.com", "cellphoneNumber": "+27821234521",
   "accounts": [
     { "accountId": "uuid", "accountType": "CHEQUE", "accountNumberMasked": "****4821", "currency": "ZAR", "status": "ACTIVE",
-      "cards": [ { "cardId": "uuid", "brand": "VISA", "cardType": "DEBIT", "last4": "4821",
+      "cards": [ { "cardId": "uuid", "accountId": "uuid", "brand": "VISA", "cardType": "DEBIT", "last4": "4821",
                    "expiryMonth": 9, "expiryYear": 2028, "expired": false, "status": "ACTIVE" } ] }
   ]
 }
 ```
 - `expired` is computed server-side with `isCardExpired()` from `@cd/dispute-domain` (valid through the last day of the expiry month, UTC). The UI never does date maths.
 - Never returns card `token`. Email/phone unmasked to their owner, redacted in logs.
+- 404 `NOT_FOUND` if the validated user has no profile row (provisioning gap).
 
 ## Users — `GET /cards` (service port)
 Query: `userId` (required), `accountId?`, `cardId?`.

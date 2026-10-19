@@ -46,6 +46,7 @@ paths:
                       - { cardId: 0192f0c1-0000-7000-8000-0000000000c1, accountId: 0192f0c1-0000-7000-8000-0000000000a1, brand: VISA, cardType: DEBIT, last4: '4821', expiryMonth: 9, expiryYear: 2028, expired: false, status: ACTIVE }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
         '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
 components:
   securitySchemes:

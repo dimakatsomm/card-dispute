@@ -83,10 +83,10 @@
       "notes": "security gate CHANGES REQUIRED → fixed (erase guard, no updated_at grant, s3_key prefix CHECK, trigger-enabled test, independent tests); 52 tests; orchestrator re-ran (2026-10-19)"
     },
     "D-05": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "14 tests; second seed run inserts 0; orchestrator re-ran typecheck/test/lint; role passwords added to local/.env.example (2026-10-19)"
     },
     "A-01": {
       "status": "in_progress",
@@ -95,10 +95,10 @@
       "notes": "dispatched 2026-10-19"
     },
     "U-01": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "service-api",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "55 tests; security review pending; image not built yet"
     },
     "T-01": {
       "status": "in_progress",
@@ -453,6 +453,16 @@
     {
       "id": "ADR-051",
       "text": "Frontend API types generated without --immutable: openapi-typescript-helpers Readable<T> mangles readonly arrays, forcing casts in every screen (W-02/W-04).",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-052",
+      "text": "Service images use `pnpm install --frozen-lockfile --prod --filter @cd/<svc>...` not `pnpm deploy`: workspace packages export raw .ts and Node refuses type stripping under node_modules (found in U-01).",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-053",
+      "text": "Standard service env names: PUBLIC_PORT, SERVICE_PORT, LOG_LEVEL, DATABASE_URL, DB_POOL_MAX, MIGRATOR_DATABASE_URL, AUTH_URL, TOKEN_URL, SERVICE_CLIENT_ID, SERVICE_CLIENT_SECRET (from U-01).",
       "date": "2026-10-19"
     }
   ],

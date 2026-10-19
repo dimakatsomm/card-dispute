@@ -218,8 +218,8 @@ agent: service-api
 owns: [backend/auth/src/**, backend/auth/test/**, backend/auth/package.json, backend/auth/tsconfig.json, backend/auth/Dockerfile]
 depends_on: [S-01, D-01, L-01, C-04]
 acceptance:
-  - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
-  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
+  - auth cannot use auth-client (it would call itself): build servers with @cd/shared createServers; /validate is the only service-port route and verifies the CALLER token locally (JWKS, scope auth/validate) before anything else; a test proves an unauthenticated /validate call is 401 [S-04 note]
+  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm install --frozen-lockfile --prod --filter @cd/<svc>...`; NOT `pnpm deploy` — Node cannot strip types under node_modules, ADR-052), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - verifies JWT via JWKS (aws-jwt-verify or equivalent per verify-claims), with configurable issuer + client_id allow-list
   - caller must present its own service token with scope auth/validate (verified locally); missing → 401, user token as caller or wrong scope → 403 [PR-01 F4]
   - /validate is registered on the service port only; the public port of auth registers no business routes
@@ -237,7 +237,7 @@ owns: [backend/users/src/**, backend/users/test/**, backend/users/package.json, 
 depends_on: [S-02, S-04, D-02, C-04]
 acceptance:
   - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
-  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
+  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm install --frozen-lockfile --prod --filter @cd/<svc>...`; NOT `pnpm deploy` — Node cannot strip types under node_modules, ADR-052), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - GET /me returns profile + accounts + cards for the caller; every card has `expired` computed by isCardExpired from @cd/dispute-domain (no local date logic — grep test); never includes card token (test asserts key absent)
   - GET /cards: user token → 403; service token without users/cards.read → 403; with scope → 200 filtered by userId/accountId/cardId, includes `expired`; missing userId → 400
   - contact endpoint requires users/contact.read
@@ -250,7 +250,7 @@ owns: [backend/transactions/src/**, backend/transactions/test/**, backend/transa
 depends_on: [S-02, S-04, D-03, C-04]
 acceptance:
   - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
-  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
+  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm install --frozen-lockfile --prod --filter @cd/<svc>...`; NOT `pnpm deploy` — Node cannot strip types under node_modules, ADR-052), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - every query includes user_id = principal.userId (test: user B with A's cardId/transactionId → empty items)
   - all filters from docs/02 work; no filter = all accounts; from>to, min>max, bad uuid, limit>100 → 400
   - cursor pagination is stable: walking all pages returns every row exactly once with ties on transactionAt
@@ -270,7 +270,7 @@ owns: [backend/disputes/src/app.ts, backend/disputes/src/server.ts, backend/disp
 depends_on: [S-02, S-04, D-04, C-04]
 acceptance:
   - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
-  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
+  - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm install --frozen-lockfile --prod --filter @cd/<svc>...`; NOT `pnpm deploy` — Node cannot strip types under node_modules, ADR-052), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - POST fetches txn via transactions GET :8081/transactions?userId=<principal>&transactionIds=<id> (service token) and card via users GET /cards (service token); not found/not owned → 404 [ADR-020: card expiry blocks]
   - eligibility decided only by evaluateTransactionEligibility + validateDisputeInput from @cd/dispute-domain with now = DB now() from the same transaction (no rule literals in service code — grep test for "120")
   - one DB transaction writes dispute + history; a forced failure after the dispute insert leaves no rows
