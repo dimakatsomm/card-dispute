@@ -173,7 +173,8 @@ Public-repo hardening (all mandatory, CI-01/CI-02 acceptance):
   `repo:<owner>/<repo>:environment:dev` (deploy) or `repo:<owner>/<repo>:ref:refs/heads/main` (build/push). Never `repo:<owner>/<repo>:*`.
 - **Workflow permissions**: default `contents: read`; `id-token: write` only on jobs that assume AWS roles; all third-party actions pinned to a full commit SHA.
 - **Branch protection on `main`** (free on public repos): PR required, status checks required, no force-push.
-- **Environment `dev`**: required reviewers = owner; deployment branches = `main` only.
+- **Environment `dev`**: required reviewer = `@dimakatsomm`; deployment branches = `main` only.
+- **CODEOWNERS**: `@dimakatsomm` owns `.github/`, gitleaks config, `tools/`, lint/workspace config and `docs/openapi/`; branch protection requires code-owner review.
 - **Data**: seed data is fake (`example.com`, synthetic names). The owner email appears in the docs by owner choice.
 
 ## 7. Build notes from verification (verify-claims-02)
