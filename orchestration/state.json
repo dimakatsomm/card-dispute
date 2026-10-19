@@ -59,10 +59,10 @@
       "notes": "security gate CHANGES REQUIRED → fixed (token cap, RFC6749 Basic, onRoute backstop + createGuardedServers, HEAD/404 tests, single-flight validate); 49 tests; orchestrator re-ran (2026-10-19)"
     },
     "D-01": {
-      "status": "in_review",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "implemented + tests; standards review pending"
+      "notes": "standards gate PASS + cleanups (trigger name, no updated_at grant, beforeAll setup); 12 tests; orchestrator re-ran (2026-10-19)"
     },
     "D-02": {
       "status": "done",
