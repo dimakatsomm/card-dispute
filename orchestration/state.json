@@ -71,16 +71,16 @@
       "notes": "standards gate CHANGES REQUIRED → fixed (positive/negative grant tables, no updated_at grant); 31 tests; orchestrator re-ran (2026-10-19)"
     },
     "D-03": {
-      "status": "in_review",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "implemented + tests; standards review pending"
+      "notes": "standards gate → all three index plans tested with seeded+analyzed data; 15 tests stable x3; orchestrator re-ran (2026-10-19)"
     },
     "D-04": {
-      "status": "in_review",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "44 tests; security review pending"
+      "notes": "security gate CHANGES REQUIRED → fixed (erase guard, no updated_at grant, s3_key prefix CHECK, trigger-enabled test, independent tests); 52 tests; orchestrator re-ran (2026-10-19)"
     },
     "D-05": {
       "status": "todo",
@@ -95,26 +95,16 @@
       "notes": ""
     },
     "A-01": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "service-api",
-      "blockedBy": [
-        "S-01",
-        "D-01",
-        "L-01",
-        "C-04"
-      ],
-      "notes": "security gate"
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19"
     },
     "U-01": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "service-api",
-      "blockedBy": [
-        "S-02",
-        "S-04",
-        "D-02",
-        "C-04"
-      ],
-      "notes": "security gate"
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19"
     },
     "T-01": {
       "status": "todo",
