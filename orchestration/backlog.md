@@ -188,6 +188,7 @@ acceptance:
   - evidence status CHECK is PENDING | STORED | REJECTED | EXPIRED | ERASED, rejection_reason only when REJECTED, s3_key only when STORED (ADR-028); role disputes_retention can UPDATE only history (note, before, after) — test: UPDATE of history.to_status as disputes_retention fails, as disputes_app any UPDATE fails [PR-DB-2/3]
   - FKs ON DELETE RESTRICT [PR-DB-10]
   - disputes_app cannot UPDATE or DELETE dispute_status_history, cannot DELETE dispute (tests)
+  - D-00 default privileges give disputes_app SELECT/INSERT/UPDATE on every disputes table → this migration MUST `REVOKE UPDATE ON dispute_status_history FROM disputes_app` and `GRANT UPDATE (note, before, after) ON dispute_status_history TO disputes_retention` (+ evidence status/description columns per docs/03 Retention); tests prove both
 ```
 
 ## Wave 3 — depends on Wave 2

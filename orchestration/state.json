@@ -29,16 +29,16 @@
       "notes": "gate: security PASS + should-fix (fail-closed guards, frozen rule data) done; 136 tests; orchestrator re-ran typecheck/test/lint (2026-10-19)"
     },
     "S-03": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "gate CHANGES REQUIRED: fs errors as Result, pool destroy on failed rollback, concurrency test, style"
+      "notes": "gate CHANGES REQUIRED → fixed (fs Result errors, pool destroy, concurrency + search_path tests); orchestrator re-ran db typecheck/test 26 pass/lint (2026-10-19)"
     },
     "D-00": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "17 tests; security review running"
     },
     "C-04": {
       "status": "done",
@@ -50,7 +50,7 @@
       "status": "in_progress",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19 (Docker up)"
+      "notes": "gate CHANGES REQUIRED: PEM bug, hooks default off, tests, pins"
     },
     "S-04": {
       "status": "todo",
@@ -479,6 +479,11 @@
     {
       "id": "ADR-047",
       "text": "Migrations use a minimal custom SQL runner in @cd/db (NNN_name.sql, per-schema schema_migrations, one transaction + pg_advisory_xact_lock per file, set local search_path) instead of node-pg-migrate, which is built around JS migrations and its own tracking table (S-03).",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-048",
+      "text": "Git history rewritten before first push (owner: scrub) to remove the dropped domain; old objects purged. Commit ids changed from 77adafb.. to 2e6220f..",
       "date": "2026-10-19"
     }
   ],
