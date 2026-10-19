@@ -1,0 +1,44 @@
+name: lambda-dispute-notifier
+
+on:
+  pull_request:
+    paths:
+      - "backend/lambdas/dispute-notifier/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-dispute-notifier.yml"
+      - ".github/workflows/_build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/lambdas/dispute-notifier/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-dispute-notifier.yml"
+      - ".github/workflows/_build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build.yml
+    with:
+      package-filter: "@cd/dispute-notifier"
+      package-dir: backend/lambdas/dispute-notifier
+      image-name: lambda-dispute-notifier
+      lambda: true

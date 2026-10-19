@@ -1,0 +1,47 @@
+name: svc-transactions
+
+on:
+  pull_request:
+    paths:
+      - "backend/transactions/**"
+      - "backend/packages/**"
+      - "docs/openapi/transactions.*"
+      - "docs/openapi/common.yaml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/svc-transactions.yml"
+      - ".github/workflows/_build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/transactions/**"
+      - "backend/packages/**"
+      - "docs/openapi/transactions.*"
+      - "docs/openapi/common.yaml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/svc-transactions.yml"
+      - ".github/workflows/_build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build.yml
+    with:
+      package-filter: "@cd/transactions"
+      package-dir: backend/transactions
+      image-name: svc-transactions

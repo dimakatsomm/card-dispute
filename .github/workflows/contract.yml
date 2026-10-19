@@ -1,0 +1,86 @@
+name: contract
+
+on:
+  pull_request:
+    paths:
+      - "docs/openapi/**"
+      - ".github/workflows/contract.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/openapi/**"
+      - ".github/workflows/contract.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint:api
+
+  breaking:
+    # A breaking diff needs a base revision, which only PRs have.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        spec:
+          - auth.service.yaml
+          - users.public.yaml
+          - users.service.yaml
+          - transactions.public.yaml
+          - transactions.service.yaml
+          - disputes.public.yaml
+          - disputes.service.yaml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      # A spec added by this PR has nothing to compare against.
+      - name: Detect base spec
+        id: base
+        env:
+          SPEC: ${{ matrix.spec }}
+        run: |
+          if [ -f "base/docs/openapi/$SPEC" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$SPEC is new in this PR, nothing to diff"
+          fi
+
+      - name: oasdiff breaking changes
+        if: steps.base.outputs.exists == 'true'
+        uses: oasdiff/oasdiff-action/breaking@514e22ec2f1d1654fb78ac3bb7dc00d8f3c6c4d9 # v0.1.19
+        with:
+          base: base/docs/openapi/${{ matrix.spec }}
+          revision: docs/openapi/${{ matrix.spec }}
+          fail-on: ERR

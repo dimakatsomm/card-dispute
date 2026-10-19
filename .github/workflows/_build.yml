@@ -1,0 +1,143 @@
+name: _build
+
+on:
+  workflow_call:
+    inputs:
+      package-filter:
+        description: pnpm workspace filter, e.g. "@cd/auth"
+        required: true
+        type: string
+      package-dir:
+        description: Package directory relative to the repo root
+        required: true
+        type: string
+      image-name:
+        required: true
+        type: string
+      dockerfile:
+        description: Dockerfile path; defaults to <package-dir>/Dockerfile
+        required: false
+        type: string
+        default: ""
+      context:
+        description: Docker build context
+        required: false
+        type: string
+        default: "."
+      lambda:
+        description: Lambda image (adds --provenance=false)
+        required: false
+        type: boolean
+        default: false
+      check-api:
+        description: Also run check:api on @cd/web
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      PKG_FILTER: ${{ inputs.package-filter }}
+      PKG_DIR: ${{ inputs.package-dir }}
+      IMAGE_NAME: ${{ inputs.image-name }}
+      DOCKERFILE_IN: ${{ inputs.dockerfile }}
+      BUILD_CONTEXT: ${{ inputs.context }}
+      IS_LAMBDA: ${{ inputs.lambda }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The package may not exist yet; skip instead of failing.
+      - name: Detect package
+        id: pkg
+        run: |
+          if [ -f "$PKG_DIR/package.json" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$PKG_DIR/package.json not found, skipping"
+          fi
+          dockerfile="${DOCKERFILE_IN:-$PKG_DIR/Dockerfile}"
+          echo "dockerfile=$dockerfile" >> "$GITHUB_OUTPUT"
+          if [ -f "$dockerfile" ]; then
+            echo "has_docker=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_docker=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Version is read from the root packageManager field.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.pkg.outputs.found == 'true'
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.pkg.outputs.found == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        if: steps.pkg.outputs.found == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        if: steps.pkg.outputs.found == 'true'
+        run: pnpm --filter "$PKG_FILTER" --if-present run lint
+
+      - name: Typecheck
+        if: steps.pkg.outputs.found == 'true'
+        run: pnpm --filter "$PKG_FILTER" --if-present run typecheck
+
+      - name: Test
+        if: steps.pkg.outputs.found == 'true'
+        run: pnpm --filter "$PKG_FILTER" --if-present run test
+
+      - name: Check generated API types
+        if: steps.pkg.outputs.found == 'true' && inputs.check-api
+        run: pnpm --filter "$PKG_FILTER" run check:api
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'
+
+      - name: Build image (linux/arm64, no push)
+        if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'
+        env:
+          DOCKERFILE: ${{ steps.pkg.outputs.dockerfile }}
+        run: |
+          extra=""
+          if [ "$IS_LAMBDA" = "true" ]; then extra="--provenance=false"; fi
+          docker buildx build --platform linux/arm64 $extra --load \
+            --tag "$IMAGE_NAME:ci" --file "$DOCKERFILE" "$BUILD_CONTEXT"
+
+      - name: Trivy scan
+        if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ inputs.image-name }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          cache: false
+
+      - name: SBOM (SPDX)
+        if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ${{ inputs.image-name }}:ci
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'
+        with:
+          name: sbom-${{ inputs.image-name }}-${{ github.run_attempt }}
+          path: sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 14

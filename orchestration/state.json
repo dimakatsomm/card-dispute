@@ -225,10 +225,10 @@
       "notes": ""
     },
     "CI-01": {
-      "status": "in_review",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "security PASS; before commit: CODEOWNERS (needs owner GitHub handle) + trusted gitleaks config + contract.yml use pnpm exec redocly; uncommitted in .github/"
+      "notes": "security PASS + should-fix applied (trusted gitleaks config, pinned redocly via pnpm, ci-gate, dependabot); actionlint clean. CODEOWNERS uses @OWNER_GITHUB_HANDLE placeholder until owner supplies handle (2026-10-19)"
     }
   },
   "decisions": [
@@ -477,7 +477,8 @@
     "V-06: Verify CloudFront VPC origins in af-south-1 (optional — would make the ALB internal) and CloudFront/WAF/Route 53 pricing.",
     "V-08: Confirm against real S3 in dev that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
-    "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push."
+    "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
+    "O-03: Owner GitHub username → replace @OWNER_GITHUB_HANDLE in .github/CODEOWNERS and set it as required reviewer on environment dev."
   ],
   "peerReviews": [
     {

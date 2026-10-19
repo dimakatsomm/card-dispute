@@ -1,0 +1,44 @@
+name: lambda-retention-sweeper
+
+on:
+  pull_request:
+    paths:
+      - "backend/lambdas/retention-sweeper/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-retention-sweeper.yml"
+      - ".github/workflows/_build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/lambdas/retention-sweeper/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-retention-sweeper.yml"
+      - ".github/workflows/_build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build.yml
+    with:
+      package-filter: "@cd/retention-sweeper"
+      package-dir: backend/lambdas/retention-sweeper
+      image-name: lambda-retention-sweeper
+      lambda: true

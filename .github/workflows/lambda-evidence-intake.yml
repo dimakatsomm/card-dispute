@@ -1,0 +1,44 @@
+name: lambda-evidence-intake
+
+on:
+  pull_request:
+    paths:
+      - "backend/lambdas/evidence-intake/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-evidence-intake.yml"
+      - ".github/workflows/_build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/lambdas/evidence-intake/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-evidence-intake.yml"
+      - ".github/workflows/_build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build.yml
+    with:
+      package-filter: "@cd/evidence-intake"
+      package-dir: backend/lambdas/evidence-intake
+      image-name: lambda-evidence-intake
+      lambda: true

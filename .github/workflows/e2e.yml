@@ -1,0 +1,58 @@
+name: e2e
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The suite lands in a later task; skip until it exists.
+      - name: Detect suite
+        id: e2e
+        run: |
+          if [ -f tests/e2e/package.json ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::tests/e2e not found, skipping"
+          fi
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.e2e.outputs.found == 'true'
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.e2e.outputs.found == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        if: steps.e2e.outputs.found == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Start stack
+        if: steps.e2e.outputs.found == 'true'
+        run: docker compose up --build --detach --wait
+
+      - name: Run e2e
+        if: steps.e2e.outputs.found == 'true'
+        run: pnpm test:e2e
+
+      - name: Stop stack
+        if: always() && steps.e2e.outputs.found == 'true'
+        run: docker compose down --volumes

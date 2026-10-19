@@ -1,0 +1,8 @@
+/.github/ @OWNER_GITHUB_HANDLE
+/.gitleaks.toml @OWNER_GITHUB_HANDLE
+/.gitleaksignore @OWNER_GITHUB_HANDLE
+/tools/ @OWNER_GITHUB_HANDLE
+/eslint.config.js @OWNER_GITHUB_HANDLE
+/pnpm-workspace.yaml @OWNER_GITHUB_HANDLE
+/pnpm-lock.yaml @OWNER_GITHUB_HANDLE
+/docs/openapi/ @OWNER_GITHUB_HANDLE
