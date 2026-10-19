@@ -35,10 +35,10 @@
       "notes": "gate CHANGES REQUIRED → fixed (fs Result errors, pool destroy, concurrency + search_path tests); orchestrator re-ran db typecheck/test 26 pass/lint (2026-10-19)"
     },
     "D-00": {
-      "status": "in_review",
+      "status": "in_progress",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "17 tests; security review running"
+      "notes": "security PASS; should-fix in progress (fail-closed grants, role attrs, function exec)"
     },
     "C-04": {
       "status": "done",
@@ -47,18 +47,16 @@
       "notes": "docs/openapi/*.yaml; redocly lint 0 errors 0 warnings (2026-10-11)"
     },
     "L-01": {
+      "status": "done",
+      "agent": "implementer",
+      "blockedBy": [],
+      "notes": "gate CHANGES REQUIRED → fixed (PEM, hooks off, 18 tests, pinned images); orchestrator re-ran tests/lint/compose config (2026-10-19)"
+    },
+    "S-04": {
       "status": "in_progress",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "gate CHANGES REQUIRED: PEM bug, hooks default off, tests, pins"
-    },
-    "S-04": {
-      "status": "todo",
-      "agent": "implementer",
-      "blockedBy": [
-        "S-01"
-      ],
-      "notes": "security gate"
+      "notes": "dispatched 2026-10-19"
     },
     "D-01": {
       "status": "todo",
@@ -200,7 +198,7 @@
       "status": "in_progress",
       "agent": "frontend",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "security gate: sign-out blocker + S1-S3 being fixed"
     },
     "W-02": {
       "status": "todo",

@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "name": "@cd/mock-issuer",
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
   "dependencies": {
     "fastify": "catalog:"
   },

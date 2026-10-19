@@ -146,6 +146,7 @@ agent: data-schema
 owns: [backend/auth/migrations/**]
 depends_on: [S-03, D-00]
 acceptance:
+  - explicit UPDATE grants to the _app role only where needed: auth_identity (status) (D-00 defaults are SELECT + INSERT)
   - auth_identity per docs/03 with UQ on auth_id, cognito_sub, username; status CHECK
   - auth_identity also has user_id uuid UQ not null (logical ref → users.app_user.user_id, ADR-007)
   - migration applies cleanly on testcontainers (test in backend/auth/migrations/test)
@@ -157,6 +158,7 @@ agent: data-schema
 owns: [backend/users/migrations/**]
 depends_on: [S-03, D-00]
 acceptance:
+  - explicit UPDATE grants to the _app role only where needed: app_user, account, card (non-key columns) (D-00 defaults are SELECT + INSERT)
   - app_user (not `user` — reserved word, PR-01 F6), account, card per docs/03 incl. all CHECKs, UQs, FKs, indexes, updated_at triggers
   - no column can hold a full PAN (last4 char(4) CHECK digits)
   - card.status CHECK excludes EXPIRED; expiry_month 1–12 and expiry_year 2000–2100 CHECKs; FKs ON DELETE RESTRICT (test: deleting an account with cards fails) [PR-DB-4/7/10]
@@ -169,6 +171,7 @@ agent: data-schema
 owns: [backend/transactions/migrations/**]
 depends_on: [S-03, D-00]
 acceptance:
+  - explicit UPDATE grants to the _app role only where needed: none — transactions are written only by seed (migrator) in dev; no UPDATE grant (D-00 defaults are SELECT + INSERT)
   - transaction per docs/03 with the three listed indexes; amount > 0 CHECK; status/type CHECKs
   - transactions_app has no DELETE privilege (test)
   - CHECK: POSTED row without posted_at rejected [PR-DB-7]
@@ -188,7 +191,7 @@ acceptance:
   - evidence status CHECK is PENDING | STORED | REJECTED | EXPIRED | ERASED, rejection_reason only when REJECTED, s3_key only when STORED (ADR-028); role disputes_retention can UPDATE only history (note, before, after) — test: UPDATE of history.to_status as disputes_retention fails, as disputes_app any UPDATE fails [PR-DB-2/3]
   - FKs ON DELETE RESTRICT [PR-DB-10]
   - disputes_app cannot UPDATE or DELETE dispute_status_history, cannot DELETE dispute (tests)
-  - D-00 default privileges give disputes_app SELECT/INSERT/UPDATE on every disputes table → this migration MUST `REVOKE UPDATE ON dispute_status_history FROM disputes_app` and `GRANT UPDATE (note, before, after) ON dispute_status_history TO disputes_retention` (+ evidence status/description columns per docs/03 Retention); tests prove both
+  - D-00 defaults give disputes_app SELECT + INSERT only → grant `UPDATE` explicitly on dispute (status/version/resolution/description/reason/updated_* columns) and dispute_evidence (status, s3_key, rejection_reason, stored_at); NO update grant on dispute_status_history; `GRANT UPDATE (note, before, after) ON dispute_status_history TO disputes_retention` + evidence/dispute retention columns per docs/03; tests prove history UPDATE → 42501 for disputes_app and retention cannot touch other columns
 ```
 
 ## Wave 3 — depends on Wave 2

@@ -1,7 +1,7 @@
-node_modules
+**/node_modules
 .git
-coverage
-dist
+**/coverage
+**/dist
 docs
 orchestration
 infra
@@ -15,3 +15,6 @@ test-results
 # run tests (none planned) must not rely on this file.
 **/*.test.ts
 **/test
+**/.env
+**/.env.*
+!**/.env.example
