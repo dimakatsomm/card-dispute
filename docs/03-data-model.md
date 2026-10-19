@@ -14,6 +14,7 @@ with privileges on its own schema only.
   `updated_at` maintained by a shared trigger function `set_updated_at()` (created per schema).
 - Enums as `text` + `CHECK` constraint (easier to migrate than PG enum types).
 - Financial and audit rows are never deleted; service roles have no DELETE on them.
+- **Grants fail closed** (D-00 security gate): `<svc>_app` gets only SELECT + INSERT on new tables by default. Each migration that creates a mutable table grants `UPDATE` explicitly, column-level where sensible. Immutable tables (`dispute_status_history`) get no UPDATE. No SECURITY DEFINER functions; EXECUTE on new functions is revoked from PUBLIC.
 - Every in-schema FK is `ON DELETE RESTRICT` (PR-DB-10).
 - Exception to the audit-field rule: insert-only tables (`dispute_status_history`) have `created_at` only.
 
