@@ -12,7 +12,7 @@ with privileges on its own schema only.
 - Money: `numeric(12,2)` + `currency char(3)`. Never float.
 - Every table: `created_at timestamptz not null default now()`, `updated_at timestamptz not null default now()`;
   `updated_at` maintained by a shared trigger function `set_updated_at()` (created per schema).
-- Enums as `text` + `CHECK` constraint (easier to migrate than PG enum types).
+- Enums as `text not null` + `CHECK` constraint (easier to migrate than PG enum types); statuses default to `ACTIVE` where that is the initial state.
 - Financial and audit rows are never deleted; service roles have no DELETE on them.
 - **Grants fail closed** (D-00 security gate): `<svc>_app` gets only SELECT + INSERT on new tables by default. Each migration that creates a mutable table grants `UPDATE` explicitly, column-level where sensible. Immutable tables (`dispute_status_history`) get no UPDATE. No SECURITY DEFINER functions; EXECUTE on new functions is revoked from PUBLIC.
 - Every in-schema FK is `ON DELETE RESTRICT` (PR-DB-10).
@@ -25,7 +25,7 @@ with privileges on its own schema only.
 | id | bigint PK | |
 | auth_id | uuid UQ | |
 | cognito_sub | text UQ not null | Cognito `sub` |
-| username | text UQ not null | Cognito username (lower-cased) |
+| username | text UQ not null | Cognito username; CHECK `username = lower(username)` and non-empty (D-01) |
 | user_id | uuid UQ not null | logical ref → users.app_user.user_id; lets `/validate` return userId without calling users (ADR-007). Written once at provisioning. |
 | status | text | `ACTIVE | DISABLED` |
 | created_at, updated_at | timestamptz | |
@@ -51,7 +51,7 @@ No password column: Cognito owns credentials (ADR-004).
 | id | bigint PK | |
 | account_id | uuid UQ | |
 | user_id | bigint FK → app_user.id | |
-| account_number_masked | text | e.g. `****4821` — full number never stored |
+| account_number_masked | text not null | CHECK `^*{4}[0-9]{4}$` — full number cannot be stored (D-02) |
 | account_type | text | `CHEQUE | SAVINGS | CREDIT` |
 | currency | char(3) | |
 | status | text | `ACTIVE | FROZEN | CLOSED` |
@@ -91,7 +91,7 @@ Indexes: `account(user_id)`, `card(account_id)`.
 | posted_at | timestamptz null | when it settled; dispute window counts from here. CHECK `status <> 'POSTED' OR posted_at IS NOT NULL` |
 
 Indexes: `(user_id, transaction_at desc, transaction_id desc)` (default list + cursor),
-`(user_id, card_id, transaction_at desc)`, `(user_id, account_id, transaction_at desc)`.
+`(user_id, card_id, transaction_at desc, transaction_id desc)`, `(user_id, account_id, transaction_at desc, transaction_id desc)` (tie-breaker column lets the planner serve cursor pages from these indexes — D-03).
 
 Mock data: seed generator produces 3 users × 1–2 accounts × 1–2 cards × ~200 transactions across
 the last 180 days, with a mix of statuses so the 120-day window and POSTED-only rules are exercised.
