@@ -1,0 +1,28 @@
+{
+  "name": "@cd/disputes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fastify": "catalog:",
+    "pg": "catalog:",
+    "zod": "catalog:",
+    "@cd/shared": "workspace:*",
+    "@cd/auth-client": "workspace:*",
+    "@cd/db": "workspace:*",
+    "@cd/dispute-domain": "workspace:*",
+    "@aws-sdk/client-s3": "catalog:",
+    "@aws-sdk/s3-request-presigner": "catalog:",
+    "@aws-sdk/client-sqs": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
