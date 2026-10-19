@@ -1,0 +1,488 @@
+{
+  "_comment": "Orchestrator memory across sessions. Read at session start, written after every task transition. Statuses: todo | in_progress | in_review | done | blocked. This file must reflect reality — a task with a failing test is not done.",
+  "milestone": "M0-charter-and-verification",
+  "updatedAt": "2026-10-19T00:00:00Z",
+  "milestones": {
+    "M0": "done — awaiting owner go-ahead + Q-01/Q-09/Q-10 before M1 dispatch",
+    "M1": "todo — backlog written, not dispatched",
+    "M2": "todo — tasks P-04..P-06, L-03..L-05, B-01, W-06, E-02 (docs/08 §8)",
+    "M3": "todo — tasks I-00..I-13, CI-02, X-01, E-03 (docs/08 §8)",
+    "M4": "todo — H-01..H-04 (docs/08 §8)"
+  },
+  "tasks": {
+    "F-01": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "M0"
+      ],
+      "notes": ""
+    },
+    "S-01": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "F-01"
+      ],
+      "notes": ""
+    },
+    "S-02": {
+      "status": "todo",
+      "agent": "dispute-domain",
+      "blockedBy": [
+        "F-01"
+      ],
+      "notes": "security gate"
+    },
+    "S-03": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "F-01"
+      ],
+      "notes": ""
+    },
+    "D-00": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "F-01"
+      ],
+      "notes": "security gate"
+    },
+    "C-04": {
+      "status": "done",
+      "agent": "orchestrator",
+      "blockedBy": [],
+      "notes": "docs/openapi/*.yaml; redocly lint 0 errors 0 warnings (2026-10-11)"
+    },
+    "L-01": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "F-01"
+      ],
+      "notes": ""
+    },
+    "S-04": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "S-01"
+      ],
+      "notes": "security gate"
+    },
+    "D-01": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "S-03",
+        "D-00"
+      ],
+      "notes": ""
+    },
+    "D-02": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "S-03",
+        "D-00"
+      ],
+      "notes": ""
+    },
+    "D-03": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "S-03",
+        "D-00"
+      ],
+      "notes": ""
+    },
+    "D-04": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "S-03",
+        "D-00"
+      ],
+      "notes": "security gate"
+    },
+    "D-05": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "D-01",
+        "D-02",
+        "D-03",
+        "D-04",
+        "L-01"
+      ],
+      "notes": ""
+    },
+    "A-01": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "S-01",
+        "D-01",
+        "L-01",
+        "C-04"
+      ],
+      "notes": "security gate"
+    },
+    "U-01": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "S-02",
+        "S-04",
+        "D-02",
+        "C-04"
+      ],
+      "notes": "security gate"
+    },
+    "T-01": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "S-02",
+        "S-04",
+        "D-03",
+        "C-04"
+      ],
+      "notes": "security gate"
+    },
+    "P-01": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "S-02",
+        "S-04",
+        "D-04",
+        "C-04"
+      ],
+      "notes": "security gate; split per PR-01 K"
+    },
+    "E-01": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "A-01",
+        "U-01",
+        "T-01",
+        "P-01",
+        "P-02",
+        "D-05",
+        "L-02",
+        "P-03"
+      ],
+      "notes": ""
+    },
+    "P-02": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "P-01"
+      ],
+      "notes": "security gate"
+    },
+    "L-02": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "A-01",
+        "U-01",
+        "T-01",
+        "P-01",
+        "L-01",
+        "W-01"
+      ],
+      "notes": ""
+    },
+    "P-03": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "P-01"
+      ],
+      "notes": "security gate"
+    },
+    "W-01": {
+      "status": "todo",
+      "agent": "frontend",
+      "blockedBy": [
+        "F-01"
+      ],
+      "notes": ""
+    },
+    "W-02": {
+      "status": "todo",
+      "agent": "frontend",
+      "blockedBy": [
+        "W-01"
+      ],
+      "notes": ""
+    },
+    "W-03": {
+      "status": "todo",
+      "agent": "frontend",
+      "blockedBy": [
+        "W-01"
+      ],
+      "notes": ""
+    },
+    "W-04": {
+      "status": "todo",
+      "agent": "frontend",
+      "blockedBy": [
+        "W-01"
+      ],
+      "notes": ""
+    },
+    "W-05": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "W-02",
+        "W-03",
+        "W-04",
+        "L-02",
+        "D-05"
+      ],
+      "notes": ""
+    },
+    "CI-01": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "F-01"
+      ],
+      "notes": ""
+    }
+  },
+  "decisions": [
+    {
+      "id": "ADR-001",
+      "text": "TypeScript/Node for services and Lambdas — one language across services, Lambdas and shared domain package.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-002",
+      "text": "Terraform for IaC (owner choice).",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-003",
+      "text": "Cognito issues user and service (client_credentials) tokens; auth POST /validate verifies them centrally.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-004",
+      "text": "No password stored by us — Cognito owns credentials; auth_identity is a sub→auth_id mapping.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-005",
+      "text": "POC in af-south-1, single env, right-sized (1 NAT, 1 task/service, Aurora Serverless v2 min ACU).",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-006",
+      "text": "user → account → card hierarchy; GET /cards is s2s-only; GET /me returns accounts with masked cards.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-007",
+      "text": "auth_identity stores user_id (logical) so /validate returns userId in one hop, beating an auth→users call per validation.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-008",
+      "text": "SUPERSEDED (partly superseded by ADR-016 (no auto-rules)). Dispute window 120 days from posted_at; 7 reason codes; resolution by auto-rules Lambda and back-office internal API; never auto-reject, never auto-accept FRAUD.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-009",
+      "text": "SES email on every dispute status change; notifier fetches email by userId so events carry no PII.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-010",
+      "text": "SUPERSEDED (superseded by ADR-023 (no outbox)). Outbox relay sends directly to two SQS queues; SNS deferred until >2 consumers.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-011",
+      "text": "SUPERSEDED (superseded by ADR-020 (one dispute ever)). Re-dispute allowed only after WITHDRAWN, never after RESOLVED_* (prevents double refund, PR-01 F1). Closes Q-07.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-012",
+      "text": "Lambda→service calls via internal ALB because Lambdas cannot join ECS Service Connect; task-to-task stays on Service Connect (PR-01 F3).",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-013",
+      "text": "/validate requires the caller service token (scope auth/validate); no network-only exception (PR-01 F4).",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-014",
+      "text": "SUPERSEDED (superseded by ADR-016). Auto-decide runs inside disputes on the locked current row; Lambda only triggers (PR-01 F2).",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-015",
+      "text": "moto server replaces LocalStack locally (LocalStack now requires licence; verify-claims-01). Confirmed by owner.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-016",
+      "text": "No auto-accept/auto-reject: Lambda only moves SUBMITTED→UNDER_REVIEW; only human AGENT resolves (owner). Removes threshold, cap, DUPLICATE auto-match and /internal/transactions.",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-017",
+      "text": "POC POPIA retention: 1 year after terminal state erase dispute PII text fields and evidence objects; rows kept (owner).",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-018",
+      "text": "Add GET /dispute/{transactionId} for customer status view (owner approved; new task P-03).",
+      "date": "2026-10-09"
+    },
+    {
+      "id": "ADR-019",
+      "text": "API shaped by owner UI flow: /me (accounts→cards) → /transactions?accountId|cardId → dispute → /disputes list + /dispute/{txnId} timeline.",
+      "date": "2026-10-10"
+    },
+    {
+      "id": "ADR-020",
+      "text": "One dispute per transaction ever (WITHDRAWN counts); expired card blocks a dispute, BLOCKED/CANCELLED do not. Supersedes ADR-011 re-dispute rule.",
+      "date": "2026-10-10"
+    },
+    {
+      "id": "ADR-021",
+      "text": "disputable flag computed server-side in transactions with the shared evaluateTransactionEligibility (same function as POST); degrades to UNAVAILABLE. Disputes reads txns via raw internal endpoint so no call loop.",
+      "date": "2026-10-10"
+    },
+    {
+      "id": "ADR-022",
+      "text": "SUPERSEDED (dispute.account_id part superseded by ADR-024). DB review 2026-10-10: dispute.account_id; disputes_retention role with column-scoped UPDATE; evidence ERASED; card expiry derived only (no EXPIRED status); DB CHECKs on amounts/resolution/posted_at/expiry; closed history action list; insert-only history has no updated_at; FKs ON DELETE RESTRICT.",
+      "date": "2026-10-10"
+    },
+    {
+      "id": "ADR-023",
+      "text": "Drop idempotency_key, outbox, processed_event, notification_cursor (owner: overkill). unique(transaction_id) is the retry guard; events published after commit best-effort; DB is source of truth; consumers idempotent by design.",
+      "date": "2026-10-10"
+    },
+    {
+      "id": "ADR-024",
+      "text": "No partial disputes: full txn amount always. Dispute stores only transaction_id + its own data; txn details read live from transactions (batch internal endpoint). GET /disputes loses account/card filters.",
+      "date": "2026-10-10"
+    },
+    {
+      "id": "ADR-025",
+      "text": "GET /disputes keeps accountId/cardId filters, resolved through transactions' internal batch lookup (dispute stores only transaction_id). Partially reverses ADR-024's filter removal.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-026",
+      "text": "No /internal path prefix and no trusted x-* header. Each service runs a public port (8080, ALB, user principals only) and a service port (8081, Service Connect/internal ALB, service principals + scope only). Same paths may exist on both with different handlers; the token is always validated.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-027",
+      "text": "SUPERSEDED by ADR-028. POST /dispute/{transactionId} is multipart/form-data with optional 0–5 evidence files (PDF/JPEG/PNG by magic bytes, ≤10 MB each), streamed by disputes to S3. Removes presigned URLs, S3 events, evidence-intake Lambda and the service-port evidence endpoint; evidence status STORED|ERASED.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-028",
+      "text": "Evidence via presigned PUT to a quarantine bucket (signed type/length/sha256) → malware scan → evidence-intake Lambda promotes clean files to the evidence bucket. The disputes service never handles file bytes (PCI scope, untrusted-file isolation, mobile). Supersedes ADR-027. POST /dispute is JSON with optional file declarations.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-029",
+      "text": "Monorepo: backend/ (Node 24; one folder per service: backend/auth, backend/users, backend/transactions, backend/disputes; backend/lambdas/*; backend/packages/*), frontend/ (React+Vite), infra/ (Terraform). Services import only backend/packages; frontend only depends on docs/openapi.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-030",
+      "text": "Everything containerised: services, migrations, frontend (nginx), Lambdas as container images (owner). ARM64, non-root, tag = git SHA, Trivy + SBOM.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-031",
+      "text": "SUPERSEDED in part by ADR-036 (routing). React + Vite SPA as an ECS container behind the same ALB; host-based routing app./api. to avoid route collisions; CORS limited to app origin.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-032",
+      "text": "GitHub Actions, one pipeline per deployable via reusable _build/_deploy; OIDC per-pipeline roles; manual approval (GitHub Environment) on every deploy (owner); Terraform ignores image versions.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-033",
+      "text": "No auto-review Lambda (owner, Q-14). New disputes stay SUBMITTED until a human agent picks them from GET :8081/review-queue; review and resolution are AGENT-only. Single SQS queue (notifications).",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-034",
+      "text": "Owner confirmed (Q-01): 120-day window from posted_at and 7 reason codes. Mock data currency ZAR (Q-09).",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-035",
+      "text": "SUPERSEDED by ADR-037 (domain sender). SES sender for poc = dimakatsomm@icloud.com (owner, Q-10); move to noreply@<owner domain> with DKIM before real users (DMARC alignment risk).",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-036",
+      "text": "SUPERSEDED in part by ADR-037 (domain, HTTPS origin; /api routing kept). No custom domain (owner: POC). CloudFront default https://<id>.cloudfront.net in front; /api/* → ALB (prefix stripped by CloudFront Function), /* → web; same origin, no CORS; WAF on CloudFront; Cognito prefix domain. ALB internal via CloudFront VPC origin if available in af-south-1 (V-06), else public ALB with origin lock. Supersedes host-based app./api. routing of ADR-031.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-037",
+      "text": "Use <app-domain> (owner's <owner-domain>, Route 53) via a delegated sub-zone: CloudFront on the domain, HTTPS to ALB via <alb-origin>, optional Cognito custom domain <cognito-domain>, SES domain identity with DKIM/SPF/DMARC sending from noreply@<app-domain> (Reply-To dimakatsomm@icloud.com). Supersedes ADR-036's no-domain parts and ADR-035's sender.",
+      "date": "2026-10-11"
+    },
+    {
+      "id": "ADR-038",
+      "text": "Functional architecture across TypeScript (owner): functional core / imperative shell, no classes, immutable data, discriminated unions, Result values for expected failures, injected deps via factory functions, React function components. Lint-enforced (docs/10). (renumbered from a duplicate ADR-036)",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-039",
+      "text": "Back-office implementation deferred (owner 2026-10-19: client-facing first). Review queue/review/resolution stay in the OpenAPI contract, not built in M1–M4; seed data supplies later-state disputes for UI testing.",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-040",
+      "text": "Test discipline (owner): only useful tests — one per acceptance criterion and real risk; table-driven core; auth negatives proven once, not per endpoint; no coverage-% targets, snapshots or framework-behaviour tests. Reviewers reject padding as well as gaps.",
+      "date": "2026-10-19"
+    }
+  ],
+  "openQuestions": [
+    "V-03: Verify before P-01: presigned PUT can sign x-amz-checksum-sha256; GuardDuty Malware Protection for S3 availability + price in af-south-1; @aws-sdk/s3-request-presigner version.",
+    "V-04: Verify: GitHub required reviewers on private repos (plan needed?); Actions minutes; Lambda Node 24 container base image tag; frontend deps (OIDC PKCE lib, openapi-typescript, react-router, playwright) versions.",
+    "V-06: Verify CloudFront VPC origins in af-south-1 (optional — would make the ALB internal) and CloudFront/WAF/Route 53 pricing.",
+    "Q-18: Is the <owner-domain> Route 53 hosted zone in the same AWS account as the poc? If not, the 4 NS records for <app-domain> are added manually once. — DEFERRED (owner 2026-10-19: domain not a priority now; design kept for M3).",
+    "V-07: Verify eslint-plugin-functional (ESLint 9 flat config) and TanStack Query versions before F-01/W-01."
+  ],
+  "peerReviews": [
+    {
+      "id": "01",
+      "topic": "architecture, data model, rules, M1 decomposition",
+      "reviewer": "Claude Sonnet via Agent (separate context)",
+      "date": "2026-10-09",
+      "calibration": "high — no canary contradicted; 2 primary-source checks both found real defects",
+      "accepted": 16,
+      "rejected": 1
+    }
+  ],
+  "deferred": [
+    "Q-17 back-office access path + tasks P-04, B-01 (ADR-039)",
+    "Domain work (Q-18) until M3 (owner 2026-10-19)"
+  ]
+}

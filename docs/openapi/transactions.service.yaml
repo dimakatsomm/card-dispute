@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Transactions service — service port (8081)
+  version: 0.1.0
+  description: |
+    Raw transaction lookup for other services. Requires a **service** token with `transactions/read`.
+    This endpoint makes **no** outbound calls, which is what prevents a disputes ↔ transactions loop.
+servers:
+  - url: http://transactions.cd.internal:8081
+    description: Service Connect (poc)
+paths:
+  /transactions:
+    get:
+      operationId: lookupTransactions
+      summary: Raw transactions for a user by ids (optionally filtered by account/card)
+      description: |
+        Callers — disputes: on create (one id), for list/detail enrichment, and to resolve `GET /disputes`
+        account/card filters. Returns only rows owned by `userId` that also match the optional
+        `accountId`/`cardId`. Non-matching or unknown ids are simply absent.
+      security:
+        - serviceToken: [transactions/read]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - $ref: './common.yaml#/components/parameters/UserIdQueryRequired'
+        - $ref: './common.yaml#/components/parameters/TransactionIdsQuery'
+        - { name: accountId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - { name: cardId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+      responses:
+        '200':
+          description: Matching rows
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: './common.yaml#/components/schemas/RawTransaction' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    serviceToken: { $ref: './common.yaml#/components/securitySchemes/serviceToken' }

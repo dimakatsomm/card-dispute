@@ -1,0 +1,106 @@
+openapi: 3.1.0
+info:
+  title: Transactions service — public port (8080)
+  version: 0.1.0
+  description: Customer-facing transaction list. Requires a **user** token; service tokens → 403.
+servers:
+  - url: https://<app-domain>/api
+    description: poc — CloudFront strips /api before the ALB (ADR-037)
+security:
+  - userToken: []
+paths:
+  /transactions:
+    get:
+      operationId: listMyTransactions
+      summary: Caller's transactions, with dispute state and disputable flag
+      description: |
+        UI steps 2–4. No filter = all the caller's accounts. Always scoped to the caller; an `accountId`/`cardId`
+        the caller doesn't own yields an empty page.
+
+        Ordering `transactionAt desc, transactionId desc`; cursor-paged.
+
+        `disputable` is computed with the same `evaluateTransactionEligibility()` used by `POST /dispute`.
+        Card expiry comes from users and dispute state from disputes. If either doesn't answer within 2 s, the
+        page is still returned with `dispute: null` and `disputable: {allowed:false, reason:UNAVAILABLE}` on every row.
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - { name: accountId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - { name: cardId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - { name: transactionId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - { name: from, in: query, required: false, description: 'Inclusive, on transactionAt', schema: { $ref: './common.yaml#/components/schemas/Timestamp' } }
+        - { name: to, in: query, required: false, description: 'Exclusive, on transactionAt; must be > from', schema: { $ref: './common.yaml#/components/schemas/Timestamp' } }
+        - name: status
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: './common.yaml#/components/schemas/TransactionStatus' } }
+        - { name: minAmount, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Money' } }
+        - { name: maxAmount, in: query, required: false, description: 'Must be ≥ minAmount', schema: { $ref: './common.yaml#/components/schemas/Money' } }
+        - $ref: './common.yaml#/components/parameters/Limit'
+        - $ref: './common.yaml#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page
+          headers:
+            x-correlation-id: { $ref: './common.yaml#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TransactionRow' }
+                  nextCursor: { type: [string, 'null'] }
+              example:
+                items:
+                  - transactionId: 0192f0c1-0000-7000-8000-0000000000f1
+                    accountId: 0192f0c1-0000-7000-8000-0000000000a1
+                    cardId: 0192f0c1-0000-7000-8000-0000000000c1
+                    amount: '125.50'
+                    currency: ZAR
+                    merchantName: Corner Café
+                    mcc: '5814'
+                    type: PURCHASE
+                    status: POSTED
+                    transactionAt: '2026-09-28T10:15:00Z'
+                    postedAt: '2026-09-29T02:00:00Z'
+                    dispute: null
+                    disputable: { allowed: true }
+                nextCursor: null
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+components:
+  securitySchemes:
+    userToken: { $ref: './common.yaml#/components/securitySchemes/userToken' }
+  schemas:
+    TransactionRow:
+      unevaluatedProperties: false
+      allOf:
+        - $ref: './common.yaml#/components/schemas/RawTransaction'
+        - type: object
+          required: [dispute, disputable]
+          properties:
+            dispute:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [disputeId, status]
+                  properties:
+                    disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                    status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+                - { type: 'null' }
+            disputable:
+              type: object
+              additionalProperties: false
+              required: [allowed]
+              properties:
+                allowed: { type: boolean }
+                reason:
+                  $ref: './common.yaml#/components/schemas/EligibilityReason'
+                  description: Present only when `allowed` is false.

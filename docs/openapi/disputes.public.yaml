@@ -1,0 +1,381 @@
+openapi: 3.1.0
+info:
+  title: Disputes service — public port (8080)
+  version: 0.1.0
+  description: |
+    Customer-facing disputes API. Every operation requires a **user** token; service tokens → 403.
+    One dispute per transaction, ever (incl. withdrawn), so `transactionId` identifies the dispute.
+    A dispute always covers the full transaction amount — there is no amount field.
+servers:
+  - url: https://<app-domain>/api
+    description: poc — CloudFront strips /api before the ALB (ADR-037)
+security:
+  - userToken: []
+paths:
+  /disputes:
+    get:
+      operationId: listMyDisputes
+      summary: Caller's disputes (disputes view)
+      description: |
+        Ordered `updatedAt desc`, cursor-paged. `accountId`/`cardId` filters are resolved through transactions
+        (the dispute stores only `transactionId`). If transactions is unavailable: with an account/card filter → 503;
+        without → items returned with `transaction: null`. An unowned `accountId`/`cardId` → empty list.
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - name: status
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: './common.yaml#/components/schemas/DisputeStatus' } }
+        - { name: accountId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - { name: cardId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - $ref: './common.yaml#/components/parameters/Limit'
+        - $ref: './common.yaml#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/DisputeSummary' }
+                  nextCursor: { type: [string, 'null'] }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+
+  /dispute/{transactionId}:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+      - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+    post:
+      operationId: createDispute
+      summary: Dispute a transaction (optionally declaring evidence files)
+      description: |
+        Eligibility (first failure wins): ALREADY_DISPUTED → CARD_EXPIRED → TXN_NOT_POSTED → TXN_TYPE_NOT_DISPUTABLE → OUTSIDE_WINDOW.
+        No `Idempotency-Key`: a retry hits the unique constraint → 409 `ALREADY_DISPUTED`; the client then calls
+        `GET /dispute/{transactionId}`.
+
+        For each declared file the response carries a presigned **PUT** URL for the quarantine bucket. The client must
+        send exactly the returned headers (Content-Type, Content-Length, x-amz-checksum-sha256); S3 rejects anything else.
+        Evidence stays `PENDING` until scanned; unused slots become `EXPIRED` after 1 day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDisputeRequest' }
+            example:
+              reasonCode: FRAUD
+              description: I did not make this purchase; my card was in my possession.
+              evidence:
+                - { fileName: statement.pdf, contentType: application/pdf, sizeBytes: 183422, sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 }
+      responses:
+        '201':
+          description: Dispute created
+          headers:
+            ETag: { $ref: './common.yaml#/components/headers/ETag' }
+            Location:
+              description: '`/dispute/{transactionId}`'
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Dispute'
+                  - type: object
+                    required: [uploads]
+                    properties:
+                      uploads:
+                        type: array
+                        maxItems: 5
+                        items: { $ref: '#/components/schemas/UploadInstruction' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409':
+          description: '`ALREADY_DISPUTED` — a dispute exists for this transaction in any status.'
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '422':
+          description: |
+            `NOT_ELIGIBLE`; `code` is one of INVALID_REASON, INVALID_DESCRIPTION, CARD_EXPIRED, TXN_NOT_POSTED,
+            TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW.
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+    get:
+      operationId: getDispute
+      summary: Dispute detail with timeline
+      responses:
+        '200':
+          description: Dispute
+          headers:
+            ETag: { $ref: './common.yaml#/components/headers/ETag' }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Dispute'
+                  - type: object
+                    required: [timeline]
+                    properties:
+                      timeline:
+                        type: array
+                        description: Ascending by `at`.
+                        items: { $ref: '#/components/schemas/TimelineEvent' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+    put:
+      operationId: updateDispute
+      summary: Edit (SUBMITTED only) or withdraw (SUBMITTED / UNDER_REVIEW — final)
+      parameters:
+        - name: If-Match
+          in: header
+          required: true
+          description: Current ETag (`"<version>"`).
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/EditDispute'
+                - $ref: '#/components/schemas/WithdrawDispute'
+              discriminator: { propertyName: action }
+      responses:
+        '200':
+          description: Updated
+          headers:
+            ETag: { $ref: './common.yaml#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dispute' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409':
+          description: '`INVALID_TRANSITION` (e.g. edit while UNDER_REVIEW, any change after a terminal status).'
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '412':
+          description: Stale `If-Match`.
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '428':
+          description: Missing `If-Match`.
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+
+  /dispute/{transactionId}/evidence:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+      - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+    post:
+      operationId: addEvidence
+      summary: Declare more evidence files → presigned upload URLs
+      description: Allowed while SUBMITTED or UNDER_REVIEW. At most 5 items per dispute in PENDING or STORED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [evidence]
+              properties:
+                evidence:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items: { $ref: '#/components/schemas/EvidenceDeclaration' }
+      responses:
+        '201':
+          description: Upload instructions
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [uploads]
+                properties:
+                  uploads:
+                    type: array
+                    items: { $ref: '#/components/schemas/UploadInstruction' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409':
+          description: '`INVALID_TRANSITION` — dispute is in a terminal status.'
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '413':
+          description: '`TOO_MANY_FILES` — would exceed 5 PENDING/STORED items.'
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+
+components:
+  securitySchemes:
+    userToken: { $ref: './common.yaml#/components/securitySchemes/userToken' }
+  schemas:
+    CreateDisputeRequest:
+      type: object
+      additionalProperties: false
+      required: [reasonCode, description]
+      properties:
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+        evidence:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/EvidenceDeclaration' }
+    EvidenceDeclaration:
+      type: object
+      additionalProperties: false
+      required: [fileName, contentType, sizeBytes, sha256]
+      properties:
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        contentType: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+        sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$', description: Lower-case hex of the file's SHA-256. }
+    UploadInstruction:
+      type: object
+      additionalProperties: false
+      required: [evidenceId, method, url, headers, expiresAt]
+      properties:
+        evidenceId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        method: { const: PUT }
+        url: { type: string, format: uri, description: Presigned URL for the quarantine bucket. }
+        headers:
+          type: object
+          description: Send exactly these headers; they are signed.
+          required: [Content-Type, Content-Length, x-amz-checksum-sha256]
+          properties:
+            Content-Type: { type: string }
+            Content-Length: { type: string }
+            x-amz-checksum-sha256: { type: string, description: Base64 of the SHA-256 digest. }
+        expiresAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+    EditDispute:
+      type: object
+      additionalProperties: false
+      required: [action]
+      minProperties: 2
+      properties:
+        action: { const: EDIT }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+    WithdrawDispute:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { const: WITHDRAW }
+        note: { type: string, maxLength: 500 }
+    TransactionRef:
+      description: Read live from transactions; null if transactions is unavailable.
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [accountId, cardId, amount, currency, merchantName, transactionAt, postedAt]
+          properties:
+            accountId: { $ref: './common.yaml#/components/schemas/Uuid' }
+            cardId: { $ref: './common.yaml#/components/schemas/Uuid' }
+            amount: { $ref: './common.yaml#/components/schemas/Money' }
+            currency: { $ref: './common.yaml#/components/schemas/Currency' }
+            merchantName: { type: string }
+            transactionAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+            postedAt:
+              oneOf:
+                - { $ref: './common.yaml#/components/schemas/Timestamp' }
+                - { type: 'null' }
+        - { type: 'null' }
+    Evidence:
+      type: object
+      additionalProperties: false
+      required: [evidenceId, fileName, contentType, sizeBytes, status]
+      properties:
+        evidenceId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        fileName: { type: string }
+        contentType: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+        sizeBytes: { type: integer }
+        status: { type: string, enum: [PENDING, STORED, REJECTED, EXPIRED, ERASED] }
+        rejectionReason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE] }
+    Dispute:
+      type: object
+      required: [disputeId, transactionId, status, reasonCode, description, transaction, evidence, version, createdAt, updatedAt, resolvedAt, resolutionNote]
+      properties:
+        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+        description: { type: string }
+        transaction: { $ref: '#/components/schemas/TransactionRef' }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/Evidence' }
+        version: { type: integer, minimum: 1 }
+        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        updatedAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        resolvedAt:
+          oneOf:
+            - { $ref: './common.yaml#/components/schemas/Timestamp' }
+            - { type: 'null' }
+        resolutionNote: { type: [string, 'null'] }
+    DisputeSummary:
+      type: object
+      additionalProperties: false
+      required: [disputeId, transactionId, status, reasonCode, transaction, lastEvent, createdAt, updatedAt]
+      properties:
+        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+        transaction: { $ref: '#/components/schemas/TransactionRef' }
+        lastEvent:
+          type: object
+          required: [type, at]
+          properties:
+            type: { $ref: '#/components/schemas/TimelineType' }
+            at: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        updatedAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+    TimelineType:
+      type: string
+      enum: [SUBMITTED, EDITED, EVIDENCE_ADDED, EVIDENCE_REJECTED, UNDER_REVIEW, RESOLVED_ACCEPTED, RESOLVED_REJECTED, WITHDRAWN]
+    TimelineEvent:
+      type: object
+      additionalProperties: false
+      required: [type, at, by]
+      properties:
+        type: { $ref: '#/components/schemas/TimelineType' }
+        at: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        by:
+          type: string
+          enum: [CUSTOMER, BANK]
+          description: Agent identities are never exposed.
+        detail:
+          type: object
+          description: 'EDITED → {fields}; EVIDENCE_* → {fileName, reason?}; RESOLVED_* / WITHDRAWN → {note?}'
+          properties:
+            fields: { type: array, items: { type: string, enum: [description, reasonCode] } }
+            fileName: { type: string }
+            reason: { type: string }
+            note: { type: string }

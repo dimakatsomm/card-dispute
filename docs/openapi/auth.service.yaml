@@ -1,0 +1,93 @@
+openapi: 3.1.0
+info:
+  title: Auth service — service port (8081)
+  version: 0.1.0
+  description: |
+    Validates Cognito access tokens for other services. Reachable only on port 8081 via ECS Service Connect.
+    Auth registers no business routes on its public port.
+servers:
+  - url: http://auth.cd.internal:8081
+    description: Service Connect (poc)
+security:
+  - serviceToken: [auth/validate]
+paths:
+  /validate:
+    post:
+      operationId: validateToken
+      summary: Validate a user or service access token
+      description: |
+        The **caller** authenticates with its own service token (scope `auth/validate`), verified locally by auth.
+        The token to validate is in the body. Only Cognito **access** tokens are accepted; `client_id` must be in
+        the allow-list. `auth_identity.status` is the single access switch for users.
+        Callers cache a valid result until `min(exp, now + 60 s)` and never cache invalid results.
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: { type: string, minLength: 20, maxLength: 8192 }
+      responses:
+        '200':
+          description: Validation result. An invalid token is still 200 with `valid:false`.
+          headers:
+            x-correlation-id: { $ref: './common.yaml#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidUser'
+                  - $ref: '#/components/schemas/ValidService'
+                  - $ref: '#/components/schemas/Invalid'
+                discriminator:
+                  propertyName: principalType
+              examples:
+                user:
+                  value: { valid: true, principalType: user, authId: 0192f0c1-0000-7000-8000-000000000001, userId: 0192f0c1-0000-7000-8000-000000000002, scopes: [], exp: 1760000000 }
+                service:
+                  value: { valid: true, principalType: service, clientId: svc-disputes, scopes: [users/cards.read, transactions/read], exp: 1760000000 }
+                invalid:
+                  value: { valid: false, principalType: none, reason: expired }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    serviceToken: { $ref: './common.yaml#/components/securitySchemes/serviceToken' }
+  schemas:
+    ValidUser:
+      type: object
+      additionalProperties: false
+      required: [valid, principalType, authId, userId, scopes, exp]
+      properties:
+        valid: { const: true }
+        principalType: { const: user }
+        authId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        userId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        scopes: { type: array, items: { type: string } }
+        exp: { type: integer, description: 'Token expiry, epoch seconds' }
+    ValidService:
+      type: object
+      additionalProperties: false
+      required: [valid, principalType, clientId, scopes, exp]
+      properties:
+        valid: { const: true }
+        principalType: { const: service }
+        clientId: { type: string }
+        scopes: { type: array, items: { type: string } }
+        exp: { type: integer }
+    Invalid:
+      type: object
+      additionalProperties: false
+      required: [valid, principalType, reason]
+      properties:
+        valid: { const: false }
+        principalType: { const: none }
+        reason:
+          type: string
+          enum: [expired, bad_signature, wrong_issuer, wrong_client, wrong_token_use, unknown_subject, disabled]

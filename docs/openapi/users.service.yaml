@@ -1,0 +1,73 @@
+openapi: 3.1.0
+info:
+  title: Users service — service port (8081)
+  version: 0.1.0
+  description: Service-to-service users API. Every operation requires a **service** token with the listed scope; user tokens → 403.
+servers:
+  - url: http://users.cd.internal:8081
+    description: Service Connect / internal ALB (poc)
+paths:
+  /cards:
+    get:
+      operationId: listCardsForUser
+      summary: Cards for a user (expiry lookup)
+      description: Callers — transactions (disputable flag, cached 60 s per user) and disputes (create validation).
+      security:
+        - serviceToken: [users/cards.read]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - $ref: './common.yaml#/components/parameters/UserIdQueryRequired'
+        - { name: accountId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - { name: cardId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+      responses:
+        '200':
+          description: Cards (empty if none match)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [cards]
+                properties:
+                  cards:
+                    type: array
+                    items:
+                      unevaluatedProperties: false
+                      allOf:
+                        - $ref: './common.yaml#/components/schemas/Card'
+                        - type: object
+                          required: [userId]
+                          properties:
+                            userId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+  /users/{userId}/contact:
+    get:
+      operationId: getUserContact
+      summary: Contact details for notifications
+      description: Caller — dispute-notifier Lambda (via internal ALB). Email never travels in event payloads.
+      security:
+        - serviceToken: [users/contact.read]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - { name: userId, in: path, required: true, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+      responses:
+        '200':
+          description: Contact
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [userId, email, name]
+                properties:
+                  userId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                  email: { type: string, format: email }
+                  name: { type: string }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    serviceToken: { $ref: './common.yaml#/components/securitySchemes/serviceToken' }

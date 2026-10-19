@@ -1,0 +1,75 @@
+openapi: 3.1.0
+info:
+  title: Users service — public port (8080)
+  version: 0.1.0
+  description: Customer-facing users API. Every operation requires a **user** token; service tokens → 403.
+servers:
+  - url: https://<app-domain>/api
+    description: poc — CloudFront strips /api before the ALB (ADR-037)
+security:
+  - userToken: []
+paths:
+  /me:
+    get:
+      operationId: getMe
+      summary: Caller's profile, accounts and masked cards
+      description: |
+        Home screen data (UI step 2–3). Cards are grouped by account; selecting an account in the UI needs no extra call.
+        Never returns the card token, PAN or CVV. Email/phone are returned unmasked to their owner (redacted in logs).
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+      responses:
+        '200':
+          description: Profile
+          headers:
+            x-correlation-id: { $ref: './common.yaml#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+              example:
+                userId: 0192f0c1-0000-7000-8000-000000000002
+                name: Thandi
+                surname: Nkosi
+                email: thandi@example.com
+                cellphoneNumber: '+27821234521'
+                accounts:
+                  - accountId: 0192f0c1-0000-7000-8000-0000000000a1
+                    accountType: CHEQUE
+                    accountNumberMasked: '****4821'
+                    currency: ZAR
+                    status: ACTIVE
+                    cards:
+                      - { cardId: 0192f0c1-0000-7000-8000-0000000000c1, accountId: 0192f0c1-0000-7000-8000-0000000000a1, brand: VISA, cardType: DEBIT, last4: '4821', expiryMonth: 9, expiryYear: 2028, expired: false, status: ACTIVE }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+components:
+  securitySchemes:
+    userToken: { $ref: './common.yaml#/components/securitySchemes/userToken' }
+  schemas:
+    Me:
+      type: object
+      additionalProperties: false
+      required: [userId, name, surname, email, accounts]
+      properties:
+        userId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        name: { type: string }
+        surname: { type: string }
+        email: { type: string, format: email }
+        cellphoneNumber: { type: [string, 'null'], pattern: '^\+[1-9][0-9]{7,14}$' }
+        accounts:
+          type: array
+          items: { $ref: '#/components/schemas/Account' }
+    Account:
+      type: object
+      additionalProperties: false
+      required: [accountId, accountType, accountNumberMasked, currency, status, cards]
+      properties:
+        accountId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        accountType: { type: string, enum: [CHEQUE, SAVINGS, CREDIT] }
+        accountNumberMasked: { type: string, pattern: '^\*{4}[0-9]{4}$' }
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+        status: { type: string, enum: [ACTIVE, FROZEN, CLOSED] }
+        cards:
+          type: array
+          items: { $ref: './common.yaml#/components/schemas/Card' }

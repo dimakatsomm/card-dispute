@@ -1,0 +1,241 @@
+openapi: 3.1.0
+info:
+  title: Disputes service — service port (8081)
+  version: 0.1.0
+  description: |
+    Service-to-service disputes API. Every operation requires a **service** token with the listed scope; user tokens → 403.
+    All writes are idempotent: re-applying an already-applied change returns 200 with the current state.
+    `expectedVersion` mismatch → 412. Callers reach this port via Service Connect (tasks) or the internal ALB (Lambdas).
+servers:
+  - url: http://disputes.cd.internal:8081
+    description: Service Connect / internal ALB (poc)
+paths:
+  /disputes:
+    get:
+      operationId: lookupDisputes
+      summary: Dispute state for a user's transactions (batch)
+      description: Caller — transactions, once per page, for the `dispute`/`disputable` fields. Makes no outbound calls.
+      security:
+        - serviceToken: [disputes/read]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - $ref: './common.yaml#/components/parameters/UserIdQueryRequired'
+        - $ref: './common.yaml#/components/parameters/TransactionIdsQuery'
+      responses:
+        '200':
+          description: Disputes that exist for those transactions (absent = never disputed)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [transactionId, disputeId, status]
+                      properties:
+                        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+
+  /review-queue:
+    get:
+      operationId: listReviewQueue
+      summary: Back-office queue — disputes awaiting or under review, oldest first
+      security:
+        - serviceToken: [disputes/review]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - name: status
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema: { type: array, items: { type: string, enum: [SUBMITTED, UNDER_REVIEW] }, default: [SUBMITTED] }
+        - $ref: './common.yaml#/components/parameters/Limit'
+        - $ref: './common.yaml#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page, ordered createdAt asc
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [disputeId, transactionId, userId, status, reasonCode, version, createdAt]
+                      properties:
+                        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                        userId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+                        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+                        version: { type: integer }
+                        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+                  nextCursor: { type: [string, 'null'] }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+
+  /dispute/{transactionId}/review:
+    put:
+      operationId: reviewDispute
+      summary: SUBMITTED → UNDER_REVIEW
+      description: Caller — back-office on behalf of a human agent (AGENT only; no automation changes dispute status).
+      security:
+        - serviceToken: [disputes/review]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [actor, expectedVersion]
+              properties:
+                actor:
+                  allOf:
+                    - $ref: '#/components/schemas/Actor'
+                    - properties:
+                        type: { const: AGENT }
+                expectedVersion: { type: integer, minimum: 1 }
+                note: { type: string, maxLength: 500 }
+      responses:
+        '200': { $ref: '#/components/responses/DisputeState' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '412': { $ref: '#/components/responses/StaleVersion' }
+
+  /dispute/{transactionId}/resolution:
+    put:
+      operationId: resolveDispute
+      summary: Resolve (AGENT only) — SUBMITTED/UNDER_REVIEW → RESOLVED_ACCEPTED | RESOLVED_REJECTED
+      security:
+        - serviceToken: [disputes/resolve]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [outcome, note, actor, expectedVersion]
+              properties:
+                outcome: { type: string, enum: [ACCEPTED, REJECTED] }
+                note: { type: string, minLength: 1, maxLength: 2000, description: Shown to the customer on the timeline. }
+                actor:
+                  allOf:
+                    - $ref: '#/components/schemas/Actor'
+                    - properties:
+                        type: { const: AGENT }
+                expectedVersion: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/DisputeState' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '412': { $ref: '#/components/responses/StaleVersion' }
+
+  /dispute/{transactionId}/evidence/{evidenceId}:
+    put:
+      operationId: recordEvidenceResult
+      summary: Record scan/validation result for an uploaded file
+      description: |
+        Caller — evidence-intake Lambda after malware scan + magic-byte/size/checksum checks.
+        STORED → timeline EVIDENCE_ADDED; REJECTED → EVIDENCE_REJECTED. Same result again → 200 no-op.
+        Result for an EXPIRED/ERASED item → 409.
+      security:
+        - serviceToken: [disputes/evidence.write]
+      parameters:
+        - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+        - { name: evidenceId, in: path, required: true, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [result, sha256, sizeBytes, contentType]
+              properties:
+                result: { type: string, enum: [STORED, REJECTED] }
+                reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE], description: Required when REJECTED. }
+                sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+                sizeBytes: { type: integer, minimum: 1 }
+                contentType: { type: string, description: Detected from magic bytes. }
+      responses:
+        '200':
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [evidenceId, status]
+                properties:
+                  evidenceId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                  status: { type: string, enum: [STORED, REJECTED] }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+components:
+  securitySchemes:
+    serviceToken: { $ref: './common.yaml#/components/securitySchemes/serviceToken' }
+  schemas:
+    Actor:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type: { type: string, enum: [SYSTEM_RULE, AGENT] }
+        id: { type: string, minLength: 1, maxLength: 128, description: Rule name or agent's Cognito sub. Never shown to customers. }
+  responses:
+    DisputeState:
+      description: Current state after the (possibly no-op) change
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [disputeId, transactionId, status, version]
+            properties:
+              disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+              transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+              status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+              version: { type: integer }
+    InvalidTransition:
+      description: '`INVALID_TRANSITION` — not allowed from the current status (e.g. terminal).'
+      content:
+        application/problem+json:
+          schema: { $ref: './common.yaml#/components/schemas/Problem' }
+    StaleVersion:
+      description: '`expectedVersion` does not match.'
+      content:
+        application/problem+json:
+          schema: { $ref: './common.yaml#/components/schemas/Problem' }
