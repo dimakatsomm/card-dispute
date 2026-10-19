@@ -218,6 +218,7 @@ agent: service-api
 owns: [backend/auth/src/**, backend/auth/test/**, backend/auth/package.json, backend/auth/tsconfig.json, backend/auth/Dockerfile]
 depends_on: [S-01, D-01, L-01, C-04]
 acceptance:
+  - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
   - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - verifies JWT via JWKS (aws-jwt-verify or equivalent per verify-claims), with configurable issuer + client_id allow-list
   - caller must present its own service token with scope auth/validate (verified locally); missing → 401, user token as caller or wrong scope → 403 [PR-01 F4]
@@ -235,6 +236,7 @@ agent: service-api
 owns: [backend/users/src/**, backend/users/test/**, backend/users/package.json, backend/users/tsconfig.json, backend/users/Dockerfile]
 depends_on: [S-02, S-04, D-02, C-04]
 acceptance:
+  - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
   - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - GET /me returns profile + accounts + cards for the caller; every card has `expired` computed by isCardExpired from @cd/dispute-domain (no local date logic — grep test); never includes card token (test asserts key absent)
   - GET /cards: user token → 403; service token without users/cards.read → 403; with scope → 200 filtered by userId/accountId/cardId, includes `expired`; missing userId → 400
@@ -247,6 +249,7 @@ agent: service-api
 owns: [backend/transactions/src/**, backend/transactions/test/**, backend/transactions/package.json, backend/transactions/tsconfig.json, backend/transactions/Dockerfile]
 depends_on: [S-02, S-04, D-03, C-04]
 acceptance:
+  - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
   - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint for the migration task; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - every query includes user_id = principal.userId (test: user B with A's cardId/transactionId → empty items)
   - all filters from docs/02 work; no filter = all accounts; from>to, min>max, bad uuid, limit>100 → 400
@@ -266,6 +269,7 @@ agent: service-api
 owns: [backend/disputes/src/app.ts, backend/disputes/src/server.ts, backend/disputes/src/config.ts, backend/disputes/src/clients/**, backend/disputes/src/repo/**, backend/disputes/src/routes/create.ts, backend/disputes/src/routes/index.ts, backend/disputes/test/create.test.ts, backend/disputes/test/helpers/**, backend/disputes/package.json, backend/disputes/tsconfig.json, backend/disputes/Dockerfile]
 depends_on: [S-02, S-04, D-04, C-04]
 acceptance:
+  - servers built with `createGuardedServers` from @cd/auth-client (registration backstop: an unguarded route fails at startup); routes registered only via registerPublicRoutes/registerServiceRoutes [S-04]
   - Dockerfile: multi-stage, ARM64, non-root, pruned prod deps (`pnpm deploy`), exposes 8080 + 8081, HEALTHCHECK on /health; `migrate` entrypoint; Trivy scan has no fixable HIGH/CRITICAL [ADR-030]
   - POST fetches txn via transactions GET :8081/transactions?userId=<principal>&transactionIds=<id> (service token) and card via users GET /cards (service token); not found/not owned → 404 [ADR-020: card expiry blocks]
   - eligibility decided only by evaluateTransactionEligibility + validateDisputeInput from @cd/dispute-domain with now = DB now() from the same transaction (no rule literals in service code — grep test for "120")

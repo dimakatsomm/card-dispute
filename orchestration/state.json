@@ -53,10 +53,10 @@
       "notes": "gate CHANGES REQUIRED → fixed (PEM, hooks off, 18 tests, pinned images); orchestrator re-ran tests/lint/compose config (2026-10-19)"
     },
     "S-04": {
-      "status": "in_review",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "implemented (36 tests), uncommitted; security review was stopped — re-run gate"
+      "notes": "security gate CHANGES REQUIRED → fixed (token cap, RFC6749 Basic, onRoute backstop + createGuardedServers, HEAD/404 tests, single-flight validate); 49 tests; orchestrator re-ran (2026-10-19)"
     },
     "D-01": {
       "status": "in_review",
@@ -77,10 +77,10 @@
       "notes": "implemented + tests; standards review pending"
     },
     "D-04": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "STOPPED at usage limit — partial, uncommitted in backend/disputes/migrations; redispatch"
+      "notes": "44 tests; security review pending"
     },
     "D-05": {
       "status": "todo",

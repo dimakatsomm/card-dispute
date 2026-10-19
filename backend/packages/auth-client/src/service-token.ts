@@ -1,0 +1,68 @@
+import { err, ok, type Result } from '@cd/shared/fp';
+import { z } from 'zod';
+import { createHttpClient, type Fetch } from './http-client.ts';
+
+export type TokenError = { readonly kind: 'token_unavailable'; readonly detail: string };
+
+export type ServiceTokenProviderDeps = {
+  readonly tokenUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+  readonly scopes: readonly string[];
+  readonly fetch: Fetch;
+  readonly now: () => number;
+};
+
+export type ServiceTokenProvider = {
+  readonly getToken: () => Promise<Result<string, TokenError>>;
+};
+
+const MAX_REFRESH_MARGIN_MS = 60_000;
+
+const formEncode = (value: string): string => new URLSearchParams({ v: value }).toString().slice(2);
+
+const tokenResponseSchema = z.object({ access_token: z.string().min(1), expires_in: z.number().positive() });
+
+type Cached = { readonly token: string; readonly refreshAt: number };
+
+export const createServiceTokenProvider = (deps: ServiceTokenProviderDeps): ServiceTokenProvider => {
+  const http = createHttpClient({ fetch: deps.fetch });
+  // RFC 6749 s2.3.1: id and secret are form-urlencoded (space as +) before Basic encoding.
+  const basic = Buffer.from(`${formEncode(deps.clientId)}:${formEncode(deps.clientSecret)}`).toString('base64');
+  let cached: Cached | undefined;
+  let inflight: Promise<Result<string, TokenError>> | undefined;
+
+  const unavailable = (detail: string) => err<TokenError>({ kind: 'token_unavailable', detail });
+
+  const fetchToken = async (): Promise<Result<string, TokenError>> => {
+    const res = await http.request({
+      url: deps.tokenUrl,
+      method: 'POST',
+      headers: { authorization: `Basic ${basic}`, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'client_credentials', scope: deps.scopes.join(' ') }).toString(),
+    });
+    if (!res.ok) return unavailable(res.error.detail);
+    if (res.value.status !== 200) return unavailable(`token endpoint responded ${res.value.status}`);
+    const parsed = tokenResponseSchema.safeParse(res.value.body);
+    if (!parsed.success) return unavailable('unparseable token response');
+    cached = {
+      token: parsed.data.access_token,
+      refreshAt:
+        deps.now() +
+        parsed.data.expires_in * 1000 -
+        Math.min(MAX_REFRESH_MARGIN_MS, parsed.data.expires_in * 500),
+    };
+    return ok(cached.token);
+  };
+
+  return {
+    getToken: async () => {
+      if (cached && deps.now() < cached.refreshAt) return ok(cached.token);
+      // Single-flight: Cognito bills per token request.
+      inflight ??= fetchToken().finally(() => {
+        inflight = undefined;
+      });
+      return inflight;
+    },
+  };
+};
