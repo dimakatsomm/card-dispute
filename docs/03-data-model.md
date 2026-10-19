@@ -182,8 +182,18 @@ schemas, so there is no insert-order deadlock. A single **provisioning job** (`l
 
 Steps 3–4 retry until both rows exist. Offboarding sets `auth_identity.status = DISABLED`, disables the Cognito user, and sets `app_user.status = CLOSED`.
 
+D-04 rulings (orchestrator, 2026-10-19):
+- `description` CHECK is `char_length` 10–2000 **or** the tombstone `'[erased]'`, so the retention sweeper can erase it.
+- Evidence: `(status = 'STORED') = (s3_key IS NOT NULL)` and `(status = 'REJECTED') = (rejection_reason IS NOT NULL)`. A `security invoker` BEFORE UPDATE OF status trigger nulls both when status becomes `ERASED`.
+- `dispute_status_history` has an insert-only guard trigger: UPDATE/DELETE/TRUNCATE raise 42501 for everyone except an UPDATE by `disputes_retention` (even the owner can't rewrite history).
+- Residual risk (accepted): the schema owner (`disputes_migrator`) can `ALTER TABLE … DISABLE TRIGGER` on history; mitigated because migrator credentials are used only by the approval-gated migration task, never at runtime, and a test asserts the guard trigger is enabled.
+- Only `disputes_retention` may set evidence to `ERASED`; nobody may move a row out of `ERASED` (trigger-enforced).
+- `updated_at` is never in an UPDATE column grant: `set_updated_at()` maintains it.
+- `disputes_retention` has no search_path: the retention sweeper (L-05) uses `disputes.`-qualified names.
+- `declared_sha256` is lowercase hex; the upload signer converts it to base64 for `x-amz-checksum-sha256`.
+
 ## Retention (POPIA — interim policy, owner decision 2026-10-09, ADR-017)
 1 year after a dispute reaches a terminal state:
 - `dispute.description`, `resolution_note` and history `note`/`before`/`after` → replaced with `'[erased]'` / `null` (the row stays — financial record).
 - `dispute_evidence` S3 objects deleted (S3 lifecycle 365 days on `evidence/`), rows marked `ERASED`.
-Run by a scheduled `retention-sweeper` job (M2), connecting as `disputes_retention` (column-scoped UPDATE on dispute text fields, history `note/before/after`, evidence `status`). This is an interim policy; revisit with compliance before production.
+Run by a scheduled `retention-sweeper` job (M2; note: its UPDATE bumps `dispute.updated_at` via the trigger, which reorders the customer list — L-05 decides whether that is acceptable), connecting as `disputes_retention` (column-scoped UPDATE on dispute text fields, history `note/before/after`, evidence `status`). This is an interim policy; revisit with compliance before production.

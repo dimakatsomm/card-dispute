@@ -63,7 +63,7 @@ Rulings (orchestrator, 2026-10-19, from S-02):
 - The wrong actor for an action → `INVALID_TRANSITION` (no separate code). Ownership is not checked here; repositories scope by owner (404).
 - An EDIT that changes no field → `NO_OP`: no version bump, no history row.
 - The window counts **UTC calendar days** between `postedAt` and `now`: day 120 is eligible, day 121 is not.
-- Description length counts code points (matches the DB `length()`); no trimming.
+- Description length counts code points (matches the DB `char_length()`); no trimming.
 
 Terminal: `RESOLVED_ACCEPTED`, `RESOLVED_REJECTED`, `WITHDRAWN`.
 Applying the same transition already applied (e.g. REVIEW on UNDER_REVIEW by the same event) is a
