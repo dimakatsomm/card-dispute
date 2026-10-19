@@ -10,7 +10,8 @@ Every value below is exported config from that package; nothing else hard-codes 
 Two pure functions in `@cd/dispute-domain`. Both services use them, so the UI button and the
 backend cannot disagree.
 
-### `evaluateTransactionEligibility(txn, card, existingDispute, now)` → `{ allowed, reason? }`
+### `evaluateTransactionEligibility(txn, card, existingDispute, now)` → `Result<true, EligibilityReason>`
+The transactions shell maps it to the API shape `disputable: { allowed, reason? }`.
 Needs no user input. Used by **transactions** (the `disputable` flag on every row) and by **disputes** on create.
 Evaluated in this order; the first failure is returned:
 | # | Rule | Reason code |
@@ -54,7 +55,15 @@ SUBMITTED ──review──► UNDER_REVIEW ──resolve(ACCEPTED)──► RE
 | SUBMITTED, UNDER_REVIEW | WITHDRAW | USER (owner) | WITHDRAWN |
 | SUBMITTED | REVIEW | AGENT only | UNDER_REVIEW |
 | SUBMITTED, UNDER_REVIEW | RESOLVE | AGENT only | RESOLVED_ACCEPTED / RESOLVED_REJECTED |
-| any terminal | any | any | rejected `INVALID_TRANSITION` |
+| any terminal | any (except a replay below) | any | rejected `INVALID_TRANSITION` |
+
+Rulings (orchestrator, 2026-10-19, from S-02):
+- **Replay:** an AGENT repeating REVIEW on UNDER_REVIEW, or RESOLVE with the **same** outcome on that RESOLVED_* state → `NO_OP` success. A different outcome or any other action on a terminal state → `INVALID_TRANSITION`. Which repeat is the same event is the service's job (`expectedVersion`).
+- WITHDRAW on WITHDRAWN → `INVALID_TRANSITION` (a stale customer retry already gets 412 from `If-Match`).
+- The wrong actor for an action → `INVALID_TRANSITION` (no separate code). Ownership is not checked here; repositories scope by owner (404).
+- An EDIT that changes no field → `NO_OP`: no version bump, no history row.
+- The window counts **UTC calendar days** between `postedAt` and `now`: day 120 is eligible, day 121 is not.
+- Description length counts code points (matches the DB `length()`); no trimming.
 
 Terminal: `RESOLVED_ACCEPTED`, `RESOLVED_REJECTED`, `WITHDRAWN`.
 Applying the same transition already applied (e.g. REVIEW on UNDER_REVIEW by the same event) is a

@@ -14,11 +14,13 @@ packages:
   - local/*
 
 allowBuilds:
+  core-js: false
   cpu-features: false
   protobufjs: false
   ssh2: false
 
 catalog:
+  '@redocly/cli': 1.34.21
   fastify: 5.12.7
   zod: 4.6.7
   pino: 10.4.0

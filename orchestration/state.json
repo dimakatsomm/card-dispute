@@ -17,30 +17,28 @@
       "notes": "2026-10-19: lint 0, typecheck 0, lint-rule tests 11/11 on Node 26.3.1 (orchestrator re-ran). Vitest 5.0.5 fails to start on local Node 24.4.1 (#module-evaluator) — R-9."
     },
     "S-01": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "gate: standards review CHANGES REQUIRED → S1–S5 + trims fixed; orchestrator re-ran typecheck 0, 41 tests pass, lint 0 (2026-10-19)"
     },
     "S-02": {
       "status": "in_progress",
       "agent": "dispute-domain",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "gate PASS + should-fix: fail-closed guards, frozen tables"
     },
     "S-03": {
       "status": "in_progress",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19 (Docker up)"
+      "notes": "gate CHANGES REQUIRED: fs errors as Result, pool destroy on failed rollback, concurrency test, style"
     },
     "D-00": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "data-schema",
-      "blockedBy": [
-        "S-03"
-      ],
-      "notes": "needs S-03 test helpers"
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19"
     },
     "C-04": {
       "status": "done",
@@ -241,10 +239,10 @@
       "notes": ""
     },
     "CI-01": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "security PASS; should-fix: CODEOWNERS + trusted gitleaks config (needs owner GitHub handle), pinned redocly via pnpm"
     }
   },
   "decisions": [
@@ -476,6 +474,11 @@
     {
       "id": "ADR-046",
       "text": "No custom domain (owner 2026-10-19: forget <owner domain>, removed from docs). CloudFront default *.cloudfront.net with same-origin /api; ALB via CloudFront VPC origin (fallback CloudFront-only HTTP origin, mock data only); Cognito prefix domain; SES email identity dimakatsomm@icloud.com (sandbox).",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-047",
+      "text": "Migrations use a minimal custom SQL runner in @cd/db (NNN_name.sql, per-schema schema_migrations, one transaction + pg_advisory_xact_lock per file, set local search_path) instead of node-pg-migrate, which is built around JS migrations and its own tracking table (S-03).",
       "date": "2026-10-19"
     }
   ],

@@ -49,6 +49,8 @@ Owner decisions 2026-10-11:
 ├── orchestration/  .claude/  CLAUDE.md
 ```
 
+Package names: services `@cd/auth`, `@cd/users`, `@cd/transactions`, `@cd/disputes`; Lambdas `@cd/evidence-intake`, `@cd/dispute-notifier`, `@cd/retention-sweeper`; libs `@cd/shared`, `@cd/auth-client`, `@cd/dispute-domain`, `@cd/db`; web `@cd/web`; local tools `@cd/mock-issuer`, `@cd/seed`.
+
 Rules:
 - A service imports only `backend/packages/*`, never another service's folder. Cross-service access goes over HTTP only.
 - `frontend/` imports nothing from `backend/`. Its API types are **generated from `docs/openapi`**, so the contract is the only coupling.

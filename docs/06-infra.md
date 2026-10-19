@@ -64,7 +64,7 @@ Checked against primary sources on 2026-10-09. Sources are in `orchestration/ver
 | GuardDuty Malware Protection for S3 | available in af-south-1 | $0.099/GB + $0.000237/object after the free tier; 100 GB max object size |
 | fastify / zod / vitest | 5.12.5 / 4.6.5 / 5.0.3 | zod **4** API |
 | @testcontainers/postgresql | 12.2.0 | |
-| node-pg-migrate / pino / aws-jwt-verify | 9.0.0 / 10.4.0 / 5.2.1 | |
+| pino / aws-jwt-verify | 10.4.0 / 5.2.1 | migrations use a custom SQL runner in @cd/db (ADR-047) |
 | pnpm | 12.10.1 | |
 | @aws-sdk/client-s3, @aws-sdk/s3-request-presigner | ⚠ UNVERIFIED — add to next /verify-claims | presigned PUT with signed `x-amz-checksum-sha256` (ADR-028) — confirm checksum headers can be signed into a presigned PUT |
 | GuardDuty Malware Protection for S3 | ⚠ UNVERIFIED in af-south-1 + pricing | if unavailable: evidence-intake does magic-byte + checksum checks only and flags "not scanned"; owner decides |

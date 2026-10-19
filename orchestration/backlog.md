@@ -60,7 +60,7 @@ owns: [backend/packages/dispute-domain/**]
 depends_on: [F-01]
 acceptance:
   - exports REASON_CODES, DISPUTE_WINDOW_DAYS=120, transition table per docs/04
-  - evaluateTransactionEligibility(txn, card, existingDispute, now) returns {allowed, reason?} with the first failing code in docs/04 order: ALREADY_DISPUTED (any status incl. WITHDRAWN), CARD_EXPIRED, TXN_NOT_POSTED, TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW [ADR-020/021]
+  - evaluateTransactionEligibility(txn, card, existingDispute, now) returns Result<true, EligibilityReason> with the first failing code in docs/04 order: ALREADY_DISPUTED (any status incl. WITHDRAWN), CARD_EXPIRED, TXN_NOT_POSTED, TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW [ADR-020/021]
   - validateDisputeInput(input) returns ok | INVALID_REASON | INVALID_DESCRIPTION; there is no amount input (no partial disputes, ADR-024)
   - isCardExpired(card, now): expiry 09/2028 → valid at 2028-09-30T23:59:59.999Z, expired at 2028-10-01T00:00:00Z; BLOCKED/CANCELLED status alone never makes eligibility fail
   - window boundary tests: posted 120 days ago → ok; 121 days → OUTSIDE_WINDOW (UTC whole days)

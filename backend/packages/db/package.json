@@ -3,13 +3,17 @@
   "private": true,
   "type": "module",
   "name": "@cd/db",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts"
   },
   "dependencies": {
     "pg": "catalog:",
-    "node-pg-migrate": "catalog:"
+    "@cd/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
