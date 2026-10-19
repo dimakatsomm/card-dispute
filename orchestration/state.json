@@ -23,10 +23,10 @@
       "notes": "gate: standards review CHANGES REQUIRED → S1–S5 + trims fixed; orchestrator re-ran typecheck 0, 41 tests pass, lint 0 (2026-10-19)"
     },
     "S-02": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "dispute-domain",
       "blockedBy": [],
-      "notes": "gate PASS + should-fix: fail-closed guards, frozen tables"
+      "notes": "gate: security PASS + should-fix (fail-closed guards, frozen rule data) done; 136 tests; orchestrator re-ran typecheck/test/lint (2026-10-19)"
     },
     "S-03": {
       "status": "in_progress",

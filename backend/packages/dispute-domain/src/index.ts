@@ -1,0 +1,46 @@
+// Pure dispute rules from docs/04: reason codes, eligibility, input validation and the state machine.
+export { REASON_CODES, isReasonCode, type ReasonCode } from './reason-codes.ts';
+export {
+  DESCRIPTION_MAX_CHARS,
+  DESCRIPTION_MIN_CHARS,
+  validateDisputeInput,
+  type DisputeInput,
+  type InputError,
+  type ValidDisputeInput,
+} from './dispute-input.ts';
+export {
+  CARD_STATUSES,
+  DISPUTABLE_TRANSACTION_TYPES,
+  DISPUTE_WINDOW_DAYS,
+  TRANSACTION_STATUSES,
+  TRANSACTION_TYPES,
+  evaluateTransactionEligibility,
+  isCardExpired,
+  type CardStatus,
+  type EligibilityCard,
+  type EligibilityReason,
+  type EligibilityTransaction,
+  type ExistingDispute,
+  type ExpiringCard,
+  type TransactionStatus,
+  type TransactionType,
+} from './eligibility.ts';
+export {
+  ACTION_TYPES,
+  ACTOR_TYPES,
+  DISPUTE_STATUSES,
+  TERMINAL_STATUSES,
+  TRANSITION_TABLE,
+  applyAction,
+  isTerminal,
+  type ActionType,
+  type Actor,
+  type ActorType,
+  type Dispute,
+  type DisputeAction,
+  type DisputeStatus,
+  type ResolutionOutcome,
+  type Transition,
+  type TransitionRow,
+  type TransitionError,
+} from './state-machine.ts';
