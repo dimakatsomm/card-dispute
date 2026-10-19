@@ -325,8 +325,8 @@ owns: [frontend/package.json, frontend/tsconfig.json, frontend/vite.config.ts, f
 depends_on: [F-01, C-04]
 acceptance:
   - API types generated from docs/openapi/*.public.yaml by a script (`pnpm --filter @cd/web gen:api`); CI fails if the generated output is stale
-  - OIDC authorization code + PKCE login against a configurable issuer (mock-issuer locally, Cognito in poc); tokens kept in memory only (test asserts nothing in localStorage)
-  - runtime config from /config.js written by the container entrypoint from env vars (one image for all envs); API base path `/api` (vite dev proxy strips it locally, CloudFront in poc)
+  - OIDC authorization code + PKCE login against a configurable issuer (mock-issuer locally, Cognito in dev); tokens kept in memory only (test asserts nothing in localStorage)
+  - runtime config from /config.js written by the container entrypoint from env vars (one image for all envs); API base path `/api` (vite dev proxy strips it locally, CloudFront in dev)
   - nginx: SPA fallback, strict CSP (connect-src 'self' + S3 quarantine origin; API is same-origin under /api — ADR-036/037), no server tokens; image runs as non-root; Trivy clean
   - app shell with routes for Home, Account, Card, Dispute form, Disputes list, Dispute detail (placeholders)
 ```
@@ -421,7 +421,7 @@ acceptance:
 | PR-01-rl | per-user rate limits on dispute create / evidence | M4 |
 | PR-01-lag | EventPublishFailed alarm, Lambda reserved concurrency | M2/M4 |
 | PR-01-rls | Postgres RLS second wall | M4 (deferred, see response-01) |
-| PR-01-J | moto fidelity unverified for bucket-policy denies (SSE-KMS required) → test evidence upload against real S3 in poc | M3 |
+| PR-01-J | moto fidelity unverified for bucket-policy denies (SSE-KMS required) → test evidence upload against real S3 in dev | M3 |
 | ADR-028 | POST /dispute/{id}/evidence (declare more files later) | M2 |
 | ADR-028 | evidence-intake Lambda (scan verdict, magic bytes, checksum, promote/delete) + service-port evidence result endpoint + EXPIRED sweep | M2 |
 | ADR-028 | Verify: presigned PUT can sign x-amz-checksum-sha256; GuardDuty Malware Protection for S3 in af-south-1 + price; s3-request-presigner version | M0 follow-up (before P-01) |

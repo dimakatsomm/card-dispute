@@ -1,6 +1,6 @@
 # 06 — Infrastructure
 
-Terraform, region **af-south-1** (opt-in region — must be enabled on the account first), one env `poc`.
+Terraform, region **af-south-1** (opt-in region — must be enabled on the account first), one env `dev`.
 Versions: see the verified table below (filled by verify-claims).
 
 ## Layout
@@ -8,7 +8,7 @@ Versions: see the verified table below (filled by verify-claims).
 infra/terraform/
   bootstrap/           state bucket (S3, versioned, KMS) + lock; GitHub OIDC role — applied once, manually
   modules/
-    network/           VPC, 2 AZs, public + private subnets, 1 NAT (POC), VPC endpoints (S3 gateway)
+    network/           VPC, 2 AZs, public + private subnets, 1 NAT (dev), VPC endpoints (S3 gateway)
     security/          KMS keys, SGs
     cognito/           user pool, resource server, scopes, app clients → secrets
     aurora/            Serverless v2 cluster, parameter group (force_ssl), master secret
@@ -22,14 +22,14 @@ infra/terraform/
     edge/              CloudFront (+ /api strip function), WAF (us-east-1), origin secret header
     ses/               domain identity <app-domain>, Easy DKIM, MAIL FROM, DMARC; sender noreply@<app-domain> (ADR-037)
     observability/     log groups (7-day retention), alarms (5xx, p95 latency, DLQ depth > 0), dashboard
-  envs/poc/            main.tf wiring modules, poc.tfvars (no secrets)
+  envs/dev/            main.tf wiring modules, dev.tfvars (no secrets)
 ```
 
-## POC sizing (decided, ADR-005)
+## Dev sizing (decided, ADR-005)
 | Resource | Setting |
 |---|---|
 | AZs | 2 |
-| NAT | 1 gateway — **single-AZ egress**: an AZ outage cuts Cognito token/JWKS calls for the whole POC (accepted POC risk) |
+| NAT | 1 gateway — **single-AZ egress**: an AZ outage cuts Cognito token/JWKS calls for the whole dev environment (accepted risk) |
 | ECS tasks | 1 per service, autoscale to 2 on CPU > 60%; ARM64 if cheaper (verify) |
 | Task size | 0.25 vCPU / 0.5 GB |
 | Aurora | Serverless v2, min ACU = lowest supported (verify), max 2; 1 writer, no reader |
@@ -39,7 +39,7 @@ infra/terraform/
 ## Delivery
 Superseded in detail by **docs/09-repo-and-delivery.md §4** (per-deployable pipelines, manual approval on every deploy, container Lambdas). Summary below kept for context.
 - GitHub Actions: on PR → lint, typecheck, unit + integration tests, `terraform fmt -check`, `validate`, `plan`, tfsec/checkov, image build + scan.
-- On main → build + push images to ECR (tag = git sha), run DB migrations as a one-off ECS task per service, `terraform apply` (poc), ECS rolling deploy, e2e smoke.
+- On main → build + push images to ECR (tag = git sha), run DB migrations as a one-off ECS task per service, `terraform apply` (dev), ECS rolling deploy, e2e smoke.
 - Auth to AWS via GitHub OIDC; no long-lived keys.
 
 ## Migrations
@@ -52,7 +52,7 @@ Checked against primary sources on 2026-10-09. Sources are in `orchestration/ver
 
 | Item | Value | Note |
 |---|---|---|
-| Node.js | **24** (Active LTS) | Node 26 becomes LTS on 2026-10-28; stay on 24 for the POC |
+| Node.js | **24** (Active LTS) | Node 26 becomes LTS on 2026-10-28; stay on 24 for dev |
 | Lambda runtime | **container image on `public.ecr.aws/lambda/nodejs:24`** (ADR-030; managed `nodejs24.x` no longer used) | `nodejs26.x` is preview only. ⚠ af-south-1 availability is UNVERIFIED: first M3 task creates a test function there |
 | Aurora PostgreSQL | **18.x** Serverless v2 | Native `uuidv7()` exists in PG 18, so we use it (no app-side UUIDs) |
 | Aurora min ACU | 0 + auto-pause supported; budgeted at **0.5** | 24x7 task connections stop it from pausing |
@@ -91,5 +91,5 @@ Cognito token and JWKS endpoints are public, so tasks and Lambdas need NAT egres
 | **Total (lower bound)** | | **≈ $225** |
 
 Treat this as a **lower bound**. The reviewer estimates $225–235 once the excluded lines are added. The total falls by about $58 if Aurora really pauses. Not included: data transfer out, ECR storage, custom metrics and free-tier offsets.
-**VPC endpoints vs NAT:** about 9 interface endpoints × 2 AZs × $9.56 ≈ $172, against one NAT at about $46. NAT plus the free S3 gateway endpoint wins for the POC.
+**VPC endpoints vs NAT:** about 9 interface endpoints × 2 AZs × $9.56 ≈ $172, against one NAT at about $46. NAT plus the free S3 gateway endpoint wins for dev.
 **Cognito cost trap:** an auth-client that skipped caching would request a token per call. At 1M calls that is $2,250. Token caching is an acceptance criterion in S-04.

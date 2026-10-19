@@ -1,0 +1,17 @@
+{
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "name": "@cd/dispute-domain",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:",
+    "@cd/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -5,7 +5,7 @@ info:
   description: Customer-facing transaction list. Requires a **user** token; service tokens → 403.
 servers:
   - url: https://<app-domain>/api
-    description: poc — CloudFront strips /api before the ALB (ADR-037)
+    description: dev — CloudFront strips /api before the ALB (ADR-037)
 security:
   - userToken: []
 paths:

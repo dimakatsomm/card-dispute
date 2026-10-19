@@ -40,7 +40,7 @@ Owner decisions 2026-10-11:
 │   ├── nginx.conf
 │   └── Dockerfile                   build → nginx-unprivileged
 ├── infra/
-│   └── terraform/                   bootstrap/, modules/*, envs/poc
+│   └── terraform/                   bootstrap/, modules/*, envs/dev
 ├── docs/                            specs; docs/openapi/*.yaml is the API contract
 ├── local/                           mock-issuer/, seed/, moto init
 ├── docker-compose.yml               whole stack locally
@@ -106,7 +106,7 @@ Certificates (ACM, DNS-validated in the sub-zone, auto-renewing):
 - **Cognito:** custom domain `<cognito-domain>` gives a branded login (needs the us-east-1 cert + an A alias record). The
   free prefix domain remains the fallback if setup is fiddly. Callback/logout URL: `https://<app-domain>/`.
 - **Email:** SES domain identity `<app-domain>` with Easy DKIM, custom MAIL FROM `<mail-from>`, DMARC `p=quarantine`.
-  Sender `noreply@<app-domain>`; replies go to `dimakatsomm@icloud.com` (Reply-To). SES stays in **sandbox** for the POC:
+  Sender `noreply@<app-domain>`; replies go to `dimakatsomm@icloud.com` (Reply-To). SES stays in **sandbox** for dev:
   delivery only to verified recipients (verify `dimakatsomm@icloud.com` and any test inbox).
 
 ## 4. Pipelines (GitHub Actions, OIDC to AWS — no stored keys)
@@ -120,7 +120,7 @@ Certificates (ACM, DNS-validated in the sub-zone, auto-renewing):
 | `svc-disputes.yml` | same pattern | ECS `disputes` |
 | `lambda-<name>.yml` ×3 | `backend/lambdas/<name>/**`, `backend/packages/**`, `pnpm-lock.yaml` | Lambda `<name>` (image) |
 | `web.yml` | `frontend/**`, `docs/openapi/**`, `pnpm-lock.yaml` | ECS `web` |
-| `infra.yml` | `infra/**` | Terraform `poc` |
+| `infra.yml` | `infra/**` | Terraform `dev` |
 | `contract.yml` | `docs/openapi/**` | — (OpenAPI lint + breaking-change diff vs `main`) |
 | `e2e.yml` | nightly + manual | — (full compose stack, API e2e + Playwright UI) |
 
@@ -133,7 +133,7 @@ PR ──► verify ────────────────────
         lint · typecheck · unit · integration (testcontainers)
         contract tests (responses validated against docs/openapi)
         docker build · Trivy scan · SBOM
-main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Environment "poc") ─► deploy ─► smoke ─► done
+main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Environment "dev") ─► deploy ─► smoke ─► done
                                                                                     │
                                     services: run migration task → register task-def revision →
                                               ECS update-service → wait stable (deployment
@@ -141,7 +141,7 @@ main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Enviro
                                     lambdas:  update-function-code → publish version → move alias "live"
                                     web:      same as services (no migrations)
 ```
-- **Manual approval on every deploy** (owner): GitHub Environment `poc` with required reviewers. The deploy job
+- **Manual approval on every deploy** (owner): GitHub Environment `dev` with required reviewers. The deploy job
   pauses until a reviewer approves. ⚠ Verify: required reviewers on **private** repos may need a paid GitHub plan.
 - `infra.yml`: on PR → `fmt -check`, `validate`, `tflint`, `checkov`, `plan` posted as a PR comment.
   On main → `plan -out` → ⏸ approval → `apply` of that saved plan.
@@ -161,7 +161,7 @@ main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Enviro
 
 ---
 
-## 5. Cost delta (POC)
+## 5. Cost delta (dev)
 - Frontend task (0.25 vCPU / 0.5 GB ARM): ≈ $9.7/month (same unit cost as the services).
 - ECR storage for ~9 repos with lifecycle "keep last 10": ~$1–2/month.
 - GitHub Actions minutes: depends on the plan. ⚠ To verify.
@@ -172,18 +172,18 @@ main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Enviro
 
 GitHub plan: **Free**. Environment *required reviewers* exist on private repos only with Enterprise Cloud
 (verified, orchestration/verify-claims-02.md #4), so the repository is **public**. That keeps the
-"⏸ manual approval on every deploy" gate (§4.2) through the GitHub Environment `poc` with required reviewers.
+"⏸ manual approval on every deploy" gate (§4.2) through the GitHub Environment `dev` with required reviewers.
 
 Public-repo hardening (all mandatory, CI-01/CI-02 acceptance):
 - **No secrets in git, ever**: GitHub secret scanning + **push protection** on; a pre-commit/CI secret scan (e.g. gitleaks — version to verify) runs on every PR.
 - **Fork PRs**: workflows use `pull_request` (never `pull_request_target` with a checkout of PR code). Fork runs get no secrets and no OIDC.
   "Require approval for all outside collaborators" is set for Actions.
 - **OIDC trust**: every AWS deploy role's trust policy pins `token.actions.githubusercontent.com:sub` to
-  `repo:<owner>/<repo>:environment:poc` (deploy) or `repo:<owner>/<repo>:ref:refs/heads/main` (build/push). Never `repo:<owner>/<repo>:*`.
+  `repo:<owner>/<repo>:environment:dev` (deploy) or `repo:<owner>/<repo>:ref:refs/heads/main` (build/push). Never `repo:<owner>/<repo>:*`.
 - **Workflow permissions**: default `contents: read`; `id-token: write` only on jobs that assume AWS roles; all third-party actions pinned to a full commit SHA.
 - **Branch protection on `main`** (free on public repos): PR required, status checks required, no force-push.
-- **Environment `poc`**: required reviewers = owner; deployment branches = `main` only.
-- **Data**: seed data is fake (`example.com`, synthetic names). The owner email and the poc domain appear in the docs by owner choice.
+- **Environment `dev`**: required reviewers = owner; deployment branches = `main` only.
+- **Data**: seed data is fake (`example.com`, synthetic names). The owner email and the project domain appear in the docs by owner choice.
 
 ## 7. Build notes from verification (verify-claims-02)
 - Lambda images: `FROM public.ecr.aws/lambda/nodejs:24` (AL2023, arm64 published). Build with `docker buildx build --platform linux/arm64 --provenance=false` (AWS requirement for Lambda images).

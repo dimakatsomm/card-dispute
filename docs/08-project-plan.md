@@ -1,7 +1,7 @@
-# 08 — Project Plan: Card Dispute Platform (POC)
+# 08 — Project Plan: Card Dispute Platform
 
 **Status:** 2026-10-11. Planning (M0) is complete, including a lint-clean OpenAPI contract. No application code yet.
-**Owner:** dimakatsomm@icloud.com · **Region:** AWS af-south-1 · **Environment:** single `poc`.
+**Owner:** dimakatsomm@icloud.com · **Region:** AWS af-south-1 · **Environment:** single `dev`.
 This document is the complete plan. The detailed contracts it summarises live in docs 00–07 and 09,
 `docs/openapi/` and `orchestration/backlog.md`. If this summary and a detailed contract disagree, the detailed contract wins.
 
@@ -20,7 +20,7 @@ Back-office agents work the disputes to a decision (**deferred** — owner 2026-
 - A customer can only ever see or dispute their own data.
 - Every dispute change is valid, versioned and auditable.
 
-Delivered as a **POC built to production patterns**:
+Built to **production patterns**:
 - microservices on ECS
 - everything containerised
 - per-service pipelines with approval
@@ -44,14 +44,14 @@ Delivered as a **POC built to production patterns**:
 - Everything in §4.
 - Mock customers, accounts, cards and transactions (ZAR).
 - Local stack in containers.
-- Terraform-built poc in af-south-1.
+- Terraform-built dev in af-south-1.
 - Per-deployable CI/CD.
 
 **Out (deferred, with reason)**
 - **Back-office (review queue, review, resolution, agent access) — deferred** (owner 2026-10-19: client-facing first). The contract stays in `docs/openapi`; nothing is built in M1–M4.
-- Real card-processor/scheme chargebacks: the POC uses mock data.
+- Real card-processor/scheme chargebacks: mock data is used.
 - Customer self-sign-up: customers are provisioned.
-- Multiple environments, DR, production-scale load testing: it's a POC.
+- Multiple environments, DR, production-scale load testing: out of scope for the first release.
 - Partial disputes: the owner ruled them out.
 
 ---
@@ -125,7 +125,7 @@ Delivered as a **POC built to production patterns**:
 | F-NTF-1 | Every status change (created, under review, resolved, withdrawn) emails the customer via SES. |
 | F-NTF-2 | Disputes publishes events **after commit, best-effort** to SQS. The DB/timeline is the source of truth. A publish failure → `EventPublishFailed` alarm. |
 | F-NTF-3 | The notifier fetches the email by `userId` from users (events carry no PII). A rare duplicate email is accepted; each email states its status and date. |
-| F-NTF-4 | Sender `noreply@<app-domain>` (SES domain identity with DKIM, SPF, DMARC); Reply-To `dimakatsomm@icloud.com`. SES sandbox for the POC → verified recipients only. |
+| F-NTF-4 | Sender `noreply@<app-domain>` (SES domain identity with DKIM, SPF, DMARC); Reply-To `dimakatsomm@icloud.com`. SES sandbox for dev → verified recipients only. |
 
 ### 4.8 Data retention (F-RET)
 | # | Requirement |
@@ -150,8 +150,8 @@ Delivered as a **POC built to production patterns**:
 |---|---|
 | Security | OWASP ASVS L2 intent; threat model in docs/05; security review on every 🔒 task |
 | Privacy | No PAN/CVV; PII redacted in logs; events id-only; POPIA retention (F-RET) |
-| Latency (POC) | p95 < 500 ms for list endpoints at POC load; 2 s timeout on every service call |
-| Availability (POC) | Single NAT/AZ egress accepted; ECS circuit-breaker rollback on deploy |
+| Latency (dev) | p95 < 500 ms for list endpoints at dev load; 2 s timeout on every service call |
+| Availability (dev) | Single NAT/AZ egress accepted; ECS circuit-breaker rollback on deploy |
 | Auditability | Insert-only status history; actor recorded for every change |
 | Observability | JSON logs with correlation id across HTTP and SQS; X-Ray traces; alarms (§7.5) |
 | Accessibility | WCAG 2.1 AA for the web app |
@@ -275,7 +275,7 @@ backend/{auth,users,transactions,disputes}/   src · migrations · test · Docke
 backend/lambdas/{evidence-intake,dispute-notifier,retention-sweeper}/   container-image Lambdas
 backend/packages/{shared,auth-client,dispute-domain,db}/
 frontend/        React + Vite + TS → nginx-unprivileged image
-infra/terraform/ bootstrap · modules · envs/poc
+infra/terraform/ bootstrap · modules · envs/dev
 local/ · docker-compose.yml · .github/workflows/ · docs/ · orchestration/
 ```
 Image rules:
@@ -293,7 +293,7 @@ Image rules:
   - `EventPublishFailed`
   - evidence REJECTED spike
   - Aurora ACU at max
-- CloudWatch dashboard per service. 7-day log retention (POC).
+- CloudWatch dashboard per service. 7-day log retention (dev).
 
 ### 7.6 CI/CD (docs/09 §4)
 | Pipeline | Trigger paths | PR stage | Main stage |
@@ -308,7 +308,7 @@ Image rules:
 How the pipelines run:
 - GitHub OIDC with one role per pipeline.
 - Reusable `_build.yml` / `_deploy.yml` workflows.
-- Approval through GitHub Environment `poc` (required reviewers; plan check V-04).
+- Approval through GitHub Environment `dev` (required reviewers; plan check V-04).
 - Terraform ignores image versions, so pipelines own releases.
 
 ---
@@ -361,7 +361,7 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 
 ### M3 — Infrastructure & delivery (af-south-1)
 **Outcome:**
-- Everything in M1 + M2 passes against the deployed `poc` environment, with a real Cognito user, a real SES email and real S3/GuardDuty.
+- Everything in M1 + M2 passes against the deployed `dev` environment, with a real Cognito user, a real SES email and real S3/GuardDuty.
 - Every deployable ships through its own pipeline with manual approval.
 
 | Task | Agent |
@@ -376,16 +376,16 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | I-11 container-image Lambdas ×3 + schedules · I-12 SES domain identity <app-domain> (DKIM, MAIL FROM, DMARC) · I-13 observability (dashboards, alarms) | infra-terraform |
 | CI-02 deploy stages: approvals, migrations task, rollout/rollback, Lambda alias, infra apply | implementer |
 | X-01 customer provisioning tool (Cognito user + app_user + auth_identity) for seed customers | implementer |
-| E-03 e2e + Playwright against poc; evidence controls on real S3; first: confirm the Lambda Node 24 image in af-south-1 | test-engineer |
+| E-03 e2e + Playwright against dev; evidence controls on real S3; first: confirm the Lambda Node 24 image in af-south-1 | test-engineer |
 
-### M4 — POC hardening
+### M4 — Hardening
 | Task |
 |---|
 | H-01 WAF tuning + per-user rate limits (dispute create, evidence, review queue) |
 | H-02 Alarms → notification channel, runbooks per alarm |
 | H-03 Full security review + threat-model refresh + dependency audit |
 | H-04 Accessibility pass (WCAG 2.1 AA) on the web app |
-| Deferred beyond POC: row-level security, load testing, multi-env, DR, back-office UI |
+| Deferred beyond the first release: row-level security, load testing, multi-env, DR, back-office UI |
 
 
 ### ⏸ Deferred — Back-office (owner schedules later)
@@ -398,14 +398,14 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 
 ---
 
-## 9. Cost (POC, af-south-1, monthly, lower bound)
+## 9. Cost (dev, af-south-1, monthly, lower bound)
 | Item | $ |
 |---|---|
 | Aurora Serverless v2 @ 0.5 ACU + storage | 64 |
 | NAT gateway + IP + 10 GB | 46 |
 | Fargate ARM: 4 services + web (5 × 0.25 vCPU / 0.5 GB) | 49 |
 | ALB (CloudFront origin + 8081 listener for Lambdas) | ~36 |
-| CloudFront (low POC traffic; price V-06) | ~1–5 |
+| CloudFront (low dev traffic; price V-06) | ~1–5 |
 | Route 53 hosted zone (sub-zone) | ~0.5–1 |
 | WAF | 7 |
 | Cognito M2M tokens | 6 |
@@ -423,9 +423,9 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | R-3 | Best-effort events lose an email | Timeline is the truth; `EventPublishFailed` alarm; reinstate the outbox if emails become legal notices |
 | R-4 | GitHub required reviewers need a paid plan on private repos | V-04. Fallback: a public repo, or an approval job gated on a protected-branch PR |
 | R-5 | moto fidelity for S3 policies | Evidence controls re-tested on real S3 (E-03) |
-| R-6 | SES sandbox limits delivery to verified recipients | Accepted for POC; request production access only if real customers are added |
+| R-6 | SES sandbox limits delivery to verified recipients | Accepted for dev; request production access only if real customers are added |
 | R-9 | Changing DNS for the existing site by mistake | Delegated sub-zone; Terraform's DNS permissions limited to the sub-zone + one parent NS record |
-| R-7 | Single NAT = single-AZ egress | Accepted for POC |
+| R-7 | Single NAT = single-AZ egress | Accepted for dev |
 | R-8 | transactions ↔ disputes runtime coupling | Service-port lookups make no calls; graceful degradation |
 
 ---
@@ -453,6 +453,6 @@ All ADRs, with superseded ones marked, are in `orchestration/state.json`. The on
 | V-03 | Presigned PUT can sign `x-amz-checksum-sha256`; GuardDuty S3 in af-south-1 + price; presigner version | verification | before P-01 |
 | V-04 | GitHub required reviewers on a private repo (plan?); Actions minutes; Lambda Node 24 base image; frontend library versions | verification | before CI-01 / W-01 |
 | V-06 | CloudFront VPC origins in af-south-1 (optional: would make the ALB internal) + CloudFront/WAF/Route 53 pricing | verification | M3 |
-| Q-18 | Is the `<owner-domain>` hosted zone in the same AWS account as the poc? (if not: 4 NS records added by hand once) | owner | deferred — domain work not a priority now (owner 2026-10-19); design ADR-037 kept for M3 |
+| Q-18 | Is the `<owner-domain>` hosted zone in the same AWS account as the dev environment? (if not: 4 NS records added by hand once) | owner | deferred — domain work not a priority now (owner 2026-10-19); design ADR-037 kept for M3 |
 
 The project folder is not yet a git repository. On "go M1": `git init` → initial commit → V-03/V-04/V-05 → wave 0.

@@ -39,7 +39,7 @@ Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (o
   - a missing email → the customer still sees the change in the app timeline;
   - a missing `DisputeCreated` → the dispute stays SUBMITTED, and the back-office queue query lists
     SUBMITTED disputes anyway (agents can pick it up directly).
-  This trade was made deliberately for POC simplicity (owner, 2026-10-10). Reinstate an outbox if emails
+  This trade was made deliberately for simplicity (owner, 2026-10-10). Reinstate an outbox if emails
   become legally required notices.
 - **Consumers tolerate duplicates and reordering** instead of tracking them. SQS is at-least-once,
   so a duplicate email is possible and accepted. Each email states the status at the time and the
@@ -105,7 +105,7 @@ Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (o
 | Choice | Reason | Alternative rejected |
 |---|---|---|
 | Auth as validation service (not just JWKS per service) | Owner asked for `POST /validate`; centralises issuer/client allow-list, sub→user mapping and the disable switch | Each service verifies JWKS locally — faster, but duplicates mapping logic. auth-client caches to keep latency low. |
-| One Aurora cluster, schema per service | POC cost; isolation enforced by DB roles | Cluster per service — 4x cost, no POC benefit |
+| One Aurora cluster, schema per service | Cost at dev scale; isolation enforced by DB roles | Cluster per service — 4x cost, no benefit at dev scale |
 | Publish after commit, no outbox | Owner: outbox/dedupe tables are overkill. DB is the truth; events only drive emails/queueing | Transactional outbox + relay — guaranteed delivery, 2 extra tables + a Lambda |
 | `unique (transaction_id)` as idempotency | One dispute per txn already; a retry is just a duplicate | Idempotency-key table — extra table for a guarantee the constraint already gives |
 | Transaction data read live from transactions | No copied data to drift; disputes stores only what it owns | Snapshot columns on dispute |
@@ -126,4 +126,4 @@ Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (o
 - **Ordering:** no consumer relies on queue order. Emails state their
   own status and date, so a late email is self-explanatory (no cursor table, ADR-023).
 - **Single-AZ honesty:** one NAT in one AZ means an AZ outage cuts egress (Cognito token/JWKS) for
-  the whole POC. Accepted for POC.
+  the whole dev environment. Accepted for dev.

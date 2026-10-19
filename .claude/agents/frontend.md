@@ -9,6 +9,7 @@ Contract: read `CLAUDE.md`, `docs/02-api.md` (client flow table), `docs/openapi/
 If the contract cannot support a screen, stop and report — do not invent an endpoint or a field.
 
 ## What you never do
+- Never write verbose or redundant comments: comment only a non-obvious *why*, in one line (ADR-045).
 - Never write a `class`, mutate an argument, or throw for an expected business outcome. Follow docs/10: core / use-cases `(deps) => (input) => Result` / factory adapters / thin shell. Inject deps (incl. clock); no module-level singletons.
 - Never import from `backend/`. API types come only from code generated from `docs/openapi/*.public.yaml`.
 - Never re-implement dispute rules or card-expiry maths. The dispute button shows if and only if `disputable.allowed` is true, and the reason text maps from `disputable.reason`.

@@ -8,7 +8,7 @@ info:
     A dispute always covers the full transaction amount — there is no amount field.
 servers:
   - url: https://<app-domain>/api
-    description: poc — CloudFront strips /api before the ALB (ADR-037)
+    description: dev — CloudFront strips /api before the ALB (ADR-037)
 security:
   - userToken: []
 paths:

@@ -432,7 +432,7 @@
     },
     {
       "id": "ADR-035",
-      "text": "SUPERSEDED by ADR-037 (domain sender). SES sender for poc = dimakatsomm@icloud.com (owner, Q-10); move to noreply@<owner domain> with DKIM before real users (DMARC alignment risk).",
+      "text": "SUPERSEDED by ADR-037 (domain sender). SES sender for dev = dimakatsomm@icloud.com (owner, Q-10); move to noreply@<owner domain> with DKIM before real users (DMARC alignment risk).",
       "date": "2026-10-11"
     },
     {
@@ -462,19 +462,34 @@
     },
     {
       "id": "ADR-041",
-      "text": "Repository is PUBLIC on GitHub Free (owner) so environment required reviewers keep manual approval on every deploy. Hardening: secret scanning + push protection, no pull_request_target with PR checkout, fork PRs get no secrets, OIDC roles pinned to main/environment poc, SHA-pinned actions, branch protection on main.",
+      "text": "Repository is PUBLIC on GitHub Free (owner) so environment required reviewers keep manual approval on every deploy. Hardening: secret scanning + push protection, no pull_request_target with PR checkout, fork PRs get no secrets, OIDC roles pinned to main/environment dev, SHA-pinned actions, branch protection on main.",
       "date": "2026-10-19"
     },
     {
       "id": "ADR-042",
       "text": "verify-claims-02 applied: presigned PUT signs checksum via unhoistableHeaders + Content-Type/Length via signableHeaders; GuardDuty S3 malware scanning available in af-south-1 (EventBridge result, promote only on NO_THREATS_FOUND, tag-based deny-read); Lambda images on public.ecr.aws/lambda/nodejs:24 built with --provenance=false; TypeScript pinned 6.0.x.",
       "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-043",
+      "text": "Environment name is `dev` (not poc) — Terraform envs/dev, GitHub Environment `dev`, OIDC sub environment:dev (owner).",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-044",
+      "text": "Drop the POC label from project descriptions (owner); justifications reworded to dev environment / first release.",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-045",
+      "text": "Minimal comments in code (owner): only a one-line non-obvious why; no restating, banners, commented-out code or internal JSDoc. Reviewer finding if violated.",
+      "date": "2026-10-19"
     }
   ],
   "openQuestions": [
     "V-06: Verify CloudFront VPC origins in af-south-1 (optional — would make the ALB internal) and CloudFront/WAF/Route 53 pricing.",
-    "Q-18: Is the <owner-domain> Route 53 hosted zone in the same AWS account as the poc? If not, the 4 NS records for <app-domain> are added manually once. — DEFERRED (owner 2026-10-19: domain not a priority now; design kept for M3).",
-    "V-08: Confirm against real S3 in poc that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",
+    "Q-18: Is the <owner-domain> Route 53 hosted zone in the same AWS account as the dev environment? If not, the 4 NS records for <app-domain> are added manually once. — DEFERRED (owner 2026-10-19: domain not a priority now; design kept for M3).",
+    "V-08: Confirm against real S3 in dev that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",
     "O-01: Repo is public — owner email dimakatsomm@icloud.com and domain <owner-domain> appear in docs. Keep, or redact before first push?",
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower."
   ],

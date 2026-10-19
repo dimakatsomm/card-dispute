@@ -1,6 +1,4 @@
-// Flat config. Enforces docs/10-functional-architecture.md §6 and the import boundaries (ADR-029, ADR-038).
-// no-restricted-syntax / no-restricted-imports replace (not merge) when several blocks match one file, so
-// every combination is assembled explicitly below.
+// Restricted-syntax/import rules replace rather than merge across matching blocks, so each block lists its full set.
 import { builtinModules } from 'node:module';
 import eslint from '@eslint/js';
 import { defineConfig } from 'eslint/config';
@@ -81,7 +79,6 @@ const ADAPTERS_ONLY_IN_MAIN = group(
   'Only main.ts imports adapters: everything else receives them as deps (ADR-038).',
 );
 
-// core/ and dispute-domain are pure: only relative core files, @cd/dispute-domain, @cd/shared/fp and zod.
 const PURE_MESSAGE = 'core/ is pure: no I/O or framework modules; time and ids are injected (ADR-038).';
 const PURE_PATHS = [
   ...builtinModules,
@@ -100,7 +97,6 @@ const PURE_PATTERNS = [
 ];
 const pureImportRule = (patterns) => importRule([...patterns, ...PURE_PATTERNS], PURE_PATHS);
 
-// Later blocks replace earlier ones for the same rule, so each layer block restates the full pattern set.
 const deployableBlocks = deployables.flatMap(({ name, dir }) => [
   { files: [`${dir}/**/*.ts`], rules: importRule(otherDeployables(name)) },
   {

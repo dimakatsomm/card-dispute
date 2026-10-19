@@ -8,6 +8,7 @@ model: opus
 Contract: `docs/03-data-model.md` (authoritative), `docs/05-security.md` (Data, EoP rows).
 
 ## What you never do
+- Never write verbose or redundant comments: comment only a non-obvious *why*, in one line (ADR-045).
 - Never create a column for full PAN, CVV, password or full account number.
 - Never grant a service role access to another service's schema.
 - Never grant UPDATE/DELETE on `dispute_status_history`, or DELETE on transaction/dispute tables, to runtime roles.

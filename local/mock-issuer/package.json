@@ -1,0 +1,14 @@
+{
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "name": "@cd/mock-issuer",
+  "dependencies": {
+    "fastify": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

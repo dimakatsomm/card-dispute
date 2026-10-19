@@ -7,7 +7,7 @@ The contract every contributor and agent works under. Read before touching code.
 A card dispute platform. Authenticated customers see their accounts and masked cards, query their
 card transactions, and raise, update or view a dispute against a transaction. Disputes wait in a
 review queue and are reviewed and resolved only by a human back-office agent (no automation changes
-status), and the customer is emailed on every status change. Delivered as a **POC in AWS af-south-1**, built to
+status), and the customer is emailed on every status change. Delivered to AWS af-south-1 (environment `dev`), built to
 production patterns.
 
 The one thing it must get right: **a customer can only ever see or dispute their own data**, and
@@ -32,7 +32,7 @@ every dispute state change is valid, auditable and never lost.
 | Containers | Everything is a container: services, frontend, migrations, **Lambdas (container images)**; ARM64; tag = git SHA |
 | CI/CD | GitHub Actions, one pipeline per deployable, OIDC to AWS, **manual approval on every deploy** |
 | Tests | vitest, testcontainers (Postgres 18), moto server for SQS/S3 locally (LocalStack needs a licence — Q-11); SES mocked at SDK boundary |
-| Region | af-south-1, single `poc` environment |
+| Region | af-south-1, single `dev` environment |
 
 Hard rules the stack implies:
 - No secret, credential or DB password in code, tfvars, images or logs. Secrets Manager only.
@@ -48,7 +48,7 @@ backend/                      Node 24 — one folder per deployable
   lambdas/{evidence-intake,dispute-notifier,retention-sweeper}/   container-image Lambdas
   packages/{shared,auth-client,dispute-domain,db}/                                     shared libs, not deployable
 frontend/                     React + Vite + TS SPA (nginx container); API types generated from docs/openapi
-infra/terraform/              bootstrap/, modules/*, envs/poc
+infra/terraform/              bootstrap/, modules/*, envs/dev
 docs/                         specs; docs/openapi/*.yaml = API contract (lint-clean)
 local/                        mock-issuer, seed, moto init
 docker-compose.yml            whole stack locally
@@ -77,6 +77,9 @@ orchestration/  .claude/
    gets an executing test; nothing else. No coverage-% targets, no tests of framework/library behaviour, no
    per-endpoint repetition of auth cases already proven centrally.
 9. **Feature-flag anything half-built.**
+11. **Comments are rare and short** (ADR-045). Names and types explain *what*; a comment only explains a non-obvious
+    *why* (a constraint, a workaround, a security reason), in one line. No restating code, no banner/section
+    comments, no commented-out code, no JSDoc on internal functions.
 10. **Functional architecture, no classes** (ADR-038, docs/10).
     - Functional core / imperative shell: pure core, `(deps) => (input) => Result` use-cases, factory-function
       adapters, thin routes/handlers, one composition root (`main.ts`).
@@ -93,7 +96,7 @@ pnpm -r test           # unit + integration (testcontainers)
 pnpm -r typecheck
 pnpm -r lint
 pnpm test:e2e          # end-to-end against local stack
-terraform -chdir=infra/terraform/envs/poc validate
+terraform -chdir=infra/terraform/envs/dev validate
 ```
 
 ## 6. Orchestrator protocol
@@ -120,7 +123,7 @@ Full process in `docs/07-agentic-workflow.md`. Short version:
 | Financial rows never hard-deleted | No DELETE grant on transaction/dispute tables for service roles |
 | One dispute per transaction, ever (incl. withdrawn) | `unique (transaction_id)` + `evaluateTransactionEligibility` (ADR-020) |
 | UI dispute button and backend agree | transactions computes `disputable` with `evaluateTransactionEligibility` (same function `POST /dispute` uses); the UI only renders the flag and never imports backend code (ADR-021) |
-| Public repository (ADR-041) | No secrets, real PII or internal hostnames beyond the documented poc domain in git; secret scanning + push protection on; fork PRs get no secrets; deploy roles trust only `main` + environment `poc` |
+| Public repository (ADR-041) | No secrets, real PII or internal hostnames beyond the documented project domain in git; secret scanning + push protection on; fork PRs get no secrets; deploy roles trust only `main` + environment `dev` |
 | Dispute window and eligibility | `dispute-domain` rules, injected clock, table-driven tests |
 | Evidence uploads are bounded and untrusted | Presigned URL signs type, length and sha256; quarantine bucket + malware scan + magic-byte check before promotion; ≤ 5 per dispute (ADR-028) |
 | Services never handle evidence bytes | Disputes only signs URLs; only evidence-intake reads quarantine (IAM) |

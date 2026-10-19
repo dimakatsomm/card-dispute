@@ -16,13 +16,13 @@
 | Cardholder data in evidence (PCI) | Receipt photo shows a full PAN | Bytes never transit the disputes service or the ALB; buckets SSE-KMS, private, access only by evidence-intake (quarantine) and back-office read role (evidence) | IAM policy review; S3 access logs |
 
 ## Identity
-- Cognito user pool: users authenticate via hosted UI / SRP (client concern). Access tokens 15 min, refresh 1 day (POC).
+- Cognito user pool: users authenticate via hosted UI / SRP (client concern). Access tokens 15 min, refresh 1 day (dev).
 - Resource server scopes: `auth/validate`, `users/cards.read`, `users/contact.read`, `transactions/read`, `disputes/read`, `disputes/review`, `disputes/resolve`, `disputes/evidence.write`.
   (Exact scope string format `<resource-server-id>/<scope>` — verify against Cognito docs.)
 - One confidential app client per caller: `svc-transactions`, `svc-disputes`, `svc-backoffice`, `svc-notifier`, `svc-evidence-intake`, `svc-backoffice`. Client secrets in Secrets Manager.
 - Scope grants (least privilege, revised PR-01 F4): every ECS service that runs auth-client → `auth/validate`; evidence-intake → `disputes/evidence.write`; transactions → `users/cards.read`, `disputes/read`; disputes → `users/cards.read`, `transactions/read`; notifier → `users/contact.read`; backoffice → `disputes/review`, `disputes/resolve`, `users/cards.read`. (Transactions regained `users/cards.read` for the `disputable` flag — ADR-021.)
 - Back-office human identity (PR-01 missing): in M2 the back-office resolves via a Cognito **user** in group `agents` exchanged for the service call, so `actor_id` = the agent's sub, not a shared client. Until then no dispute can be resolved (auto-review only queues).
-- Token revocation: access token ≤ 15 min + auth-client cache ≤ 60 s. Disabling `auth_identity.status` takes effect within 60 s. Accepted POC window.
+- Token revocation: access token ≤ 15 min + auth-client cache ≤ 60 s. Disabling `auth_identity.status` takes effect within 60 s. Accepted window.
 
 ## Network
 - VPC with public subnets (ALB, NAT) and private subnets (ECS, Aurora, Lambdas).
@@ -38,7 +38,7 @@
 - KMS CMKs: `cd-data` (Aurora, Secrets, SQS, logs) and `cd-evidence` (S3).
 - Malware scanning (verified available in af-south-1): GuardDuty Malware Protection for S3 on the quarantine bucket, with object tagging enabled **before** first upload. evidence-intake is triggered by the EventBridge event `GuardDuty Malware Protection Object Scan Result` (delivered at least once, so it must be idempotent) and promotes **only** on `NO_THREATS_FOUND`. `THREATS_FOUND`, `UNSUPPORTED`, `ACCESS_DENIED` and `FAILED` → REJECTED. A bucket policy denies `s3:GetObject` on objects without `GuardDutyMalwareScanStatus=NO_THREATS_FOUND`, except for the GuardDuty role. Price: $0.099/GB + $0.000237/object after the free 1 GB / 1,000 objects a month.
 - S3 quarantine bucket: Block Public Access, CORS allows `PUT` from the web origin only, lifecycle deletes objects after 1 day, no read access except evidence-intake.
-- S3 evidence: Block Public Access, bucket policy denies non-TLS and non-KMS puts, versioning, lifecycle: delete after 365 days (POC retention, ADR-017).
+- S3 evidence: Block Public Access, bucket policy denies non-TLS and non-KMS puts, versioning, lifecycle: delete after 365 days (interim retention, ADR-017).
 - Secrets Manager: per-service DB credentials + Cognito client secrets. Rotation enabled for DB creds.
 
 ## IAM (least privilege, no `*` resources)

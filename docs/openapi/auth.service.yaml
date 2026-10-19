@@ -7,7 +7,7 @@ info:
     Auth registers no business routes on its public port.
 servers:
   - url: http://auth.cd.internal:8081
-    description: Service Connect (poc)
+    description: Service Connect (dev)
 security:
   - serviceToken: [auth/validate]
 paths:

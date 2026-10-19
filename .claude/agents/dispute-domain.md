@@ -8,6 +8,7 @@ model: opus
 Contract: `docs/04-dispute-rules.md` (authoritative) and `CLAUDE.md` rules 1–2. If the doc is ambiguous or contradicts itself, stop and report.
 
 ## What you never do
+- Never write verbose or redundant comments: comment only a non-obvious *why*, in one line (ADR-045).
 - Never write a `class`, mutate an argument, or throw for an expected business outcome. Follow docs/10: core / use-cases `(deps) => (input) => Result` / factory adapters / thin shell. Inject deps (incl. clock); no module-level singletons.
 - Never perform I/O (no fetch, fs, DB, SQS, env reads) and never call `Date.now()`/`new Date()` without an argument — time is a parameter.
 - Never import Fastify, pg, AWS SDK or any service package.

@@ -8,7 +8,7 @@ info:
     `expectedVersion` mismatch → 412. Callers reach this port via Service Connect (tasks) or the internal ALB (Lambdas).
 servers:
   - url: http://disputes.cd.internal:8081
-    description: Service Connect / internal ALB (poc)
+    description: Service Connect / internal ALB (dev)
 paths:
   /disputes:
     get:

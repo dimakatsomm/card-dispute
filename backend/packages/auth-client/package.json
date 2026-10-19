@@ -1,0 +1,19 @@
+{
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "name": "@cd/auth-client",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "fastify": "catalog:",
+    "zod": "catalog:",
+    "@cd/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

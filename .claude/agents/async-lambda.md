@@ -8,6 +8,7 @@ model: opus
 Contract: `docs/01-architecture.md` (flows, failure handling), `docs/03-data-model.md` (event payloads), `docs/05-security.md` (IAM), `docs/04-dispute-rules.md` (Auto-review section).
 
 ## What you never do
+- Never write verbose or redundant comments: comment only a non-obvious *why*, in one line (ADR-045).
 - Never write a `class`, mutate an argument, or throw for an expected business outcome. Follow docs/10: core / use-cases `(deps) => (input) => Result` / factory adapters / thin shell. Inject deps (incl. clock); no module-level singletons.
 - Never write a handler that breaks on a duplicate or out-of-order message. Make the effect idempotent (internal endpoints with expectedVersion) — do not add dedupe tables.
 - Never swallow an error to "succeed" — failed records are returned via `batchItemFailures` so they reach the DLQ.

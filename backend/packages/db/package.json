@@ -1,0 +1,22 @@
+{
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "name": "@cd/db",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "dependencies": {
+    "pg": "catalog:",
+    "node-pg-migrate": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@testcontainers/postgresql": "catalog:",
+    "testcontainers": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

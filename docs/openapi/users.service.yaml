@@ -5,7 +5,7 @@ info:
   description: Service-to-service users API. Every operation requires a **service** token with the listed scope; user tokens → 403.
 servers:
   - url: http://users.cd.internal:8081
-    description: Service Connect / internal ALB (poc)
+    description: Service Connect / internal ALB (dev)
 paths:
   /cards:
     get:

@@ -4,22 +4,22 @@
 Cardholders need a self-service way to dispute a card transaction they don't recognise or
 disagree with, see where the dispute stands, and be told when it changes.
 
-## Scope (POC)
+## Scope
 In:
 - Customer views profile, accounts and masked cards (`GET /me`).
 - Customer queries transactions by account, card, date range, status, amount (`GET /transactions`).
 - Customer raises (`POST /dispute/{transactionId}`), edits, or withdraws (`PUT /dispute/{transactionId}`) a dispute, and attaches evidence files.
 - Disputes are automatically queued for review and resolved by a human back-office agent via an internal API (no auto-accept, ADR-016).
 - Customer sees dispute status and history (`GET /dispute/{transactionId}`).
-- Dispute PII erased 1 year after closure (POC POPIA policy, ADR-017).
+- Dispute PII erased 1 year after closure (interim POPIA policy, ADR-017).
 - Customer is emailed (SES) on every dispute status change.
 - Mock accounts, cards and transactions seeded in Aurora.
-- Deployed to AWS af-south-1, single `poc` environment, via Terraform and CI/CD.
+- Deployed to AWS af-south-1, single `dev` environment, via Terraform and CI/CD.
 
 Out (deferred, with reason):
 - Back-office UI — the internal API is enough to prove resolution; UI is separate product work.
-- Integration with a real card processor / scheme chargeback flow — POC uses mock data.
-- Multi-environment (dev/stage/prod), multi-region DR, load testing at production scale — POC.
+- Integration with a real card processor / scheme chargeback flow — mock data only.
+- Multi-environment (dev/stage/prod), multi-region DR, load testing at production scale — out of scope for the first release.
 - Customer sign-up UI — Cognito-hosted login is used; users are seeded.
 
 ## Success criteria

@@ -1,0 +1,26 @@
+{
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "name": "@cd/web",
+  "dependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router": "catalog:",
+    "oidc-client-ts": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "openapi-fetch": "catalog:"
+  },
+  "devDependencies": {
+    "vite": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "typescript": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "openapi-typescript": "catalog:",
+    "vitest": "catalog:",
+    "jsdom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:"
+  }
+}

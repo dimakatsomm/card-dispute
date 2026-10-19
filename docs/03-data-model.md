@@ -94,7 +94,7 @@ Indexes: `(user_id, transaction_at desc, transaction_id desc)` (default list + c
 
 Mock data: seed generator produces 3 users × 1–2 accounts × 1–2 cards × ~200 transactions across
 the last 180 days, with a mix of statuses so the 120-day window and POSTED-only rules are exercised.
-Cognito users for the seed are created by a script (poc) or the mock issuer (local).
+Cognito users for the seed are created by a script (dev) or the mock issuer (local).
 
 ## disputes
 Disputes stores only what it owns. Transaction details (amount, merchant, card, account, dates) are
@@ -181,8 +181,8 @@ schemas, so there is no insert-order deadlock. A single **provisioning job** (`l
 
 Steps 3–4 retry until both rows exist. Offboarding sets `auth_identity.status = DISABLED`, disables the Cognito user, and sets `app_user.status = CLOSED`.
 
-## Retention (POPIA — POC policy, owner decision 2026-10-09, ADR-017)
+## Retention (POPIA — interim policy, owner decision 2026-10-09, ADR-017)
 1 year after a dispute reaches a terminal state:
 - `dispute.description`, `resolution_note` and history `note`/`before`/`after` → replaced with `'[erased]'` / `null` (the row stays — financial record).
 - `dispute_evidence` S3 objects deleted (S3 lifecycle 365 days on `evidence/`), rows marked `ERASED`.
-Run by a scheduled `retention-sweeper` job (M2), connecting as `disputes_retention` (column-scoped UPDATE on dispute text fields, history `note/before/after`, evidence `status`). This is a POC policy; revisit with compliance before production.
+Run by a scheduled `retention-sweeper` job (M2), connecting as `disputes_retention` (column-scoped UPDATE on dispute text fields, history `note/before/after`, evidence `status`). This is an interim policy; revisit with compliance before production.

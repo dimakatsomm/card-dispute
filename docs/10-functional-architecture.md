@@ -67,9 +67,15 @@ mechanical parts.
 
 ---
 
+## 2a. Comments (ADR-045)
+- Default: **no comment**. Clear names, small functions and types carry the meaning.
+- Write one only for a non-obvious *why*: a library quirk, a security reason, a deliberate trade-off. Keep it to **one line**, linking an ADR or issue if longer context exists.
+- Never: restating what the code does, file/section banners, commented-out code, TODOs without an issue id, JSDoc on internal functions. Public package entry points may have a one-line summary.
+- Reviewers treat verbose or redundant comments as a finding.
+
 ## 3. Shared primitives — `backend/packages/shared/fp`
 
-Kept deliberately small; no FP framework dependency (e.g. no fp-ts/Effect) for a POC.
+Kept deliberately small; no FP framework dependency (e.g. no fp-ts/Effect) at this stage.
 
 ```ts
 export type Ok<T> = { readonly ok: true; readonly value: T };

@@ -6,8 +6,7 @@ import { describe, expect, it } from 'vitest';
 const rootDir = fileURLToPath(new URL('../../../', import.meta.url));
 const fixturesDir = new URL('../fixtures/', import.meta.url);
 
-// Fixtures live under fixtures/<real repo path>; they are linted as if they sat at <real repo path>,
-// so the root config's file globs apply exactly as they would to production code.
+// Fixtures are linted as if at their real repo path so the root config globs apply.
 const lintFixture = async (fixturePath: string) => {
   const eslint = new ESLint({ cwd: rootDir, overrideConfigFile: `${rootDir}eslint.config.js` });
   const source = await readFile(new URL(fixturePath, fixturesDir), 'utf8');

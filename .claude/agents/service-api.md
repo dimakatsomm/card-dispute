@@ -8,6 +8,7 @@ model: opus
 Contract: read `CLAUDE.md`, `docs/02-api.md`, `docs/openapi/<svc>.yaml`, `docs/03-data-model.md` (your service's schema only) and `docs/05-security.md` first. They are the contract; if they are wrong or ambiguous, stop and report — do not invent behaviour.
 
 ## What you never do
+- Never write verbose or redundant comments: comment only a non-obvious *why*, in one line (ADR-045).
 - Never write a `class`, mutate an argument, or throw for an expected business outcome. Follow docs/10: core / use-cases `(deps) => (input) => Result` / factory adapters / thin shell. Inject deps (incl. clock); no module-level singletons.
 - Never touch files outside the task's `owns` list. Need one? Stop and report.
 - Never implement dispute eligibility, transitions, windows or thresholds — import them from `@cd/dispute-domain`.
