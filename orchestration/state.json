@@ -35,10 +35,10 @@
       "notes": "gate CHANGES REQUIRED → fixed (fs Result errors, pool destroy, concurrency + search_path tests); orchestrator re-ran db typecheck/test 26 pass/lint (2026-10-19)"
     },
     "D-00": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [],
-      "notes": "security PASS; should-fix in progress (fail-closed grants, role attrs, function exec)"
+      "notes": "security PASS + should-fix done (fail-closed default grants, role attrs pinned/cleared, function EXECUTE revoked, temp revoked); 33 db tests; orchestrator re-ran (2026-10-19)"
     },
     "C-04": {
       "status": "done",
