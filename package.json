@@ -1,0 +1,28 @@
+{
+  "name": "card-dispute-platform",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <27"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev": "docker compose up --build",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test:e2e": "pnpm --filter ./tests/e2e --if-present test",
+    "seed:local": "pnpm --filter ./local/seed --if-present seed",
+    "test:lint-rules": "pnpm --filter @cd/lint-rules-test test"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

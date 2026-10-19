@@ -21,7 +21,7 @@
 ### F-01 · Set up pnpm monorepo tooling
 ```yaml
 agent: implementer
-owns: [package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, eslint.config.js, .prettierrc, vitest.workspace.ts, .gitignore, .dockerignore, .nvmrc, .editorconfig]
+owns: [package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, eslint.config.js, .prettierrc, vitest.workspace.ts, .gitignore, .dockerignore, .nvmrc, .editorconfig, tools/lint-rules-test/**]
 depends_on: []
 acceptance:
   - pnpm-workspace.yaml defines a `catalog:` with every dependency at the version in docs/06-infra "Verified versions" (incl. @aws-sdk/client-s3, @aws-sdk/s3-request-presigner — verify first), (fastify, zod 4, vitest, pino, aws-jwt-verify, pg, @testcontainers/postgresql, node-pg-migrate, @aws-sdk/client-sqs, @aws-sdk/client-s3, @aws-sdk/client-sesv2, aws-sdk-client-mock)
@@ -68,7 +68,7 @@ acceptance:
   - applyAction(dispute, action, actor) covers every (state × action × actorType) cell; terminal states reject every action with INVALID_TRANSITION; USER cannot REVIEW/RESOLVE; SYSTEM_RULE/AGENT cannot EDIT
   - re-applying an already-applied REVIEW/RESOLVE is a no-op success
   - REVIEW and RESOLVE allowed only for actorType AGENT; SYSTEM_RULE may change no dispute status (ADR-016, ADR-033)
-  - no imports outside node built-ins and zod (lint rule or test asserts)
+  - imports only zod and @cd/shared/fp — no node built-ins (enforced by the F-01 purity lint rule; nothing extra to test)
   - each eligibility rule and each transition-table row has exactly one table entry (incl. 120/121-day and month-end expiry boundaries); no coverage-% target (ADR-040)
 ```
 
@@ -272,6 +272,7 @@ acceptance:
   - user B on A's transaction → 404; event payload contains no PII and carries version
   - body with disputedAmount (or any unknown field) → 400 — partial disputes impossible [ADR-024]
   - POST is JSON with optional 0–5 evidence declarations; 201 returns one presigned PUT per declaration for the quarantine bucket, with Content-Type, Content-Length and x-amz-checksum-sha256 signed, 10-minute expiry [ADR-028]
+  - signer (verify-claims-02 #1): PutObjectCommand with ChecksumSHA256 = base64(raw 32-byte digest) converted from the declared hex; getSignedUrl with `unhoistableHeaders: {x-amz-checksum-sha256}` and `signableHeaders: {content-type, content-length}`; the returned `headers` match exactly; test asserts the URL query has no checksum parameter and X-Amz-SignedHeaders lists all three
   - test against moto: uploading with the signed headers succeeds; a different Content-Type, length or checksum is rejected by S3
   - 6 declarations, size > 10 MB, type not PDF/JPEG/PNG, malformed sha256 → 400; no dispute or evidence rows written
   - evidence rows created PENDING in the same transaction as the dispute; the presigned key never contains the client filename
@@ -375,6 +376,7 @@ acceptance:
   - path filters exactly as docs/09 §4.1; shared-package change triggers all dependents (proved by a dry-run listing in the PR)
   - no AWS credentials in M1 (verify stage only); deploy jobs + approvals are added in M3 (CI-02)
   - every workflow uses least-privilege `permissions:`, pinned action SHAs, `concurrency`
+  - public-repo hardening per docs/09 §6: only `pull_request` (no `pull_request_target`), no secrets/OIDC on fork runs, secret scan (gitleaks or equivalent, version verified) on every PR, ARM64 builds on `ubuntu-24.04-arm` [ADR-041]
 ```
 
 ## Wave 5

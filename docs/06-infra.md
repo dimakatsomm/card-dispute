@@ -59,7 +59,10 @@ Checked against primary sources on 2026-10-09. Sources are in `orchestration/ver
 | ECS Fargate ARM64 + Service Connect | available in af-south-1 | Service Connect has no extra charge |
 | Cognito | M2M + custom scopes on every plan | ⚠ $0.00225 per token request, no free tier, so tokens must be cached |
 | SES | **API only**, SMTP not in af-south-1 | Use `@aws-sdk/client-sesv2`. Sandbox: 200 per day, 1 per second, verified recipients only |
-| Terraform / hashicorp/aws | 1.16.5 / **~> 6.68** | |
+| Terraform / hashicorp/aws | 1.16.5 / **~> 6.68** | local machine has 1.11.3 — upgrade before M3 |
+| TypeScript | **6.0.3** (not 7.x) | typescript-eslint 8.72 supports TS < 6.1 (F-01, 2026-10-19) |
+| Lambda base image | `public.ecr.aws/lambda/nodejs:24` (arm64) | build with `--provenance=false` |
+| GuardDuty Malware Protection for S3 | available in af-south-1 | $0.099/GB + $0.000237/object after the free tier; 100 GB max object size |
 | fastify / zod / vitest | 5.12.5 / 4.6.5 / 5.0.3 | zod **4** API |
 | @testcontainers/postgresql | 12.2.0 | |
 | node-pg-migrate / pino / aws-jwt-verify | 9.0.0 / 10.4.0 / 5.2.1 | |

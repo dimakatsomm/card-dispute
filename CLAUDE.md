@@ -119,7 +119,8 @@ Full process in `docs/07-agentic-workflow.md`. Short version:
 | Dispute history is immutable | `dispute_status_history` is insert-only (DB role has no UPDATE/DELETE on it) |
 | Financial rows never hard-deleted | No DELETE grant on transaction/dispute tables for service roles |
 | One dispute per transaction, ever (incl. withdrawn) | `unique (transaction_id)` + `evaluateTransactionEligibility` (ADR-020) |
-| UI dispute button and backend agree | Both use `evaluateTransactionEligibility` from `@cd/dispute-domain` (ADR-021) |
+| UI dispute button and backend agree | transactions computes `disputable` with `evaluateTransactionEligibility` (same function `POST /dispute` uses); the UI only renders the flag and never imports backend code (ADR-021) |
+| Public repository (ADR-041) | No secrets, real PII or internal hostnames beyond the documented poc domain in git; secret scanning + push protection on; fork PRs get no secrets; deploy roles trust only `main` + environment `poc` |
 | Dispute window and eligibility | `dispute-domain` rules, injected clock, table-driven tests |
 | Evidence uploads are bounded and untrusted | Presigned URL signs type, length and sha256; quarantine bucket + malware scan + magic-byte check before promotion; ≤ 5 per dispute (ADR-028) |
 | Services never handle evidence bytes | Disputes only signs URLs; only evidence-intake reads quarantine (IAM) |

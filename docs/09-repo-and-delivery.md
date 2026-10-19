@@ -165,3 +165,27 @@ main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Enviro
 - Frontend task (0.25 vCPU / 0.5 GB ARM): ≈ $9.7/month (same unit cost as the services).
 - ECR storage for ~9 repos with lifecycle "keep last 10": ~$1–2/month.
 - GitHub Actions minutes: depends on the plan. ⚠ To verify.
+
+---
+
+## 6. Public repository & approvals (ADR-041, owner 2026-10-19)
+
+GitHub plan: **Free**. Environment *required reviewers* exist on private repos only with Enterprise Cloud
+(verified, orchestration/verify-claims-02.md #4), so the repository is **public**. That keeps the
+"⏸ manual approval on every deploy" gate (§4.2) through the GitHub Environment `poc` with required reviewers.
+
+Public-repo hardening (all mandatory, CI-01/CI-02 acceptance):
+- **No secrets in git, ever**: GitHub secret scanning + **push protection** on; a pre-commit/CI secret scan (e.g. gitleaks — version to verify) runs on every PR.
+- **Fork PRs**: workflows use `pull_request` (never `pull_request_target` with a checkout of PR code). Fork runs get no secrets and no OIDC.
+  "Require approval for all outside collaborators" is set for Actions.
+- **OIDC trust**: every AWS deploy role's trust policy pins `token.actions.githubusercontent.com:sub` to
+  `repo:<owner>/<repo>:environment:poc` (deploy) or `repo:<owner>/<repo>:ref:refs/heads/main` (build/push). Never `repo:<owner>/<repo>:*`.
+- **Workflow permissions**: default `contents: read`; `id-token: write` only on jobs that assume AWS roles; all third-party actions pinned to a full commit SHA.
+- **Branch protection on `main`** (free on public repos): PR required, status checks required, no force-push.
+- **Environment `poc`**: required reviewers = owner; deployment branches = `main` only.
+- **Data**: seed data is fake (`example.com`, synthetic names). The owner email and the poc domain appear in the docs by owner choice.
+
+## 7. Build notes from verification (verify-claims-02)
+- Lambda images: `FROM public.ecr.aws/lambda/nodejs:24` (AL2023, arm64 published). Build with `docker buildx build --platform linux/arm64 --provenance=false` (AWS requirement for Lambda images).
+- CI runners: `ubuntu-24.04-arm` standard runners for ARM64 image builds (native, no QEMU). On a public repo, standard runners are free.
+- TypeScript is pinned to **6.0.x**, because typescript-eslint 8.72 supports TS < 6.1. Revisit when typescript-eslint supports TS 7.

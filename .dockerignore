@@ -1,0 +1,17 @@
+node_modules
+.git
+coverage
+dist
+docs
+orchestration
+infra
+.claude
+.env*
+!.env.example
+*.tsbuildinfo
+playwright-report
+test-results
+# Tests are not shipped in production images: exclude them from the build context. Stage Dockerfiles that
+# run tests (none planned) must not rely on this file.
+**/*.test.ts
+**/test

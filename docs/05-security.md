@@ -36,6 +36,7 @@
 
 ## Data
 - KMS CMKs: `cd-data` (Aurora, Secrets, SQS, logs) and `cd-evidence` (S3).
+- Malware scanning (verified available in af-south-1): GuardDuty Malware Protection for S3 on the quarantine bucket, with object tagging enabled **before** first upload. evidence-intake is triggered by the EventBridge event `GuardDuty Malware Protection Object Scan Result` (delivered at least once, so it must be idempotent) and promotes **only** on `NO_THREATS_FOUND`. `THREATS_FOUND`, `UNSUPPORTED`, `ACCESS_DENIED` and `FAILED` → REJECTED. A bucket policy denies `s3:GetObject` on objects without `GuardDutyMalwareScanStatus=NO_THREATS_FOUND`, except for the GuardDuty role. Price: $0.099/GB + $0.000237/object after the free 1 GB / 1,000 objects a month.
 - S3 quarantine bucket: Block Public Access, CORS allows `PUT` from the web origin only, lifecycle deletes objects after 1 day, no read access except evidence-intake.
 - S3 evidence: Block Public Access, bucket policy denies non-TLS and non-KMS puts, versioning, lifecycle: delete after 365 days (POC retention, ADR-017).
 - Secrets Manager: per-service DB credentials + Cognito client secrets. Rotation enabled for DB creds.
@@ -46,6 +47,7 @@
 | each ECS task role | read own secrets; KMS decrypt `cd-data`; X-Ray put |
 | disputes task role | + `s3:PutObject` on the quarantine bucket only — used solely to **sign** presigned URLs (no reads, no evidence-bucket access); `sqs:SendMessage` to the dispute-events and dispute-notifications queues |
 | notifier Lambda | own queue; own client secret; `ses:SendEmail` on verified identity |
+| GuardDuty malware-protection role | read + tag objects in the quarantine bucket; `kms:Decrypt` on the quarantine key (verify-claims-02 #2) |
 | evidence-intake Lambda | `s3:GetObject`, `s3:DeleteObject` on the quarantine bucket; `s3:PutObject` on `evidence/*` in the evidence bucket; KMS for both keys; own client secret |
 | CI deploy role (OIDC) | ECR push, ECS update-service, Lambda update-function-code, terraform state bucket |
 
