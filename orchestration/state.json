@@ -83,16 +83,10 @@
       "notes": "security gate CHANGES REQUIRED → fixed (erase guard, no updated_at grant, s3_key prefix CHECK, trigger-enabled test, independent tests); 52 tests; orchestrator re-ran (2026-10-19)"
     },
     "D-05": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "data-schema",
-      "blockedBy": [
-        "D-01",
-        "D-02",
-        "D-03",
-        "D-04",
-        "L-01"
-      ],
-      "notes": ""
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19"
     },
     "A-01": {
       "status": "in_progress",
@@ -107,26 +101,16 @@
       "notes": "dispatched 2026-10-19"
     },
     "T-01": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "service-api",
-      "blockedBy": [
-        "S-02",
-        "S-04",
-        "D-03",
-        "C-04"
-      ],
-      "notes": "security gate"
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19"
     },
     "P-01": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "service-api",
-      "blockedBy": [
-        "S-02",
-        "S-04",
-        "D-04",
-        "C-04"
-      ],
-      "notes": "security gate; split per PR-01 K"
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19"
     },
     "E-01": {
       "status": "todo",
