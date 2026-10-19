@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node src/main.ts",
+    "migrate": "node src/migrate.ts",
     "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {

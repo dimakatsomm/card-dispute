@@ -69,6 +69,8 @@ Rules:
 
 Standard service env (every service, ADR-053): `PUBLIC_PORT`, `SERVICE_PORT`, `LOG_LEVEL`, `DATABASE_URL` (app role), `DB_POOL_MAX`, `MIGRATOR_DATABASE_URL` (migration task only), `AUTH_URL`, `TOKEN_URL`, `SERVICE_CLIENT_ID`, `SERVICE_CLIENT_SECRET`; plus per-service extras documented in each service README.
 
+Service runtime standards (U-01 gate): runtime stage runs `apk upgrade --no-cache`; pg pools set `connectionTimeoutMillis` 5000, `idleTimeoutMillis` 30000, `statement_timeout` 5000 ms (env-overridable).
+
 Image tags: the git SHA (immutable; ECR tag immutability on). No `latest` in any environment.
 Scanning: Trivy on every PR build (fail on HIGH/CRITICAL with a fix available) + ECR scan on push. SBOM (SPDX) attached as a build artifact.
 

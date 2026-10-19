@@ -95,10 +95,10 @@
       "notes": "dispatched 2026-10-19"
     },
     "U-01": {
-      "status": "in_review",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [],
-      "notes": "55 tests; security review pending; image not built yet"
+      "notes": "security PASS + should-fixes (apk upgrade, pool timeouts, cross-user /cards test); 56 tests; orchestrator re-ran (2026-10-19). Image build + Trivy to be verified in L-02/CI"
     },
     "T-01": {
       "status": "in_progress",
