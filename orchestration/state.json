@@ -157,28 +157,28 @@
       "notes": "security gate"
     },
     "W-01": {
+      "status": "done",
+      "agent": "frontend",
+      "blockedBy": [],
+      "notes": "docker build + smoke verified by orchestrator with owner approval: uid 101, CSP, SPA fallback, /api 404, config.js no-store, no codes in logs, env validation rejects missing + look-alike issuer (2026-10-19)"
+    },
+    "W-02": {
       "status": "in_review",
       "agent": "frontend",
       "blockedBy": [],
-      "notes": "security fixes done (sign-out, origin-bound bearer, entrypoint checks); orchestrator re-ran check:api/typecheck/27 tests/lint/build. Docker image build NOT re-verified after changes (owner did not approve a local build) — CI web.yml will build + Trivy on first PR"
-    },
-    "W-02": {
-      "status": "in_progress",
-      "agent": "frontend",
-      "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "implemented (68 web tests total); integration (router wiring, gen:api without --immutable, remove casts) + gate pending"
     },
     "W-03": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "frontend",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "implemented (68 web tests total); integration (router wiring, gen:api without --immutable, remove casts) + gate pending"
     },
     "W-04": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "frontend",
       "blockedBy": [],
-      "notes": "dispatched 2026-10-19"
+      "notes": "implemented (68 web tests total); integration (router wiring, gen:api without --immutable, remove casts) + gate pending"
     },
     "W-05": {
       "status": "todo",
@@ -443,6 +443,16 @@
     {
       "id": "ADR-049",
       "text": "Owner GitHub handle @dimakatsomm: CODEOWNERS owner and required reviewer on GitHub Environment dev.",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-050",
+      "text": "POST /dispute/{id}/evidence is retry-safe: a declaration matching an existing PENDING item (sha256+size+type) re-signs that evidenceId instead of creating a new slot (from W-03). Implemented in P-05 (M2).",
+      "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-051",
+      "text": "Frontend API types generated without --immutable: openapi-typescript-helpers Readable<T> mangles readonly arrays, forcing casts in every screen (W-02/W-04).",
       "date": "2026-10-19"
     }
   ],

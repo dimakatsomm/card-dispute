@@ -207,6 +207,7 @@ Body (one of):
 ## Disputes — `POST /dispute/{transactionId}/evidence`
 JSON `{ "evidence": [ …same declaration shape, 1–5… ] }`. Allowed while `SUBMITTED` or `UNDER_REVIEW`.
 Cap: at most 5 evidence items per dispute that are `PENDING` or `STORED` → 413 `TOO_MANY_FILES`.
+Retry-safe (ADR-050): a declaration matching an existing `PENDING` item of the dispute (same sha256, size, type) gets a fresh presigned URL for that same `evidenceId`, so retries never consume extra slots.
 201: `{ "uploads": [ …same shape as create… ] }`.
 
 ## Service-port endpoints

@@ -157,7 +157,11 @@ paths:
               oneOf:
                 - $ref: '#/components/schemas/EditDispute'
                 - $ref: '#/components/schemas/WithdrawDispute'
-              discriminator: { propertyName: action }
+              discriminator:
+                propertyName: action
+                mapping:
+                  EDIT: '#/components/schemas/EditDispute'
+                  WITHDRAW: '#/components/schemas/WithdrawDispute'
       responses:
         '200':
           description: Updated
@@ -193,7 +197,10 @@ paths:
     post:
       operationId: addEvidence
       summary: Declare more evidence files → presigned upload URLs
-      description: Allowed while SUBMITTED or UNDER_REVIEW. At most 5 items per dispute in PENDING or STORED.
+      description: |
+        Allowed while SUBMITTED or UNDER_REVIEW. At most 5 items per dispute in PENDING or STORED.
+        Retry-safe: a declaration whose sha256 + sizeBytes + contentType match an existing PENDING item of this
+        dispute re-signs a fresh URL for that evidenceId instead of creating a new item (no extra slot used).
       requestBody:
         required: true
         content:

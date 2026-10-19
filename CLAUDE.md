@@ -77,15 +77,15 @@ orchestration/  .claude/
    gets an executing test; nothing else. No coverage-% targets, no tests of framework/library behaviour, no
    per-endpoint repetition of auth cases already proven centrally.
 9. **Feature-flag anything half-built.**
-11. **Comments are rare and short** (ADR-045). Names and types explain *what*; a comment only explains a non-obvious
-    *why* (a constraint, a workaround, a security reason), in one line. No restating code, no banner/section
-    comments, no commented-out code, no JSDoc on internal functions.
 10. **Functional architecture, no classes** (ADR-038, docs/10).
     - Functional core / imperative shell: pure core, `(deps) => (input) => Result` use-cases, factory-function
       adapters, thin routes/handlers, one composition root (`main.ts`).
     - No `class` in our code. Immutable `readonly` data and discriminated unions.
     - Expected failures are `Result` values, not exceptions. Dependencies (incl. clock) are injected.
     - React uses function components + hooks. Lint enforces this.
+11. **Comments are rare and short** (ADR-045). Names and types explain *what*; a comment only explains a non-obvious
+    *why* (a constraint, a workaround, a security reason), in one line. No restating code, no banner/section
+    comments, no commented-out code, no JSDoc on internal functions.
 
 ## 5. Commands
 
