@@ -7,7 +7,11 @@ info:
     One dispute per transaction, ever (incl. withdrawn), so `transactionId` identifies the dispute.
     A dispute always covers the full transaction amount — there is no amount field.
 servers:
-  - url: https://<app-domain>/api
+  - url: https://{distribution}.cloudfront.net/api
+    variables:
+      distribution:
+        default: example
+        description: CloudFront distribution id (no custom domain, ADR-046)
     description: dev — CloudFront strips /api before the ALB (ADR-037)
 security:
   - userToken: []

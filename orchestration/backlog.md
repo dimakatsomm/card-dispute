@@ -112,7 +112,7 @@ acceptance:
 ### L-01 · Create local stack: compose + mock token issuer
 ```yaml
 agent: implementer
-owns: [docker-compose.yml, local/mock-issuer/**, local/.env.example, local/README.md]
+owns: [docker-compose.yml, local/mock-issuer/**, local/moto/**, local/.env.example, local/README.md]
 depends_on: [F-01]
 acceptance:
   - compose runs postgres:18, moto server (sqs, s3) and mock-issuer only (service containers come in L-02 — PR-01 K: Dockerfiles don't exist yet)

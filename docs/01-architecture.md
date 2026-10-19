@@ -3,7 +3,7 @@
 ## Topology
 
 ```
-Client ─► CloudFront https://<app-domain> (WAF) ─HTTPS─► ALB (<alb-origin>) ─► ECS Fargate (private subnets)   (ADR-037)
+Client ─► CloudFront https://<id>.cloudfront.net (WAF) ─► ALB (VPC origin preferred, V-06) ─► ECS Fargate (private subnets)   (ADR-046, no custom domain)
                          /api/me            → users:8080        (CloudFront Function strips /api)
                          /api/transactions  → transactions:8080
                          /api/dispute*      → disputes:8080

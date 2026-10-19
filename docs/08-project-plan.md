@@ -31,7 +31,7 @@ Built to **production patterns**:
 
 | Actor | How they interact |
 |---|---|
-| **Customer** | React web app at `https://<app-domain>` → API at the same origin under `/api`, Cognito login |
+| **Customer** | React web app at the CloudFront default hostname `https://<id>.cloudfront.net` → API at the same origin under `/api`, Cognito login |
 | **Back-office agent** | ⏸ Deferred (owner: client-facing first). Contract kept in `docs/openapi`; not built in M1–M4 |
 | **Services** | auth, users, transactions, disputes, calling each other on the service port with Cognito service tokens |
 | **System jobs** | evidence-intake, dispute-notifier and retention-sweeper Lambdas (housekeeping only; never change dispute status) |
@@ -125,7 +125,7 @@ Built to **production patterns**:
 | F-NTF-1 | Every status change (created, under review, resolved, withdrawn) emails the customer via SES. |
 | F-NTF-2 | Disputes publishes events **after commit, best-effort** to SQS. The DB/timeline is the source of truth. A publish failure → `EventPublishFailed` alarm. |
 | F-NTF-3 | The notifier fetches the email by `userId` from users (events carry no PII). A rare duplicate email is accepted; each email states its status and date. |
-| F-NTF-4 | Sender `noreply@<app-domain>` (SES domain identity with DKIM, SPF, DMARC); Reply-To `dimakatsomm@icloud.com`. SES sandbox for dev → verified recipients only. |
+| F-NTF-4 | Sender `dimakatsomm@icloud.com` (SES email identity, no custom domain — ADR-046). SES sandbox → verified recipients only. Risk R-6: SES can't DKIM-align an icloud.com sender, so mail may land in spam (V-05). |
 
 ### 4.8 Data retention (F-RET)
 | # | Requirement |
@@ -161,7 +161,7 @@ Built to **production patterns**:
 ## 5. Architecture
 
 ```
-Browser ─► CloudFront https://<app-domain> (WAF) ─┬─ /*     ─HTTPS─► ALB ─► web (nginx SPA)          ECS, ARM64
+Browser ─► CloudFront https://<id>.cloudfront.net (WAF) ─┬─ /*     ─► ALB (VPC origin) ─► web (nginx SPA)          ECS, ARM64
                                          └─ /api/* ─HTTPS─► ALB ─► :8080 users | transactions | disputes
           (CloudFront Function strips /api; ALB accepts CloudFront only)
 Services ⇄ :8081 via ECS Service Connect (service token + scope)
@@ -173,7 +173,7 @@ client ─presigned PUT─► S3 quarantine ─► GuardDuty scan ─► EventBr
                                                   ├ clean → S3 evidence bucket → disputes :8081 (STORED)
                                                   └ bad   → delete            → disputes :8081 (REJECTED)
 EventBridge (daily) ─► retention-sweeper
-Supporting: Route 53 sub-zone <app-domain>, ACM, Cognito, Secrets Manager, KMS, ECR, CloudWatch, X-Ray.
+Supporting: Cognito (prefix domain), Secrets Manager, KMS, ECR, CloudWatch, X-Ray. No custom domain, Route 53 or ACM (ADR-046).
 ```
 
 Principles:
@@ -267,7 +267,7 @@ Terminal states reject everything (`INVALID_TRANSITION`). A row lock + version g
   - Least privilege, no `*`.
   - The disputes task can only *sign* quarantine PUTs.
   - Only evidence-intake reads quarantine.
-- **Edge:** CloudFront HTTPS on `<app-domain>` (ACM), HTTPS to the ALB origin; WAF on CloudFront with managed rules + rate limiting (M4: per-user caps on dispute create/evidence).
+- **Edge:** CloudFront HTTPS on its default `*.cloudfront.net` hostname; ALB via CloudFront VPC origin (fallback: CloudFront-only HTTP origin, mock data only); WAF on CloudFront with managed rules + rate limiting (M4: per-user caps on dispute create/evidence).
 
 ### 7.4 Repository & containers (docs/09)
 ```
@@ -371,9 +371,9 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | I-03 Cognito (pool, hosted UI, resource server + scopes, customer-facing app clients) | infra-terraform |
 | I-04 Aurora PG18 Serverless v2 + secrets + bootstrap roles | infra-terraform |
 | I-05 ECR repos ×8 (lifecycle keep 10, immutable tags) · I-06 ECS cluster + Service Connect + `ecs-service` module ×5 | infra-terraform |
-| I-07a DNS: delegated sub-zone <app-domain> + parent NS record, ACM certs (us-east-1 + af-south-1) · I-07 CloudFront (`/api/*` + default), strip function, WAF · I-08 ALB (HTTPS origin, CloudFront-only; internal listener 8081 for Lambdas) | infra-terraform |
+| I-07 CloudFront (`/api/*` + default), strip function, WAF · I-08 ALB (HTTPS origin, CloudFront-only; internal listener 8081 for Lambdas) | infra-terraform |
 | I-09 SQS + DLQ + alarms · I-10 quarantine/evidence buckets + GuardDuty + EventBridge | infra-terraform |
-| I-11 container-image Lambdas ×3 + schedules · I-12 SES domain identity <app-domain> (DKIM, MAIL FROM, DMARC) · I-13 observability (dashboards, alarms) | infra-terraform |
+| I-11 container-image Lambdas ×3 + schedules · I-12 SES email identity (dimakatsomm@icloud.com, sandbox) · I-13 observability (dashboards, alarms) | infra-terraform |
 | CI-02 deploy stages: approvals, migrations task, rollout/rollback, Lambda alias, infra apply | implementer |
 | X-01 customer provisioning tool (Cognito user + app_user + auth_identity) for seed customers | implementer |
 | E-03 e2e + Playwright against dev; evidence controls on real S3; first: confirm the Lambda Node 24 image in af-south-1 | test-engineer |
@@ -406,7 +406,6 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | Fargate ARM: 4 services + web (5 × 0.25 vCPU / 0.5 GB) | 49 |
 | ALB (CloudFront origin + 8081 listener for Lambdas) | ~36 |
 | CloudFront (low dev traffic; price V-06) | ~1–5 |
-| Route 53 hosted zone (sub-zone) | ~0.5–1 |
 | WAF | 7 |
 | Cognito M2M tokens | 6 |
 | Secrets, KMS, CloudWatch logs | ~8 |
@@ -452,7 +451,6 @@ All ADRs, with superseded ones marked, are in `orchestration/state.json`. The on
 | Q-17 | Back-office access path — **deferred** with back-office | deferred | — |
 | V-03 | Presigned PUT can sign `x-amz-checksum-sha256`; GuardDuty S3 in af-south-1 + price; presigner version | verification | before P-01 |
 | V-04 | GitHub required reviewers on a private repo (plan?); Actions minutes; Lambda Node 24 base image; frontend library versions | verification | before CI-01 / W-01 |
-| V-06 | CloudFront VPC origins in af-south-1 (optional: would make the ALB internal) + CloudFront/WAF/Route 53 pricing | verification | M3 |
-| Q-18 | Is the `<owner-domain>` hosted zone in the same AWS account as the dev environment? (if not: 4 NS records added by hand once) | owner | deferred — domain work not a priority now (owner 2026-10-19); design ADR-037 kept for M3 |
+| V-06 | CloudFront VPC origins in af-south-1 (optional: would make the ALB internal) + CloudFront/WAF pricing | verification | M3 |
 
 The project folder is not yet a git repository. On "go M1": `git init` → initial commit → V-03/V-04/V-05 → wave 0.

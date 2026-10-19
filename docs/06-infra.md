@@ -18,9 +18,8 @@ infra/terraform/
     messaging/         SQS queues + DLQs, alarms
     evidence-buckets/  quarantine bucket (CORS PUT, 1-day lifecycle) + evidence bucket (versioned, 365-day lifecycle), policies, GuardDuty malware protection plan, EventBridge rule → evidence-intake
     lambda-fn/         reusable: function, role, event source mapping, log group
-    dns/               delegated sub-zone <app-domain> + NS record in parent; ACM certs (us-east-1 + af-south-1)
     edge/              CloudFront (+ /api strip function), WAF (us-east-1), origin secret header
-    ses/               domain identity <app-domain>, Easy DKIM, MAIL FROM, DMARC; sender noreply@<app-domain> (ADR-037)
+    ses/               email identity dimakatsomm@icloud.com (sender + verified test recipient; sandbox) — ADR-046
     observability/     log groups (7-day retention), alarms (5xx, p95 latency, DLQ depth > 0), dashboard
   envs/dev/            main.tf wiring modules, dev.tfvars (no secrets)
 ```

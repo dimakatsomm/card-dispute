@@ -15,8 +15,8 @@ components:
         Accepted only on public-port (8080) operations. A service token on a public route → 403.
       flows:
         authorizationCode:
-          authorizationUrl: https://<cognito-domain>/oauth2/authorize
-          tokenUrl: https://<cognito-domain>/oauth2/token
+          authorizationUrl: https://cd-dev.auth.af-south-1.amazoncognito.com/oauth2/authorize
+          tokenUrl: https://cd-dev.auth.af-south-1.amazoncognito.com/oauth2/token
           scopes: {}
     serviceToken:
       type: oauth2
@@ -25,7 +25,7 @@ components:
         Accepted only on service-port (8081) operations. A user token on a service route → 403.
       flows:
         clientCredentials:
-          tokenUrl: https://<cognito-domain>/oauth2/token
+          tokenUrl: https://cd-dev.auth.af-south-1.amazoncognito.com/oauth2/token
           scopes:
             auth/validate: Call auth POST /validate
             users/cards.read: Read a user's cards

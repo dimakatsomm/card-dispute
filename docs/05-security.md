@@ -31,8 +31,7 @@
 - Public ALB target groups point at port 8080 only. Port 8081 (service routes) accepts traffic only from
   service SGs (Service Connect) and the internal-ALB SG. Customer and service routes are registered on separate
   Fastify instances, so a misrouted request finds no handler (ADR-026).
-- TLS 1.2+ end-to-end: browser → CloudFront (ACM cert `<app-domain>`, us-east-1) → ALB (ACM cert `<alb-origin>`, af-south-1). ALB accepts CloudFront only (prefix list + secret header). Aurora `rds.force_ssl=1`.
-- DNS: delegated sub-zone `<app-domain>`; Terraform's DNS role can write only that zone + the single NS record in the parent.
+- TLS 1.2+ browser → CloudFront on the default `*.cloudfront.net` certificate (no custom domain, ADR-046). CloudFront → ALB: **preferred** CloudFront VPC origin, so the ALB is internal and traffic stays on the AWS network (availability in af-south-1 = V-06); **fallback** HTTP origin on a public ALB that accepts only the CloudFront origin-facing prefix list + a secret origin header. That hop is unencrypted, which is acceptable only with mock data and must be fixed (VPC origin or a domain + ACM) before real data. Aurora `rds.force_ssl=1`.
 
 ## Data
 - KMS CMKs: `cd-data` (Aurora, Secrets, SQS, logs) and `cd-evidence` (S3).

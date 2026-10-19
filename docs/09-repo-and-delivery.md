@@ -75,39 +75,28 @@ postgres:18, moto (SQS/S3), mock-issuer, auth, users, transactions, disputes, fr
 
 ---
 
-## 3. Domain & edge routing (ADR-037)
+## 3. Edge routing — no custom domain (ADR-046)
 
-**Domain:** `<app-domain>`, a subdomain of the owner's existing `<owner-domain>` (Route 53).
-- **Delegated sub-zone:** Terraform creates a hosted zone for `<app-domain>` and adds **one NS record** in the parent zone.
-  It never creates, changes or deletes any other record of the existing site. ⚠ Confirm the parent hosted zone is in the same AWS account (Q-18); otherwise the 4 NS records are added by hand once.
+The owner dropped the custom domain, so AWS default hostnames are used:
 
-| Name | Points to | Purpose |
+| Hostname | What | Purpose |
 |---|---|---|
-| `<app-domain>` | CloudFront (alias A/AAAA) | web app + API (`/api/*`) |
-| `<alb-origin>` | ALB (alias) | CloudFront → ALB over **HTTPS** (ACM cert in af-south-1) |
-| `<cognito-domain>` | Cognito custom domain (optional, see below) | hosted login |
-| DKIM ×3 CNAME, `<mail-from>` MX + SPF TXT, `<dmarc>` TXT | SES | signed email from `noreply@<app-domain>` |
+| `https://<id>.cloudfront.net` | CloudFront distribution (default TLS certificate) | web app + API under `/api/*` |
+| `https://<prefix>.auth.af-south-1.amazoncognito.com` | Cognito prefix domain | hosted login (PKCE) |
 
-Certificates (ACM, DNS-validated in the sub-zone, auto-renewing):
-- us-east-1: `<app-domain>` (+ `<cognito-domain>`) for CloudFront / Cognito.
-- af-south-1: `<alb-origin>` for the ALB.
-
-**Routing** (unchanged shape, now on the real hostname):
+**Routing**
 | Path | CloudFront behaviour | Target |
 |---|---|---|
 | `/api/*` | CloudFront Function strips `/api`; no cache; forwards `Authorization`, `If-Match`, `x-correlation-id` | ALB → users / transactions / disputes **:8080** |
 | `/*` | static caching; SPA fallback in nginx | ALB → web |
 
-- **Same origin:** no CORS between app and API. S3 quarantine CORS allows `PUT` only from `https://<app-domain>`.
-- **ALB exposure:** CloudFront → ALB is HTTPS end-to-end. The ALB accepts only CloudFront (origin-facing
-  managed prefix list + secret origin header). If CloudFront VPC origins are available in af-south-1 (V-06), the ALB
-  becomes internal instead — an improvement, no longer a requirement.
+- **Same origin:** no CORS between app and API. S3 quarantine CORS allows `PUT` only from the distribution hostname (a Terraform output fed into the CORS rule and the frontend config).
+- **CloudFront → ALB:**
+  - **Preferred:** a CloudFront **VPC origin**. The ALB is internal and traffic stays on the AWS network (V-06: confirm availability in af-south-1).
+  - **Fallback:** a public ALB with an HTTP listener that accepts only the CloudFront origin-facing managed prefix list plus a secret origin header. That hop is unencrypted, so it is acceptable **only with mock data**. Before real data: a VPC origin, or a domain + ACM certificate.
 - **WAF** on CloudFront (scope CLOUDFRONT, us-east-1 provider alias).
-- **Cognito:** custom domain `<cognito-domain>` gives a branded login (needs the us-east-1 cert + an A alias record). The
-  free prefix domain remains the fallback if setup is fiddly. Callback/logout URL: `https://<app-domain>/`.
-- **Email:** SES domain identity `<app-domain>` with Easy DKIM, custom MAIL FROM `<mail-from>`, DMARC `p=quarantine`.
-  Sender `noreply@<app-domain>`; replies go to `dimakatsomm@icloud.com` (Reply-To). SES stays in **sandbox** for dev:
-  delivery only to verified recipients (verify `dimakatsomm@icloud.com` and any test inbox).
+- **Cognito:** free prefix domain. Callback/logout URL = the distribution hostname (Terraform output).
+- **Email:** SES **email identity** `dimakatsomm@icloud.com` as sender, in **sandbox**, so it delivers only to verified recipients (verify the same address as the test inbox). Risk R-6: SES cannot DKIM-sign for icloud.com, so DMARC alignment fails and mail may be spam-foldered (V-05). A domain identity with DKIM is the fix before real users.
 
 ## 4. Pipelines (GitHub Actions, OIDC to AWS — no stored keys)
 
@@ -183,7 +172,7 @@ Public-repo hardening (all mandatory, CI-01/CI-02 acceptance):
 - **Workflow permissions**: default `contents: read`; `id-token: write` only on jobs that assume AWS roles; all third-party actions pinned to a full commit SHA.
 - **Branch protection on `main`** (free on public repos): PR required, status checks required, no force-push.
 - **Environment `dev`**: required reviewers = owner; deployment branches = `main` only.
-- **Data**: seed data is fake (`example.com`, synthetic names). The owner email and the project domain appear in the docs by owner choice.
+- **Data**: seed data is fake (`example.com`, synthetic names). The owner email appears in the docs by owner choice.
 
 ## 7. Build notes from verification (verify-claims-02)
 - Lambda images: `FROM public.ecr.aws/lambda/nodejs:24` (AL2023, arm64 published). Build with `docker buildx build --platform linux/arm64 --provenance=false` (AWS requirement for Lambda images).

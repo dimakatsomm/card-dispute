@@ -29,20 +29,18 @@
       "notes": "dispatched 2026-10-19"
     },
     "S-03": {
-      "status": "blocked",
+      "status": "in_progress",
       "agent": "implementer",
-      "blockedBy": [
-        "Docker Desktop not running"
-      ],
-      "notes": "waiting for owner to start Docker"
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19 (Docker up)"
     },
     "D-00": {
-      "status": "blocked",
+      "status": "todo",
       "agent": "data-schema",
       "blockedBy": [
-        "Docker Desktop not running"
+        "S-03"
       ],
-      "notes": "waiting for owner to start Docker"
+      "notes": "needs S-03 test helpers"
     },
     "C-04": {
       "status": "done",
@@ -51,12 +49,10 @@
       "notes": "docs/openapi/*.yaml; redocly lint 0 errors 0 warnings (2026-10-11)"
     },
     "L-01": {
-      "status": "blocked",
+      "status": "in_progress",
       "agent": "implementer",
-      "blockedBy": [
-        "Docker Desktop not running"
-      ],
-      "notes": "waiting for owner to start Docker"
+      "blockedBy": [],
+      "notes": "dispatched 2026-10-19 (Docker up)"
     },
     "S-04": {
       "status": "todo",
@@ -424,7 +420,7 @@
     },
     {
       "id": "ADR-035",
-      "text": "SUPERSEDED by ADR-037 (domain sender). SES sender for dev = dimakatsomm@icloud.com (owner, Q-10); move to noreply@<owner domain> with DKIM before real users (DMARC alignment risk).",
+      "text": "REINSTATED by ADR-046. SES sender for dev = dimakatsomm@icloud.com (owner, Q-10); move to noreply@<owner domain> with DKIM before real users (DMARC alignment risk).",
       "date": "2026-10-11"
     },
     {
@@ -434,7 +430,7 @@
     },
     {
       "id": "ADR-037",
-      "text": "Use <app-domain> (owner's <owner-domain>, Route 53) via a delegated sub-zone: CloudFront on the domain, HTTPS to ALB via <alb-origin>, optional Cognito custom domain <cognito-domain>, SES domain identity with DKIM/SPF/DMARC sending from noreply@<app-domain> (Reply-To dimakatsomm@icloud.com). Supersedes ADR-036's no-domain parts and ADR-035's sender.",
+      "text": "SUPERSEDED by ADR-046 (domain dropped). Use <owner subdomain> (owner's <owner domain>, Route 53) via a delegated sub-zone: CloudFront on the domain, HTTPS to ALB via origin.<owner subdomain>, optional Cognito custom domain auth.<owner subdomain>, SES domain identity with DKIM/SPF/DMARC sending from noreply@<owner subdomain> (Reply-To dimakatsomm@icloud.com). Supersedes ADR-036's no-domain parts and ADR-035's sender.",
       "date": "2026-10-11"
     },
     {
@@ -476,14 +472,18 @@
       "id": "ADR-045",
       "text": "Minimal comments in code (owner): only a one-line non-obvious why; no restating, banners, commented-out code or internal JSDoc. Reviewer finding if violated.",
       "date": "2026-10-19"
+    },
+    {
+      "id": "ADR-046",
+      "text": "No custom domain (owner 2026-10-19: forget <owner domain>, removed from docs). CloudFront default *.cloudfront.net with same-origin /api; ALB via CloudFront VPC origin (fallback CloudFront-only HTTP origin, mock data only); Cognito prefix domain; SES email identity dimakatsomm@icloud.com (sandbox).",
+      "date": "2026-10-19"
     }
   ],
   "openQuestions": [
     "V-06: Verify CloudFront VPC origins in af-south-1 (optional — would make the ALB internal) and CloudFront/WAF/Route 53 pricing.",
-    "Q-18: Is the <owner-domain> Route 53 hosted zone in the same AWS account as the dev environment? If not, the 4 NS records for <app-domain> are added manually once. — DEFERRED (owner 2026-10-19: domain not a priority now; design kept for M3).",
     "V-08: Confirm against real S3 in dev that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",
-    "O-01: Repo is public — owner email dimakatsomm@icloud.com and domain <owner-domain> appear in docs. Keep, or redact before first push?",
-    "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower."
+    "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
+    "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push."
   ],
   "peerReviews": [
     {
@@ -497,7 +497,6 @@
     }
   ],
   "deferred": [
-    "Q-17 back-office access path + tasks P-04, B-01 (ADR-039)",
-    "Domain work (Q-18) until M3 (owner 2026-10-19)"
+    "Q-17 back-office access path + tasks P-04, B-01 (ADR-039)"
   ]
 }
