@@ -2,6 +2,7 @@ import {
   ACTOR_TYPES,
   DISPUTE_STATUSES,
   EVIDENCE_CONTENT_TYPES,
+  EVIDENCE_REJECTION_REASONS,
   EVIDENCE_STATUSES,
   REASON_CODES,
 } from '@cd/dispute-domain';
@@ -9,7 +10,7 @@ import { err, ok } from '@cd/shared/fp';
 import type pg from 'pg';
 import { z } from 'zod';
 import type { DisputeRecord, EvidenceRecord, HistoryRecord } from '../core/types.ts';
-import { REJECTION_REASONS, type EvidenceDetail } from '../core/timeline.ts';
+import type { EvidenceDetail } from '../core/timeline.ts';
 import type {
   DisputeChanges,
   DisputeKey,
@@ -18,6 +19,7 @@ import type {
   DisputeSummaryRecord,
   DisputeTx,
   DisputeWithHistory,
+  EvidenceSettlement,
   NewDispute,
   NewHistory,
   VersionedUpdate,
@@ -78,7 +80,7 @@ const evidenceRow = z
   }));
 
 const evidenceDetailRow = z
-  .object({ rejection_reason: z.enum(REJECTION_REASONS).nullable() })
+  .object({ rejection_reason: z.enum(EVIDENCE_REJECTION_REASONS).nullable() })
   .loose()
   .transform((r): EvidenceDetail => ({ ...evidenceRow.parse(r), rejectionReason: r.rejection_reason }));
 
@@ -288,6 +290,45 @@ const txOps = (client: Queryable): DisputeTx => ({
       [disputeRowId],
     );
     return res.rows.map((r) => evidenceRow.parse(r));
+  },
+
+  // FOR SHARE keeps the status stable for the history row without touching version or updated_at.
+  lockForShareByTransaction: async (transactionId) =>
+    firstDispute(
+      (
+        await client.query(`select ${DISPUTE_COLUMNS} from dispute where transaction_id = $1 for share`, [
+          transactionId,
+        ])
+      ).rows,
+    ),
+
+  lockEvidence: async (disputeRowId, evidenceId) => {
+    const res = await client.query(
+      `select ${EVIDENCE_COLUMNS}, rejection_reason from dispute_evidence
+       where dispute_id = $1 and evidence_id = $2 for update`,
+      [disputeRowId, evidenceId],
+    );
+    return res.rows[0] === undefined ? null : evidenceDetailRow.parse(res.rows[0]);
+  },
+
+  settleEvidence: async (s: EvidenceSettlement) => {
+    const res = await client.query(
+      `update dispute_evidence
+       set status = $3::text, s3_key = $4, rejection_reason = $5,
+           stored_at = case when $3::text = 'STORED' then now() end
+       where dispute_id = $1 and evidence_id = $2 and status = 'PENDING'
+       returning updated_at`,
+      [
+        s.disputeRowId,
+        s.evidenceId,
+        s.outcome.status,
+        s.s3Key,
+        s.outcome.status === 'REJECTED' ? s.outcome.reason : null,
+      ],
+    );
+    return res.rows[0] === undefined
+      ? null
+      : z.object({ updated_at: z.date() }).parse(res.rows[0]).updated_at;
   },
 
   updateWithVersion: async (u: VersionedUpdate) => {

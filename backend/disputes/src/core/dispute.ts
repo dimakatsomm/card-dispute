@@ -1,12 +1,14 @@
-import type { DisputeStatus, EligibilityTransaction } from '@cd/dispute-domain';
 import type {
-  DisputeEvent,
-  DisputeRecord,
-  DisputeResource,
-  EvidenceRecord,
-  Transaction,
-  TransactionRef,
-} from './types.ts';
+  DisputeCreated,
+  DisputeEdited,
+  DisputeStatus,
+  DisputeStatusChanged,
+  EligibilityTransaction,
+  EvidenceRejected,
+  EvidenceStored,
+} from '@cd/dispute-domain';
+import type { EvidenceOutcome } from './evidence-result.ts';
+import type { DisputeRecord, DisputeResource, EvidenceRecord, Transaction, TransactionRef } from './types.ts';
 
 export const toEligibilityTransaction = (txn: Transaction): EligibilityTransaction => ({
   type: txn.type,
@@ -50,7 +52,7 @@ export const toDisputeResource = (
 });
 
 // Events carry ids only (docs/03): the notifier looks the recipient up by userId.
-export const disputeCreatedEvent = (dispute: DisputeRecord, eventId: string): DisputeEvent => ({
+export const disputeCreatedEvent = (dispute: DisputeRecord, eventId: string): DisputeCreated => ({
   eventId,
   eventType: 'DisputeCreated',
   occurredAt: dispute.createdAt.toISOString(),
@@ -70,7 +72,7 @@ export const disputeChangedEvent = (
   dispute: DisputeRecord,
   change: DisputeChange,
   eventId: string,
-): DisputeEvent => ({
+): DisputeEdited | DisputeStatusChanged => ({
   eventId,
   eventType: change.eventType,
   occurredAt: dispute.updatedAt.toISOString(),
@@ -81,6 +83,34 @@ export const disputeChangedEvent = (
   data: { fromStatus: change.from, toStatus: dispute.status, reasonCode: dispute.reasonCode },
 });
 
-// Keyed by ids only, so the customer never chooses the object path (ADR-055).
+// Keyed by ids only, so neither the customer nor the intake caller ever chooses an object path (ADR-055).
 export const quarantineObjectKey = (transactionId: string, evidenceId: string): string =>
   `intake/${transactionId}/${evidenceId}`;
+
+export const evidenceObjectKey = (disputeId: string, evidenceId: string): string =>
+  `evidence/${disputeId}/${evidenceId}`;
+
+// Same ids-only rule as the status events, and the version is unchanged because evidence never bumps it (ADR-055).
+export const evidenceResultEvent = (
+  dispute: DisputeRecord,
+  evidenceId: string,
+  outcome: EvidenceOutcome,
+  occurredAt: Date,
+  eventId: string,
+): EvidenceStored | EvidenceRejected => {
+  const envelope = {
+    eventId,
+    occurredAt: occurredAt.toISOString(),
+    disputeId: dispute.disputeId,
+    transactionId: dispute.transactionId,
+    userId: dispute.userId,
+    version: dispute.version,
+  };
+  return outcome.status === 'STORED'
+    ? { ...envelope, eventType: 'EvidenceStored', data: { evidence: { evidenceId } } }
+    : {
+        ...envelope,
+        eventType: 'EvidenceRejected',
+        data: { evidence: { evidenceId, reason: outcome.reason } },
+      };
+};

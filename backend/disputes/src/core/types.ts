@@ -89,21 +89,6 @@ export type HistoryRecord = {
 
 export type UploadInstruction = Wire<typeof zUploadInstruction>;
 
-export type DisputeEvent = {
-  readonly eventId: string;
-  readonly eventType: 'DisputeCreated' | 'DisputeEdited' | 'DisputeStatusChanged' | 'EvidenceUploaded';
-  readonly occurredAt: string;
-  readonly disputeId: string;
-  readonly transactionId: string;
-  readonly userId: string;
-  readonly version: number;
-  readonly data: {
-    readonly fromStatus: DisputeStatus | null;
-    readonly toStatus: DisputeStatus;
-    readonly reasonCode: ReasonCode;
-  };
-};
-
 export type TransactionRef = Wire<typeof zTransactionSnapshot>;
 
 export type DisputeResource = Wire<typeof zDispute>;

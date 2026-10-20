@@ -6,6 +6,7 @@ import { MIGRATIONS_DIR } from '../../src/main.ts';
 
 export type TestDb = {
   readonly appPool: pg.Pool;
+  readonly retentionPool: pg.Pool;
   readonly count: (
     table: 'dispute' | 'dispute_status_history' | 'dispute_evidence',
     transactionId: string,
@@ -66,9 +67,12 @@ export const startDisputesDb = async (): Promise<TestDb> => {
   if (!migrated.ok) throw new Error(`migrate failed: ${JSON.stringify(migrated.error)}`);
 
   const appPool = new pg.Pool({ connectionString: urlFor('disputes_app'), max: 20 });
+  // The retention sweeper's own role, so races with it run under its real grants and triggers.
+  const retentionPool = new pg.Pool({ connectionString: urlFor('disputes_retention'), max: 5 });
   const appQuery = (sql: string, params: ReadonlyArray<unknown> = []) => appPool.query(sql, [...params]);
   return {
     appPool,
+    retentionPool,
     appQuery,
     count: async (table, transactionId) => {
       const res = await appQuery(COUNT_SQL[table], [transactionId]);
@@ -76,6 +80,7 @@ export const startDisputesDb = async (): Promise<TestDb> => {
     },
     stop: async () => {
       await appPool.end();
+      await retentionPool.end();
       await container.stop();
     },
   };

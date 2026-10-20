@@ -2,6 +2,7 @@ import { commonProblem, problemBody, type ProblemBody } from '@cd/shared';
 import { assertNever } from '@cd/shared/fp';
 import type { AddEvidenceError } from './use-cases/add-evidence.ts';
 import type { CreateDisputeError } from './use-cases/create-dispute.ts';
+import type { RecordEvidenceResultError } from './use-cases/record-evidence-result.ts';
 
 const notEligible = (code: string, correlationId: string): ProblemBody => ({
   ...problemBody({
@@ -87,6 +88,34 @@ export const addEvidenceProblem = (error: AddEvidenceError, correlationId: strin
         title: 'Service Unavailable',
         code: 'UPLOAD_SIGNING_UNAVAILABLE',
         detail: 'The evidence was recorded but upload URLs could not be issued; request them again later',
+        correlationId,
+      });
+    default:
+      return assertNever(error);
+  }
+};
+
+export const recordEvidenceResultProblem = (
+  error: RecordEvidenceResultError,
+  correlationId: string,
+): ProblemBody => {
+  switch (error) {
+    case 'NOT_FOUND':
+      return commonProblem('NOT_FOUND', 'Evidence not found for this dispute', correlationId);
+    case 'EVIDENCE_CLOSED':
+      return problemBody({
+        status: 409,
+        title: 'Conflict',
+        code: 'EVIDENCE_CLOSED',
+        detail: 'The evidence item has expired or been erased',
+        correlationId,
+      });
+    case 'RESULT_CONFLICT':
+      return problemBody({
+        status: 409,
+        title: 'Conflict',
+        code: 'RESULT_CONFLICT',
+        detail: 'The evidence item already has a different result',
         correlationId,
       });
     default:

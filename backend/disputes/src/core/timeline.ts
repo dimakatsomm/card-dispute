@@ -1,4 +1,4 @@
-import type { DisputeStatus } from '@cd/dispute-domain';
+import type { DisputeStatus, EvidenceRejectionReason } from '@cd/dispute-domain';
 import { assertNever } from '@cd/shared/fp';
 import type {
   DisputeSummary,
@@ -8,10 +8,7 @@ import type {
   TimelineEvent,
 } from './types.ts';
 
-export const REJECTION_REASONS = ['MALWARE', 'TYPE_MISMATCH', 'CHECKSUM', 'SIZE'] as const;
-export type RejectionReason = (typeof REJECTION_REASONS)[number];
-
-export type EvidenceDetail = EvidenceRecord & { readonly rejectionReason: RejectionReason | null };
+export type EvidenceDetail = EvidenceRecord & { readonly rejectionReason: EvidenceRejectionReason | null };
 
 export type TimelineType = TimelineEvent['type'];
 

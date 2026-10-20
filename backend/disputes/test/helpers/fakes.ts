@@ -11,7 +11,24 @@ export const URLS = {
 export const USER_A = { token: 'hdr.user-a-token.signature', userId: randomUUID() };
 export const USER_B = { token: 'hdr.user-b-token.signature', userId: randomUUID() };
 export const SERVICE_CALLER = { token: 'hdr.service-caller-token.signature', scopes: ['disputes/read'] };
-export const WRONG_SCOPE_CALLER = { token: 'hdr.wrong-scope-caller-token.signature', scopes: ['disputes/review'] };
+export const WRONG_SCOPE_CALLER = {
+  token: 'hdr.wrong-scope-caller-token.signature',
+  scopes: ['disputes/review'],
+};
+export const INTAKE_CALLER = {
+  token: 'hdr.intake-caller-token.signature',
+  scopes: ['disputes/evidence.write'],
+};
+
+const SERVICE_CALLERS: ReadonlyArray<{
+  readonly token: string;
+  readonly clientId: string;
+  readonly scopes: ReadonlyArray<string>;
+}> = [
+  { ...SERVICE_CALLER, clientId: 'svc-transactions' },
+  { ...WRONG_SCOPE_CALLER, clientId: 'svc-transactions' },
+  { ...INTAKE_CALLER, clientId: 'svc-evidence-intake' },
+];
 
 export type FakeTransaction = {
   readonly transactionId: string;
@@ -128,14 +145,9 @@ export const createFakeUpstreams = () => {
         exp,
       };
     }
-    if (token === SERVICE_CALLER.token || token === WRONG_SCOPE_CALLER.token) {
-      return {
-        valid: true,
-        principalType: 'service',
-        clientId: 'svc-transactions',
-        scopes: token === SERVICE_CALLER.token ? SERVICE_CALLER.scopes : WRONG_SCOPE_CALLER.scopes,
-        exp,
-      };
+    const caller = SERVICE_CALLERS.find((c) => c.token === token);
+    if (caller !== undefined) {
+      return { valid: true, principalType: 'service', clientId: caller.clientId, scopes: caller.scopes, exp };
     }
     return { valid: false, principalType: 'none', reason: 'bad_signature' };
   };

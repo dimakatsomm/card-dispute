@@ -1,3 +1,4 @@
+import type { EvidenceRejectionReason } from '@cd/dispute-domain';
 import type { TestDb } from './db.ts';
 
 type Status = 'SUBMITTED' | 'UNDER_REVIEW' | 'RESOLVED_ACCEPTED' | 'RESOLVED_REJECTED' | 'WITHDRAWN';
@@ -84,7 +85,7 @@ export const seedEvidence = async (
   e: {
     readonly fileName: string;
     readonly status: 'PENDING' | 'STORED' | 'REJECTED' | 'EXPIRED' | 'ERASED';
-    readonly rejectionReason?: 'MALWARE' | 'TYPE_MISMATCH' | 'CHECKSUM' | 'SIZE';
+    readonly rejectionReason?: EvidenceRejectionReason;
     readonly contentType?: 'application/pdf' | 'image/jpeg' | 'image/png';
     readonly sizeBytes?: number;
     readonly sha256?: string;

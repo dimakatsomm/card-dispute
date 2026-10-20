@@ -152,8 +152,8 @@ paths:
         facts differ is recorded REJECTED (TYPE_MISMATCH, SIZE or CHECKSUM) and answered 200 with `status` REJECTED, so the
         caller must act on the response, not on what it sent. `s3Key` (`evidence/{disputeId}/{evidenceId}`) is set by
         disputes only, is present when `status` is STORED, and is where the caller copies the object to; the body never
-        carries it. An `evidenceId` that is not this dispute's → 404. A result for an EXPIRED/ERASED item, or one that
-        conflicts with the already settled result (STORED vs REJECTED) → 409.
+        carries it. An `evidenceId` that is not this dispute's → 404. A result for an EXPIRED/ERASED item → 409
+        `EVIDENCE_CLOSED`; one that conflicts with the already settled result (STORED vs REJECTED) → 409 `RESULT_CONFLICT`.
       security:
         - serviceToken: [disputes/evidence.write]
       parameters:
@@ -189,7 +189,7 @@ paths:
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
         '404': { $ref: './common.yaml#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '409': { $ref: '#/components/responses/EvidenceResultConflict' }
 
 components:
   securitySchemes:
@@ -254,6 +254,13 @@ components:
               version: { type: integer, minimum: 1 }
     InvalidTransition:
       description: '`INVALID_TRANSITION` — not allowed from the current status (e.g. terminal).'
+      content:
+        application/problem+json:
+          schema: { $ref: './common.yaml#/components/schemas/Problem' }
+    EvidenceResultConflict:
+      description: |
+        `EVIDENCE_CLOSED` — the item is EXPIRED or ERASED, so no result can be recorded (the caller discards the upload).
+        `RESULT_CONFLICT` — the item already settled as the other result (STORED vs REJECTED); the first result stands.
       content:
         application/problem+json:
           schema: { $ref: './common.yaml#/components/schemas/Problem' }

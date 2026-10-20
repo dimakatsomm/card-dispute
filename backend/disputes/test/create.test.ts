@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseDisputeEvent } from '@cd/dispute-domain';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadDisputesConfig } from '../src/config.ts';
 import { createConfiguredUploadSigner } from '../src/main.ts';
@@ -197,6 +198,7 @@ describe('POST /dispute/{transactionId}', () => {
     });
     expect(Object.keys(event.data as object).sort()).toEqual(['fromStatus', 'reasonCode', 'toStatus']);
     expect(message?.body).not.toContain(DESCRIPTION);
+    expect(parseDisputeEvent(event)).toMatchObject({ ok: true });
   });
 
   it("user B on user A's transaction → 404 and nothing written", async () => {

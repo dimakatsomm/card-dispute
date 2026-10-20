@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { parseDisputeEvent } from '@cd/dispute-domain';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDisputeRepo } from '../src/adapters/dispute-repo.ts';
 import { updateDispute } from '../src/use-cases/update-dispute.ts';
@@ -146,6 +147,7 @@ describe('PUT /dispute/{transactionId}', () => {
       data: { fromStatus: 'SUBMITTED', toStatus: 'SUBMITTED', reasonCode: 'FRAUD' },
     });
     expect(JSON.stringify(events[0]?.event)).not.toContain(NEW_DESCRIPTION);
+    expect(parseDisputeEvent(events[0]?.event)).toMatchObject({ ok: true });
   });
 
   it.each(['SUBMITTED', 'UNDER_REVIEW'] as const)(
@@ -180,6 +182,7 @@ describe('PUT /dispute/{transactionId}', () => {
           data: { fromStatus: status, toStatus: 'WITHDRAWN' },
         },
       ]);
+      expect(parseDisputeEvent(eventsFor(svc, transactionId)[0]?.event)).toMatchObject({ ok: true });
     },
   );
 

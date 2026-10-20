@@ -5,7 +5,7 @@ import {
   zListMyDisputesResponse,
   zUpdateDisputeResponse,
 } from '@cd/contracts/disputes.public';
-import { zLookupDisputesResponse } from '@cd/contracts/disputes.service';
+import { zLookupDisputesResponse, zRecordEvidenceResultResponse } from '@cd/contracts/disputes.service';
 import { expect } from 'vitest';
 
 const RESPONSES = {
@@ -15,6 +15,7 @@ const RESPONSES = {
   list: zListMyDisputesResponse,
   detail: zGetDisputeResponse,
   lookup: zLookupDisputesResponse,
+  recordEvidenceResult: zRecordEvidenceResultResponse,
 } as const;
 
 // Public responses are strict, so an extra field fails here as well as a missing or malformed one (ADR-057).

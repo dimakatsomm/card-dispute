@@ -4,7 +4,7 @@ import { addEvidenceRoute, type AddEvidenceUseCase } from './add-evidence.ts';
 import { createDisputeRoute, type CreateDisputeUseCase } from './create.ts';
 import { getDisputeRoute, type GetDisputeUseCase } from './get.ts';
 import { listDisputesRoute, type ListDisputesUseCase } from './list.ts';
-import { serviceRoutes, type LookupDisputesUseCase } from './service.ts';
+import { serviceRoutes, type ServiceUseCases } from './service.ts';
 import { updateDisputeRoute, type UpdateDisputeUseCase } from './update.ts';
 
 export type UseCases = {
@@ -13,8 +13,7 @@ export type UseCases = {
   readonly updateDispute: UpdateDisputeUseCase;
   readonly getDispute: GetDisputeUseCase;
   readonly listDisputes: ListDisputesUseCase;
-  readonly lookupDisputes: LookupDisputesUseCase;
-};
+} & ServiceUseCases;
 
 export const registerPublic =
   (authClient: AuthClient, useCases: UseCases) =>
@@ -29,7 +28,7 @@ export const registerPublic =
   };
 
 export const registerServicePort =
-  (authClient: AuthClient, useCases: Pick<UseCases, 'lookupDisputes'>) =>
+  (authClient: AuthClient, useCases: ServiceUseCases) =>
   (app: FastifyInstance): void => {
-    registerServiceRoutes(app, authClient, serviceRoutes(useCases.lookupDisputes));
+    registerServiceRoutes(app, authClient, serviceRoutes(useCases));
   };

@@ -20,6 +20,7 @@ import { createDispute } from './use-cases/create-dispute.ts';
 import { getDispute } from './use-cases/get-dispute.ts';
 import { listDisputes } from './use-cases/list-disputes.ts';
 import { lookupDisputes } from './use-cases/lookup-disputes.ts';
+import { recordEvidenceResult } from './use-cases/record-evidence-result.ts';
 import { updateDispute } from './use-cases/update-dispute.ts';
 
 export type Infra = {
@@ -111,6 +112,7 @@ export const composeServers = (infra: Infra): Servers => {
       findTransactions: transactions.findTransactions,
     }),
     lookupDisputes: lookupDisputes({ lookupRefs: repo.lookupRefs }),
+    recordEvidenceResult: recordEvidenceResult({ transact: repo.transact, publish, newId: infra.newId }),
   };
 
   return createApp({

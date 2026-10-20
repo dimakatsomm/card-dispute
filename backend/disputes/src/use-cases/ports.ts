@@ -1,8 +1,7 @@
-import type { ActorType, DisputeStatus, ReasonCode } from '@cd/dispute-domain';
+import type { ActorType, DisputeEvent, DisputeStatus, ReasonCode } from '@cd/dispute-domain';
 import type { Result } from '@cd/shared/fp';
 import type {
   Card,
-  DisputeEvent,
   DisputeRecord,
   EvidenceDeclaration,
   EvidenceRecord,
@@ -12,6 +11,7 @@ import type {
   UploadInstruction,
 } from '../core/types.ts';
 import type { CursorPosition } from '../core/cursor.ts';
+import type { EvidenceOutcome } from '../core/evidence-result.ts';
 import type { EvidenceDetail, LatestHistory } from '../core/timeline.ts';
 
 export type UpstreamError = 'UPSTREAM_UNAVAILABLE';
@@ -74,6 +74,13 @@ export type VersionedUpdate = {
   readonly updatedBy: string;
 };
 
+export type EvidenceSettlement = {
+  readonly disputeRowId: string;
+  readonly evidenceId: string;
+  readonly outcome: EvidenceOutcome;
+  readonly s3Key: string | null;
+};
+
 export type DisputeTx = {
   readonly now: () => Promise<Date>;
   readonly findByTransaction: (transactionId: string, userId: string) => Promise<DisputeRecord | null>;
@@ -85,6 +92,10 @@ export type DisputeTx = {
     evidence: ReadonlyArray<EvidenceDeclaration>,
   ) => Promise<ReadonlyArray<EvidenceRecord>>;
   readonly listEvidence: (disputeRowId: string) => Promise<ReadonlyArray<EvidenceRecord>>;
+  // Service port only: the caller is a trusted service acting for no particular user.
+  readonly lockForShareByTransaction: (transactionId: string) => Promise<DisputeRecord | null>;
+  readonly lockEvidence: (disputeRowId: string, evidenceId: string) => Promise<EvidenceDetail | null>;
+  readonly settleEvidence: (settlement: EvidenceSettlement) => Promise<Date | null>;
   readonly updateWithVersion: (update: VersionedUpdate) => Promise<Result<DisputeRecord, 'STALE_VERSION'>>;
 };
 

@@ -1,7 +1,7 @@
 import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
+import type { DisputeEvent } from '@cd/dispute-domain';
 import { err, ok, type Result } from '@cd/shared/fp';
 import type { FastifyBaseLogger } from 'fastify';
-import type { DisputeEvent } from '../core/types.ts';
 import type { PublishEvent } from '../use-cases/ports.ts';
 import { summarizeError, withDeadline } from './deadline.ts';
 

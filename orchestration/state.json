@@ -269,11 +269,12 @@
       "notes": "Security gate PASS. POST evidence: locked cap (PENDING+STORED), ADR-050 re-sign of PENDING only, intake/{transactionId}/{evidenceId} key, 503 after commit, no side effects. 198 disputes tests. Fixes typecheck of 52112fd."
     },
     "P-05b": {
-      "status": "todo",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [
         "P-05a"
-      ]
+      ],
+      "notes": "Security gate PASS. Service PUT evidence result (disputes/evidence.write): fact check -> REJECTED TYPE_MISMATCH/SIZE/CHECKSUM, s3Key derived, history after={evidenceId} in same tx, 409 EVIDENCE_CLOSED vs RESULT_CONFLICT, sweeper races both orders, version unchanged, EvidenceStored/Rejected after commit. Rulings: repeat REJECTED with other reason = no-op; results for terminal disputes recorded. 223 disputes tests."
     },
     "L-03": {
       "status": "done",
