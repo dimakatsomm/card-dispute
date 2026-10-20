@@ -5,6 +5,8 @@ import { bootstrap, ROLES, type Role } from '@cd/db/bootstrap';
 import { startTestPostgres, type TestPostgres } from '@cd/db/testing';
 import { createLogger, type Servers } from '@cd/shared';
 import pg from 'pg';
+import { expect } from 'vitest';
+import type { z } from 'zod';
 import { configSchema } from '../src/config.ts';
 import { compose } from '../src/main.ts';
 
@@ -109,7 +111,7 @@ export type Principals = Readonly<Record<string, unknown>>;
 export const userToken = (userId: string) => ({
   valid: true,
   principalType: 'user',
-  authId: `auth-${userId}`,
+  authId: `a0a0a0a0${userId.slice(8)}`,
   userId,
   scopes: [],
   exp: 4_000_000_000,
@@ -148,7 +150,7 @@ export const buildHarness = (
       const override = upstream.auth?.(call);
       if (override) return override;
       const { token } = JSON.parse(String(init?.body)) as { token: string };
-      return json(200, principals[token] ?? { valid: false, reason: 'bad_signature' });
+      return json(200, principals[token] ?? { valid: false, principalType: 'none', reason: 'bad_signature' });
     }
     if (call.url.origin === USERS_URL) return upstream.users(call, signal);
     if (call.url.origin === DISPUTES_URL) return upstream.disputes(call, signal);
@@ -175,3 +177,8 @@ export const buildHarness = (
 
 export const outboundTo = (calls: ReadonlyArray<Call>, origin: string): ReadonlyArray<Call> =>
   calls.filter((c) => c.url.origin === origin);
+
+export const expectContract = (schema: z.ZodType, body: unknown): void => {
+  const parsed = schema.safeParse(body);
+  expect(parsed.success ? [] : parsed.error.issues).toEqual([]);
+};

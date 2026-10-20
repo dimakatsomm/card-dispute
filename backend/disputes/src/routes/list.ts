@@ -1,22 +1,13 @@
 import { userPrincipalOf } from '@cd/auth-client';
-import { DISPUTE_STATUSES } from '@cd/dispute-domain';
+import { zListMyDisputesQuery } from '@cd/contracts/disputes.public';
+import { queryOf } from '@cd/contracts/query';
 import { parseRequest, problemBody, sendProblem, validationProblem, type ProblemBody } from '@cd/shared';
 import { assertNever, type Result } from '@cd/shared/fp';
 import type { RouteOptions } from 'fastify';
-import { z } from 'zod';
-import type { DisputePage, ListDisputesError, ListDisputesInput } from '../use-cases/list-disputes.ts';
+import type { DisputePage } from '../core/types.ts';
+import type { ListDisputesError, ListDisputesInput } from '../use-cases/list-disputes.ts';
 
-const asArray = (value: unknown): unknown => (typeof value === 'string' ? [value] : value);
-
-const listQuery = z.object({
-  status: z
-    .preprocess(asArray, z.array(z.enum(DISPUTE_STATUSES)).min(1).max(DISPUTE_STATUSES.length))
-    .optional(),
-  accountId: z.uuid().optional(),
-  cardId: z.uuid().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
-  cursor: z.string().min(1).max(512).optional(),
-});
+const listQuery = queryOf(zListMyDisputesQuery);
 
 export type ListDisputesUseCase = (
   input: ListDisputesInput,

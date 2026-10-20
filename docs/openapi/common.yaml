@@ -207,6 +207,11 @@ components:
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+    PayloadTooLarge:
+      description: Request body over the route's byte limit (`code` HTTP_413). Any valid body fits, however it is encoded.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
     ServiceUnavailable:
       description: A dependency needed to answer (auth or another service) is unavailable. Never fail-open.
       content:

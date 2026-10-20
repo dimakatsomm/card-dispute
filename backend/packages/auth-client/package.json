@@ -13,7 +13,8 @@
   "dependencies": {
     "fastify": "catalog:",
     "zod": "catalog:",
-    "@cd/shared": "workspace:*"
+    "@cd/shared": "workspace:*",
+    "@cd/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

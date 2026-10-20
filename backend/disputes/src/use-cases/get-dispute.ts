@@ -1,7 +1,7 @@
 import { err, ok, type Result } from '@cd/shared/fp';
 import { toDisputeResource, toTransactionRef } from '../core/dispute.ts';
-import { buildTimeline, type RejectionReason, type TimelineEvent } from '../core/timeline.ts';
-import type { DisputeResource, Transaction } from '../core/types.ts';
+import { buildTimeline } from '../core/timeline.ts';
+import type { DisputeDetail, Transaction } from '../core/types.ts';
 import type { DisputeKey, DisputeWithHistory, FindTransaction, UpstreamError } from './ports.ts';
 
 export type GetDisputeDeps = {
@@ -13,13 +13,6 @@ export type GetDisputeInput = {
   readonly userId: string;
   readonly transactionId: string;
   readonly correlationId: string;
-};
-
-export type DisputeDetail = Omit<DisputeResource, 'evidence'> & {
-  readonly evidence: ReadonlyArray<
-    DisputeResource['evidence'][number] & { readonly rejectionReason?: RejectionReason }
-  >;
-  readonly timeline: ReadonlyArray<TimelineEvent>;
 };
 
 export type GetDisputeError = 'NOT_FOUND';

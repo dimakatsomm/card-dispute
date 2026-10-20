@@ -13,7 +13,37 @@ export const zCurrency = z.string().regex(/^[A-Z]{3}$/);
  * The decoded content is checked by the service; a mismatch is 400 `INVALID_CURSOR`.
  *
  */
-export const zCursor = z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/);
+export const zCursor = z.string().check(ctx => {
+    if (ctx.value.length > 1024) {
+        ctx.issues.push({
+            code: 'too_big',
+            origin: 'string',
+            maximum: 512,
+            inclusive: true,
+            input: ctx.value
+        });
+        return;
+    }
+    const length = [...ctx.value].length;
+    if (length < 1) {
+        ctx.issues.push({
+            code: 'too_small',
+            origin: 'string',
+            minimum: 1,
+            inclusive: true,
+            input: ctx.value
+        });
+    }
+    if (length > 512) {
+        ctx.issues.push({
+            code: 'too_big',
+            origin: 'string',
+            maximum: 512,
+            inclusive: true,
+            input: ctx.value
+        });
+    }
+}).regex(/^[A-Za-z0-9_-]+$/);
 
 export const zDisputeStatus = z.enum([
     'SUBMITTED',

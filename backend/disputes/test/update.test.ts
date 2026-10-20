@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDisputeRepo } from '../src/adapters/dispute-repo.ts';
 import { updateDispute } from '../src/use-cases/update-dispute.ts';
+import { expectContract } from './helpers/contract.ts';
 import { startDisputesDb, type TestDb } from './helpers/db.ts';
 import {
   createFakeUpstreams,
@@ -107,6 +108,7 @@ describe('PUT /dispute/{transactionId}', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.headers.etag).toBe('"2"');
+    expectContract('update', res.json());
     expect(res.json()).toMatchObject({
       transactionId,
       status: 'SUBMITTED',
@@ -204,6 +206,12 @@ describe('PUT /dispute/{transactionId}', () => {
     expect(await stored(transactionId)).toMatchObject(UNCHANGED);
   });
 
+  it('missing If-Match is checked before the body → 428 even for an invalid body', async () => {
+    const transactionId = await seed(USER_A.userId);
+    const res = await put(svc, USER_A.token, transactionId, { action: 'DELETE' }, null);
+    expect(res.statusCode).toBe(428);
+  });
+
   it.each(['"2"', '"0"', '*', '1', 'W/"1"'])(
     'If-Match %s on version 1 → 412, nothing changes',
     async (ifMatch) => {
@@ -255,7 +263,7 @@ describe('PUT /dispute/{transactionId}', () => {
   it.each([
     { name: 'unknown reasonCode', body: { reasonCode: 'BORED' }, code: 'INVALID_REASON' },
     { name: 'too-short description', body: { description: 'too short' }, code: 'INVALID_DESCRIPTION' },
-  ])('EDIT with $name → 400 $code from validateDisputeInput, nothing changes', async ({ body, code }) => {
+  ])('EDIT with $name → 400 $code, nothing changes', async ({ body, code }) => {
     const transactionId = await seed(USER_A.userId);
     const res = await put(svc, USER_A.token, transactionId, { action: 'EDIT', ...body });
 
@@ -270,11 +278,13 @@ describe('PUT /dispute/{transactionId}', () => {
       body: { action: 'EDIT', description: NEW_DESCRIPTION, disputedAmount: '10.00' },
     },
     { name: 'an unknown field', body: { action: 'WITHDRAW', priority: 'high' } },
-  ])('body with $name → 400, nothing changes', async ({ body }) => {
+    { name: 'an EDIT that names no field', body: { action: 'EDIT' } },
+  ])('body with $name → 400 VALIDATION_FAILED, nothing changes', async ({ body }) => {
     const transactionId = await seed(USER_A.userId);
     const res = await put(svc, USER_A.token, transactionId, body);
 
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(await stored(transactionId)).toMatchObject(UNCHANGED);
   });
 

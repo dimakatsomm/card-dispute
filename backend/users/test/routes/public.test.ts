@@ -1,18 +1,13 @@
+import { zGetMeResponse } from '@cd/contracts/users.public';
 import type { Servers } from '@cd/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { bearer, buildTestServers, keysDeep, serviceToken, userToken } from '../helpers/app.ts';
+import type { z } from 'zod';
+import { bearer, buildTestServers, serviceToken, userToken } from '../helpers/app.ts';
+import { expectContract } from '../helpers/contract.ts';
 import { startUsersDb, type TestDb } from '../helpers/db.ts';
 import { accountAt, CARD_TOKEN_PREFIX, cardIdsOf, seedFixture, type Fixture } from '../helpers/fixture.ts';
 
-type MeBody = {
-  readonly userId: string;
-  readonly name: string;
-  readonly email: string;
-  readonly accounts: ReadonlyArray<{
-    readonly accountId: string;
-    readonly cards: ReadonlyArray<{ readonly cardId: string; readonly last4: string; readonly expired: boolean }>;
-  }>;
-};
+type MeBody = z.output<typeof zGetMeResponse>;
 
 let db: TestDb;
 let fx: Fixture;
@@ -37,16 +32,15 @@ afterAll(async () => {
 const me = (token: string) => servers.public.inject({ method: 'GET', url: '/me', headers: bearer(token) });
 
 describe('GET /me (public port)', () => {
-  it("returns the caller's profile, accounts and cards grouped by account, with no token key anywhere", async () => {
+  it("returns the caller's profile, accounts and cards grouped by account, matching the strict contract (no token key)", async () => {
     const res = await me('hdr.token-a.signature');
 
     expect(res.statusCode).toBe(200);
-    const body = res.json<MeBody>();
+    const body = expectContract(zGetMeResponse, res);
     expect(body).toMatchObject({ userId: fx.a.userId, name: 'Thandi', email: 'thandi@example.com' });
     expect(body.accounts.map((a) => ({ accountId: a.accountId, cardIds: a.cards.map((c) => c.cardId) }))).toEqual(
       fx.a.accounts.map((a) => ({ accountId: a.accountId, cardIds: a.cardIds })),
     );
-    expect(keysDeep(body)).not.toContain('token');
     expect(res.body).not.toContain(CARD_TOKEN_PREFIX);
   });
 

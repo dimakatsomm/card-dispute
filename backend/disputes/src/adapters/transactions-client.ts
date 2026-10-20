@@ -1,6 +1,5 @@
-import { TRANSACTION_STATUSES, TRANSACTION_TYPES } from '@cd/dispute-domain';
+import { zLookupTransactionsResponse } from '@cd/contracts/transactions.service';
 import { ok, type Result } from '@cd/shared/fp';
-import { z } from 'zod';
 import type { Transaction } from '../core/types.ts';
 import type {
   FindTransaction,
@@ -10,24 +9,7 @@ import type {
 } from '../use-cases/ports.ts';
 import { getJson, type ServiceClientDeps } from './service-client.ts';
 
-const timestamp = z.iso.datetime({ offset: true });
-
-const rawTransaction = z.object({
-  transactionId: z.uuid(),
-  accountId: z.uuid(),
-  cardId: z.uuid(),
-  amount: z.string().regex(/^[0-9]{1,10}\.[0-9]{2}$/),
-  currency: z.string().regex(/^[A-Z]{3}$/),
-  merchantName: z.string(),
-  type: z.enum(TRANSACTION_TYPES),
-  status: z.enum(TRANSACTION_STATUSES),
-  transactionAt: timestamp,
-  postedAt: timestamp.nullable(),
-});
-
 export const LOOKUP_MAX_IDS = 100;
-
-const lookupResponse = z.object({ items: z.array(rawTransaction).max(LOOKUP_MAX_IDS) });
 
 const chunk = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> =>
   Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size));
@@ -51,7 +33,7 @@ export const createTransactionsClient = (
         ...(filter.accountId === undefined ? {} : { accountId: filter.accountId }),
         ...(filter.cardId === undefined ? {} : { cardId: filter.cardId }),
       },
-      lookupResponse,
+      zLookupTransactionsResponse,
       correlationId,
     );
     if (!res.ok) return res;
@@ -82,7 +64,7 @@ export const createTransactionsClient = (
       const res = await get(
         '/transactions',
         { userId, transactionIds: transactionId },
-        lookupResponse,
+        zLookupTransactionsResponse,
         correlationId,
       );
       if (!res.ok) return res;

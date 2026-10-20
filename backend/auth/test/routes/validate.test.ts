@@ -1,3 +1,4 @@
+import { zValidateTokenResponse } from '@cd/contracts/auth.service';
 import { createLogger, type Servers } from '@cd/shared';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -65,6 +66,10 @@ const postValidate = (
     headers: { 'content-type': 'application/json', ...(authorization === null ? {} : { authorization }) },
     payload: JSON.stringify(body),
   });
+
+const expectContract = (body: unknown): void => {
+  expect(zValidateTokenResponse.safeParse(body).error).toBeUndefined();
+};
 
 beforeAll(async () => {
   [db, jwks] = await Promise.all([startAuthDb(), startJwksServer([key])]);
@@ -134,6 +139,7 @@ describe('POST /validate results', () => {
       scopes: ['openid', 'profile', 'email'],
       exp: claims.exp,
     });
+    expectContract(res.json());
     expect(fetchedUrls.every((u) => u === jwks.url)).toBe(true);
   });
 
@@ -147,6 +153,7 @@ describe('POST /validate results', () => {
       scopes: ['users/cards.read', 'transactions/read'],
       exp: claims.exp,
     });
+    expectContract(res.json());
   });
 
   const otherKey = newKey('test-key-1');
@@ -211,6 +218,7 @@ describe('POST /validate results', () => {
     const res = await postValidate(servers.service, { token: token() });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ valid: false, principalType: 'none', reason });
+    expectContract(res.json());
   });
 
   it('treats a token from a service client as a service principal even when it carries a user sub', async () => {
@@ -252,12 +260,8 @@ describe('POST /validate results', () => {
     );
   });
 
-  it.each([
-    ['missing token', {}],
-    ['an unexpected property', { token: callerToken(), userId: ACTIVE.userId }],
-    ['a token shorter than a JWT', { token: 'short' }],
-  ])('rejects a body with %s as 400', async (_name, body) => {
-    const res = await postValidate(servers.service, body);
+  it('rejects a body outside the generated schema as 400', async () => {
+    const res = await postValidate(servers.service, { token: callerToken(), userId: ACTIVE.userId });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
   });

@@ -1,10 +1,31 @@
 import type {
+  zDispute,
+  zDisputeCreated,
+  zDisputeDetail,
+  zDisputeSummary,
+  zEvidence,
+  zEvidenceDeclaration,
+  zListMyDisputesResponse,
+  zTimelineEvent,
+  zTransactionSnapshot,
+  zUploadInstruction,
+} from '@cd/contracts/disputes.public';
+import type {
   CardStatus,
   DisputeStatus,
   ReasonCode,
   TransactionStatus,
   TransactionType,
 } from '@cd/dispute-domain';
+import type { z } from 'zod';
+
+type DeepReadonly<T> = T extends readonly (infer U)[]
+  ? ReadonlyArray<DeepReadonly<U>>
+  : T extends object
+    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+    : T;
+
+type Wire<S extends z.ZodType> = DeepReadonly<z.output<S>>;
 
 export type Transaction = {
   readonly transactionId: string;
@@ -28,16 +49,10 @@ export type Card = {
 };
 
 export const EVIDENCE_CONTENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const;
-export type EvidenceContentType = (typeof EVIDENCE_CONTENT_TYPES)[number];
 
-export type EvidenceDeclaration = {
-  readonly fileName: string;
-  readonly contentType: EvidenceContentType;
-  readonly sizeBytes: number;
-  readonly sha256: string;
-};
+export type EvidenceDeclaration = Wire<typeof zEvidenceDeclaration>;
 
-export type EvidenceStatus = 'PENDING' | 'STORED' | 'REJECTED' | 'EXPIRED' | 'ERASED';
+export type EvidenceStatus = Wire<typeof zEvidence>['status'];
 
 export type EvidenceRecord = EvidenceDeclaration & {
   readonly evidenceId: string;
@@ -74,17 +89,7 @@ export type HistoryRecord = {
   readonly createdAt: Date;
 };
 
-export type UploadInstruction = {
-  readonly evidenceId: string;
-  readonly method: 'PUT';
-  readonly url: string;
-  readonly headers: {
-    readonly 'Content-Type': string;
-    readonly 'Content-Length': string;
-    readonly 'x-amz-checksum-sha256': string;
-  };
-  readonly expiresAt: string;
-};
+export type UploadInstruction = Wire<typeof zUploadInstruction>;
 
 export type DisputeEvent = {
   readonly eventId: string;
@@ -101,33 +106,16 @@ export type DisputeEvent = {
   };
 };
 
-export type TransactionRef = {
-  readonly accountId: string;
-  readonly cardId: string;
-  readonly amount: string;
-  readonly currency: string;
-  readonly merchantName: string;
-  readonly transactionAt: string;
-  readonly postedAt: string | null;
-};
+export type TransactionRef = Wire<typeof zTransactionSnapshot>;
 
-export type DisputeResource = {
-  readonly disputeId: string;
-  readonly transactionId: string;
-  readonly status: DisputeStatus;
-  readonly reasonCode: ReasonCode;
-  readonly description: string;
-  readonly transaction: TransactionRef | null;
-  readonly evidence: ReadonlyArray<{
-    readonly evidenceId: string;
-    readonly fileName: string;
-    readonly contentType: EvidenceContentType;
-    readonly sizeBytes: number;
-    readonly status: EvidenceStatus;
-  }>;
-  readonly version: number;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  readonly resolvedAt: string | null;
-  readonly resolutionNote: string | null;
-};
+export type DisputeResource = Wire<typeof zDispute>;
+
+export type CreatedDispute = Wire<typeof zDisputeCreated>;
+
+export type DisputeDetail = Wire<typeof zDisputeDetail>;
+
+export type DisputeSummary = Wire<typeof zDisputeSummary>;
+
+export type DisputePage = Wire<typeof zListMyDisputesResponse>;
+
+export type TimelineEvent = Wire<typeof zTimelineEvent>;

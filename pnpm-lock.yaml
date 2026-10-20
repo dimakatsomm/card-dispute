@@ -149,6 +149,9 @@ importers:
       '@cd/auth-client':
         specifier: workspace:*
         version: link:../packages/auth-client
+      '@cd/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
       '@cd/db':
         specifier: workspace:*
         version: link:../packages/db
@@ -195,6 +198,9 @@ importers:
       '@cd/auth-client':
         specifier: workspace:*
         version: link:../packages/auth-client
+      '@cd/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
       '@cd/db':
         specifier: workspace:*
         version: link:../packages/db
@@ -229,6 +235,9 @@ importers:
 
   backend/packages/auth-client:
     dependencies:
+      '@cd/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@cd/shared':
         specifier: workspace:*
         version: link:../shared
@@ -339,6 +348,9 @@ importers:
       '@cd/auth-client':
         specifier: workspace:*
         version: link:../packages/auth-client
+      '@cd/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
       '@cd/db':
         specifier: workspace:*
         version: link:../packages/db
@@ -376,6 +388,9 @@ importers:
       '@cd/auth-client':
         specifier: workspace:*
         version: link:../packages/auth-client
+      '@cd/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
       '@cd/db':
         specifier: workspace:*
         version: link:../packages/db

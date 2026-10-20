@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
+import { zValidateTokenResponse } from '@cd/contracts/auth.service';
 import { err, ok, type Result } from '@cd/shared/fp';
 import { createHttpClient, type Fetch, type HttpResponse } from './http-client.ts';
-import { validateResponseSchema, type Principal } from './principal.ts';
+import { principalOf, type Principal } from './principal.ts';
 import type { TokenError } from './service-token.ts';
 
 export type AuthFailure =
@@ -87,12 +88,13 @@ export const createAuthClient = (deps: AuthClientDeps): AuthClient => {
     if (res.value.status === 400) return err({ kind: 'invalid', reason: 'malformed' });
     if (res.value.status !== 200) return unavailable(`auth responded ${res.value.status}`);
 
-    const parsed = validateResponseSchema.safeParse(res.value.body);
+    const parsed = zValidateTokenResponse.safeParse(res.value.body);
     if (!parsed.success) return unavailable('unparseable auth response');
-    if (!parsed.data.valid) return err({ kind: 'invalid', reason: parsed.data.reason });
+    if (parsed.data.principalType === 'none') return err({ kind: 'invalid', reason: parsed.data.reason });
 
-    remember(key, parsed.data.principal);
-    return ok(parsed.data.principal);
+    const principal = principalOf(parsed.data);
+    remember(key, principal);
+    return ok(principal);
   };
 
   // The shared lookup has its own deadline so one joiner's signal can never abort it for the others.

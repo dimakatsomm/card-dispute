@@ -27,14 +27,19 @@ export const fakeFetch = (respond: (call: RecordedCall) => Response | Promise<Re
   return { fetch, calls };
 };
 
+export const AUTH_ID = '01990000-0000-7000-8000-0000000000a1';
+export const USER_ID = '01990000-0000-7000-8000-0000000000b1';
+
 export const userPrincipal = (exp: number) => ({
   valid: true,
   principalType: 'user',
-  authId: 'auth-1',
-  userId: 'user-1',
+  authId: AUTH_ID,
+  userId: USER_ID,
   scopes: [],
   exp,
 });
+
+export const invalidResult = (reason: string) => ({ valid: false, principalType: 'none', reason });
 
 export const servicePrincipal = (exp: number, scopes: readonly string[]) => ({
   valid: true,

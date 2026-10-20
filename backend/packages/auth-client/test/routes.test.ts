@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createAuthClient } from '../src/auth-client.ts';
 import { servicePrincipalOf, userPrincipalOf } from '../src/guards.ts';
 import { createGuardedServers, guardAllRoutes, registerPublicRoutes, registerServiceRoutes } from '../src/routes.ts';
-import { fakeFetch, jsonResponse, servicePrincipal, userPrincipal } from './fakes.ts';
+import { fakeFetch, invalidResult, jsonResponse, servicePrincipal, USER_ID, userPrincipal } from './fakes.ts';
 
 const NOW = 1_800_000_000_000;
 const EXP = Math.floor(NOW / 1000) + 900;
@@ -14,7 +14,7 @@ const tokens: Record<string, unknown> = {
   'header.user-token.signature': userPrincipal(EXP),
   'header.service-token-ok.signature': servicePrincipal(EXP, ['users/cards.read']),
   'header.service-token-other-scope.signature': servicePrincipal(EXP, ['transactions/read']),
-  'header.revoked-token.signature': { valid: false, reason: 'disabled' },
+  'header.revoked-token.signature': invalidResult('disabled'),
 };
 
 let open: Servers | undefined;
@@ -27,7 +27,7 @@ const build = (authDown = false) => {
   const stub = fakeFetch((call) => {
     if (authDown) return jsonResponse(503, {});
     const { token } = JSON.parse(call.body ?? '{}') as { token: string };
-    return jsonResponse(200, tokens[token] ?? { valid: false, reason: 'bad_signature' });
+    return jsonResponse(200, tokens[token] ?? invalidResult('bad_signature'));
   });
   const authClient = createAuthClient({
     authUrl: 'http://auth',
@@ -72,7 +72,7 @@ describe('public routes (requireUser)', () => {
   it('attaches the user principal for a valid user token', async () => {
     const res = await get(build().servers.public, '/me', 'Bearer header.user-token.signature');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ userId: 'user-1' });
+    expect(res.json()).toEqual({ userId: USER_ID });
   });
 
   it('accepts the Bearer scheme case-insensitively', async () => {

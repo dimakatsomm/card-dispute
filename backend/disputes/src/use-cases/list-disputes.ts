@@ -1,9 +1,9 @@
-import type { DisputeStatus, ReasonCode } from '@cd/dispute-domain';
+import type { DisputeStatus } from '@cd/dispute-domain';
 import { err, ok, type Result } from '@cd/shared/fp';
 import { decodeCursor, encodeCursor, type CursorError } from '../core/cursor.ts';
 import { toTransactionRef } from '../core/dispute.ts';
-import { lastEventOf, type LastEvent } from '../core/timeline.ts';
-import type { Transaction, TransactionRef } from '../core/types.ts';
+import { lastEventOf } from '../core/timeline.ts';
+import type { DisputePage, DisputeSummary, Transaction } from '../core/types.ts';
 import type {
   DisputeSummaryRecord,
   FindTransactions,
@@ -26,22 +26,6 @@ export type ListDisputesInput = {
   readonly limit: number;
   readonly cursor?: string | undefined;
   readonly correlationId: string;
-};
-
-export type DisputeSummary = {
-  readonly disputeId: string;
-  readonly transactionId: string;
-  readonly status: DisputeStatus;
-  readonly reasonCode: ReasonCode;
-  readonly transaction: TransactionRef | null;
-  readonly lastEvent: LastEvent;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-};
-
-export type DisputePage = {
-  readonly items: ReadonlyArray<DisputeSummary>;
-  readonly nextCursor: string | null;
 };
 
 export type ListDisputesError = CursorError | UpstreamError;

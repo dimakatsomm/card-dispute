@@ -1,8 +1,9 @@
 import type { HttpClient, TokenError } from '@cd/auth-client';
-import { CARD_STATUSES, DISPUTE_STATUSES } from '@cd/dispute-domain';
+import { zLookupDisputesResponse } from '@cd/contracts/disputes.service';
+import { zListCardsForUserResponse } from '@cd/contracts/users.service';
 import { err, ok, type Result } from '@cd/shared/fp';
 import type { FastifyBaseLogger } from 'fastify';
-import { z } from 'zod';
+import type { z } from 'zod';
 import type { CardRef, DisputeRef, UpstreamError } from '../core/disputable.ts';
 
 export type UpstreamDeps = {
@@ -72,18 +73,6 @@ const call = async <S extends z.ZodType>(
   return result.ok ? result : err({ service, detail: result.error });
 };
 
-const cardsSchema = z.object({
-  cards: z.array(
-    z.object({
-      cardId: z.guid(),
-      userId: z.guid(),
-      expiryMonth: z.number().int(),
-      expiryYear: z.number().int(),
-      status: z.enum(CARD_STATUSES),
-    }),
-  ),
-});
-
 type CachedCards = { readonly cards: ReadonlyArray<CardRef>; readonly expiresAt: number };
 
 const MAX_CACHED_USERS = 10_000;
@@ -107,7 +96,8 @@ export const createUsersClient = (deps: UsersClientDeps) => {
     fetchCards: async (userId: string, correlationId: string): Promise<Result<ReadonlyArray<CardRef>, UpstreamError>> => {
       const hit = cache.get(userId);
       if (hit && deps.nowMs() < hit.expiresAt) return ok(hit.cards);
-      const result = await call('users', deps, `/cards?${new URLSearchParams({ userId })}`, cardsSchema, correlationId);
+      const path = `/cards?${new URLSearchParams({ userId })}`;
+      const result = await call('users', deps, path, zListCardsForUserResponse, correlationId);
       if (!result.ok) return result;
       // Defence in depth: a card users attributes to someone else never informs this user's rows.
       const cards = result.value.cards
@@ -119,10 +109,6 @@ export const createUsersClient = (deps: UsersClientDeps) => {
   };
 };
 
-const disputesSchema = z.object({
-  items: z.array(z.object({ transactionId: z.guid(), disputeId: z.guid(), status: z.enum(DISPUTE_STATUSES) })),
-});
-
 export const createDisputesClient = (deps: UpstreamDeps) => ({
   fetchDisputes: async (
     userId: string,
@@ -130,7 +116,7 @@ export const createDisputesClient = (deps: UpstreamDeps) => ({
     correlationId: string,
   ): Promise<Result<ReadonlyArray<DisputeRef>, UpstreamError>> => {
     const query = new URLSearchParams({ userId, transactionIds: transactionIds.join(',') });
-    const result = await call('disputes', deps, `/disputes?${query}`, disputesSchema, correlationId);
+    const result = await call('disputes', deps, `/disputes?${query}`, zLookupDisputesResponse, correlationId);
     return result.ok ? ok(result.value.items) : result;
   },
 });

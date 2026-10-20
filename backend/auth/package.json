@@ -16,6 +16,7 @@
     "@cd/shared": "workspace:*",
     "@cd/auth-client": "workspace:*",
     "@cd/db": "workspace:*",
+    "@cd/contracts": "workspace:*",
     "aws-jwt-verify": "catalog:"
   },
   "devDependencies": {

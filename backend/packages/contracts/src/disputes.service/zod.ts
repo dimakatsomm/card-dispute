@@ -4,18 +4,102 @@ import * as z from 'zod';
 
 export const zAgentActor = z.strictObject({
     type: z.literal('AGENT'),
-    id: z.string().min(1).max(128)
+    id: z.string().check(ctx => {
+        if (ctx.value.length > 256) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 128,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length < 1) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 1,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+        if (length > 128) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 128,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    })
 });
 
 export const zReviewDisputeRequest = z.strictObject({
     actor: zAgentActor,
     expectedVersion: z.int().gte(1),
-    note: z.string().max(500).optional()
+    note: z.string().check(ctx => {
+        if (ctx.value.length > 1000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 500,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        if (ctx.value.length <= 500) {
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length > 500) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 500,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }).optional()
 });
 
 export const zResolveDisputeRequest = z.strictObject({
     outcome: z.enum(['ACCEPTED', 'REJECTED']),
-    note: z.string().min(1).max(2000),
+    note: z.string().check(ctx => {
+        if (ctx.value.length > 4000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length < 1) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 1,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+        if (length > 2000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }),
     actor: zAgentActor,
     expectedVersion: z.int().gte(1)
 });
@@ -41,7 +125,18 @@ export const zEvidenceRejected = z.strictObject({
     ]),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
     sizeBytes: z.int().gte(1),
-    contentType: z.string().min(1)
+    contentType: z.string().check(ctx => {
+        const length = [...ctx.value].length;
+        if (length < 1) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 1,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    })
 });
 
 /**
@@ -49,7 +144,37 @@ export const zEvidenceRejected = z.strictObject({
  * The decoded content is checked by the service; a mismatch is 400 `INVALID_CURSOR`.
  *
  */
-export const zCursor = z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/);
+export const zCursor = z.string().check(ctx => {
+    if (ctx.value.length > 1024) {
+        ctx.issues.push({
+            code: 'too_big',
+            origin: 'string',
+            maximum: 512,
+            inclusive: true,
+            input: ctx.value
+        });
+        return;
+    }
+    const length = [...ctx.value].length;
+    if (length < 1) {
+        ctx.issues.push({
+            code: 'too_small',
+            origin: 'string',
+            minimum: 1,
+            inclusive: true,
+            input: ctx.value
+        });
+    }
+    if (length > 512) {
+        ctx.issues.push({
+            code: 'too_big',
+            origin: 'string',
+            maximum: 512,
+            inclusive: true,
+            input: ctx.value
+        });
+    }
+}).regex(/^[A-Za-z0-9_-]+$/);
 
 export const zDisputeStatus = z.enum([
     'SUBMITTED',

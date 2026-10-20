@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { expectContract } from './helpers/contract.ts';
 import { startDisputesDb, type TestDb } from './helpers/db.ts';
 import {
   createFakeUpstreams,
@@ -73,6 +74,7 @@ describe('GET :8081/disputes', () => {
 
     expect(res.statusCode).toBe(200);
     const body = res.json<{ items: ReadonlyArray<Record<string, unknown>> }>();
+    expectContract('lookup', body);
     expect(Object.keys(body)).toEqual(['items']);
     expect(
       [...body.items].sort((a, b) => String(a.transactionId).localeCompare(String(b.transactionId))),

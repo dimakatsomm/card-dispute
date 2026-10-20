@@ -1,9 +1,11 @@
+import { zListMyTransactionsResponse } from '@cd/contracts/transactions.public';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   DISPUTES_URL,
   TOKEN_URL,
   USERS_URL,
   buildHarness,
+  expectContract,
   fakeId,
   hang,
   json,
@@ -88,6 +90,12 @@ const CARDS: Readonly<Record<string, ReadonlyArray<unknown>>> = {
 };
 
 const usersOk: Upstream = (call) => json(200, { cards: CARDS[call.url.searchParams.get('userId') ?? ''] ?? [] });
+
+// A field set to undefined is dropped by JSON.stringify, i.e. missing upstream.
+const withCard =
+  (patch: Readonly<Record<string, unknown>>): Upstream =>
+  () =>
+    json(200, { cards: [{ ...card(CARD_A1, A, A1, 2099), ...patch }] });
 
 const disputesOk: Upstream = (call) => {
   const ids = (call.url.searchParams.get('transactionIds') ?? '').split(',');
@@ -195,6 +203,7 @@ describe('GET /transactions (public)', () => {
     ['year 0000 from, which Postgres cannot store', '?from=0000-01-01T00:00:00Z'],
     ['year 0000 to', '?to=0000-01-01T00:00:00Z'],
     ['offset beyond what Postgres accepts', `?from=${encodeURIComponent('2026-01-01T00:00:00+23:00')}`],
+    ['impossible calendar date from (30 February)', '?from=2026-02-30T00:00:00Z'],
   ])('400 on %s', async (_name, query) => {
     const res = await harness().servers.public.inject({
       method: 'GET',
@@ -322,6 +331,11 @@ describe('GET /transactions (public)', () => {
     ['disputes 503', usersOk, () => json(503, {})],
     ['users unreachable', () => Promise.reject(new TypeError('fetch failed')), disputesOk],
     ['users malformed body', () => json(200, { cards: 'nope' }), disputesOk],
+    ['users card expiryMonth 13', withCard({ expiryMonth: 13 }), disputesOk],
+    ['users card expiryYear 1999', withCard({ expiryYear: 1999 }), disputesOk],
+    ['users card missing last4', withCard({ last4: undefined }), disputesOk],
+    ['users card missing expired', withCard({ expired: undefined }), disputesOk],
+    ['disputes malformed body', usersOk, () => json(200, { items: [{ transactionId: T5 }] })],
     ['users silent > 2 s', hang, disputesOk],
     ['disputes silent > 2 s', usersOk, hang],
   ])('%s → 200, every row dispute null + disputable UNAVAILABLE', async (_name, users, disputes) => {
@@ -335,9 +349,23 @@ describe('GET /transactions (public)', () => {
     }
   });
 
-  it('serialises amounts as decimal strings', async () => {
-    const { body } = await list(harness(), 'hdr.token-a.signature');
+  it('tolerates fields the callees add to their service responses', async () => {
+    const users: Upstream = () =>
+      json(200, { cards: [{ ...card(CARD_A1, A, A1, 2099), nickname: 'x' }], total: 1 });
+    const disputes: Upstream = () =>
+      json(200, { items: [{ transactionId: T5, disputeId: DISPUTE_T5, status: 'WITHDRAWN', version: 3 }], total: 1 });
+    const { status, body } = await list(harness(users, disputes), 'hdr.token-a.signature');
+    expect(status).toBe(200);
+    const byId = new Map(body.items.map((i) => [i.transactionId, i]));
+    expect(byId.get(T1)).toMatchObject({ disputable: { allowed: true } });
+    expect(byId.get(T5)?.dispute).toEqual({ disputeId: DISPUTE_T5, status: 'WITHDRAWN' });
+  });
+
+  it('a real page satisfies the generated response contract', async () => {
+    const { status, body } = await list(harness(), 'hdr.token-a.signature');
+    expect(status).toBe(200);
     expect(body.items.map((i) => i.amount)).toEqual(['125.50', '40.00', '300.00', '1000.00', '99.99']);
+    expectContract(zListMyTransactionsResponse, body);
   });
 
   it('rejects a service token on the public port with 403', async () => {

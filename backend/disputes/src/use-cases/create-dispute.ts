@@ -11,13 +11,7 @@ import {
   toEligibilityTransaction,
   toTransactionRef,
 } from '../core/dispute.ts';
-import type {
-  DisputeRecord,
-  DisputeResource,
-  EvidenceDeclaration,
-  EvidenceRecord,
-  UploadInstruction,
-} from '../core/types.ts';
+import type { CreatedDispute, DisputeRecord, EvidenceDeclaration, EvidenceRecord } from '../core/types.ts';
 import type {
   FindCard,
   FindTransaction,
@@ -45,8 +39,6 @@ export type CreateDisputeInput = {
   readonly evidence: ReadonlyArray<EvidenceDeclaration>;
   readonly correlationId: string;
 };
-
-export type CreatedDispute = DisputeResource & { readonly uploads: ReadonlyArray<UploadInstruction> };
 
 export type CreateDisputeError = 'NOT_FOUND' | EligibilityReason | InputError | UpstreamError | SigningError;
 

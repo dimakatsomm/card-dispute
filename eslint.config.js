@@ -70,25 +70,36 @@ const otherDeployables = (self) =>
       ),
     );
 
-const foreignPublicContracts = (self) =>
-  SERVICES.filter((name) => name !== self).map((name) =>
+const CONTRACTS = [
+  'auth.service',
+  'users.public',
+  'users.service',
+  'transactions.public',
+  'transactions.service',
+  'disputes.public',
+  'disputes.service',
+];
+
+// Own public contract plus the service contracts of the deployable's callees (ADR-057); query is shared.
+const ALLOWED_CONTRACTS = {
+  auth: ['auth.service'],
+  users: ['users.public', 'users.service'],
+  transactions: ['transactions.public', 'transactions.service', 'users.service', 'disputes.service'],
+  disputes: ['disputes.public', 'disputes.service', 'transactions.service', 'users.service'],
+  'evidence-intake': ['disputes.service'],
+  'dispute-notifier': ['users.service', 'disputes.service'],
+  'retention-sweeper': [],
+};
+
+const disallowedContracts = (self) =>
+  CONTRACTS.filter((name) => !ALLOWED_CONTRACTS[self].includes(name)).map((name) =>
     group(
-      [`@cd/contracts/${name}.public`],
-      `A deployable may import only its own *.public contract and callees' *.service contracts, never ${name}.public (ADR-057).`,
+      [`@cd/contracts/${name}`],
+      `${self} may import only its own *.public contract and its callees' *.service contracts, never ${name} (ADR-057).`,
     ),
   );
 
-const restrictedFor = (self) => [
-  ...otherDeployables(self),
-  ...(SERVICES.includes(self)
-    ? foreignPublicContracts(self)
-    : [
-        group(
-          SERVICES.map((name) => `@cd/contracts/${name}.public`),
-          'Lambdas call service ports: import *.service contracts only, never a *.public contract (ADR-057).',
-        ),
-      ]),
-];
+const restrictedFor = (self) => [...otherDeployables(self), ...disallowedContracts(self)];
 
 const importRule = (patterns, paths = []) => ({
   'no-restricted-imports': ['error', { patterns, paths }],

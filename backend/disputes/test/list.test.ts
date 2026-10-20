@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { expectContract } from './helpers/contract.ts';
 import { startDisputesDb, type TestDb } from './helpers/db.ts';
 import { createFakeUpstreams, hang, json, URLS, type FakeUpstreams } from './helpers/fakes.ts';
 import { seedDispute, seedHistory } from './helpers/seed.ts';
@@ -115,6 +116,7 @@ describe('GET /disputes', () => {
 
     expect(res.statusCode).toBe(200);
     expect(transactionCalls().length - callsBefore).toBe(1);
+    expectContract('list', res.json());
     expect(res.json()).toEqual({
       items: [
         {

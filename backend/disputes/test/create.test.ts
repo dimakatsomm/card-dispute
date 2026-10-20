@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadDisputesConfig } from '../src/config.ts';
 import { createConfiguredUploadSigner } from '../src/main.ts';
 import { createDisputeRepo, TRANSACTION_UNIQUE } from '../src/adapters/dispute-repo.ts';
+import { expectContract } from './helpers/contract.ts';
 import { startDisputesDb, type TestDb } from './helpers/db.ts';
 import {
   createFakeUpstreams,
@@ -109,6 +110,7 @@ describe('POST /dispute/{transactionId}', () => {
     expect(res.headers.etag).toBe('"1"');
     expect(res.headers.location).toBe(`/dispute/${txn.transactionId}`);
     const body = res.json();
+    expectContract('create', body);
     expect(body).toMatchObject({
       transactionId: txn.transactionId,
       status: 'SUBMITTED',
@@ -207,25 +209,21 @@ describe('POST /dispute/{transactionId}', () => {
   });
 
   it.each([
-    { code: 'CARD_EXPIRED', txn: {}, card: { expiryMonth: 1, expiryYear: 2020, expired: true }, body: {} },
-    { code: 'TXN_NOT_POSTED', txn: { status: 'PENDING', postedAt: null }, card: {}, body: {} },
-    { code: 'TXN_TYPE_NOT_DISPUTABLE', txn: { type: 'REFUND' }, card: {}, body: {} },
+    { code: 'CARD_EXPIRED', txn: {}, card: { expiryMonth: 1, expiryYear: 2020, expired: true } },
+    { code: 'TXN_NOT_POSTED', txn: { status: 'PENDING', postedAt: null }, card: {} },
+    { code: 'TXN_TYPE_NOT_DISPUTABLE', txn: { type: 'REFUND' }, card: {} },
     {
       code: 'OUTSIDE_WINDOW',
       txn: { postedAt: daysAgo(130), transactionAt: daysAgo(131) },
       card: {},
-      body: {},
     },
-    { code: 'INVALID_REASON', txn: {}, card: {}, body: { reasonCode: 'BORED' } },
-    { code: 'INVALID_DESCRIPTION', txn: {}, card: {}, body: { description: 'too short' } },
   ] as const)(
     'ineligible: $code → 422 NOT_ELIGIBLE decided by @cd/dispute-domain',
-    async ({ code, txn, card, body }) => {
+    async ({ code, txn, card }) => {
       const t = upstreams.addTransaction(USER_A.userId, txn, card);
       const res = await post(svc, USER_A.token, t.transactionId, {
         reasonCode: 'FRAUD',
         description: DESCRIPTION,
-        ...body,
       });
       expect(res.statusCode).toBe(422);
       expect(res.json()).toMatchObject({ type: 'urn:cd:problem:NOT_ELIGIBLE', code });
@@ -279,8 +277,55 @@ describe('POST /dispute/{transactionId}', () => {
   });
 
   it.each([
+    { name: 'unknown reasonCode', body: { reasonCode: 'BORED' }, code: 'INVALID_REASON' },
+    { name: 'too-short description', body: { description: 'too short' }, code: 'INVALID_DESCRIPTION' },
+    { name: 'description over 2000', body: { description: 'x'.repeat(2001) }, code: 'INVALID_DESCRIPTION' },
+    {
+      name: 'bad reasonCode plus an unknown field',
+      body: { reasonCode: 'BORED', priority: 'high' },
+      code: 'VALIDATION_FAILED',
+    },
+  ])('$name → 400 $code, not 422, nothing written', async ({ body, code }) => {
+    const txn = upstreams.addTransaction(USER_A.userId);
+    const res = await post(svc, USER_A.token, txn.transactionId, {
+      reasonCode: 'FRAUD',
+      description: DESCRIPTION,
+      ...body,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code });
+    expect(await rowCounts(txn.transactionId)).toEqual(NO_ROWS);
+  });
+
+  it('accepts a maximal valid body; a 64 KiB body → 413 problem+json, nothing written', async () => {
+    const maximal = {
+      reasonCode: 'FRAUD',
+      description: '\u{1F600}'.repeat(2000),
+      evidence: [0, 1, 2, 3, 4].map((i) =>
+        declaration({
+          fileName: `${'\u{1F600}'.repeat(251)}.pdf`,
+          sha256: createHash('sha256').update(`file ${i}`).digest('hex'),
+        }),
+      ),
+    };
+    const fits = upstreams.addTransaction(USER_A.userId);
+    const ok = await post(svc, USER_A.token, fits.transactionId, maximal);
+    expect(ok.statusCode).toBe(201);
+
+    const txn = upstreams.addTransaction(USER_A.userId);
+    const res = await post(svc, USER_A.token, txn.transactionId, {
+      reasonCode: 'FRAUD',
+      description: 'x'.repeat(64 * 1024),
+    });
+    expect(res.statusCode).toBe(413);
+    expect(res.headers['content-type']).toContain('application/problem+json');
+    expect(res.json()).toMatchObject({ status: 413, code: 'HTTP_413' });
+    expect(res.body).not.toContain('xxxx');
+    expect(await rowCounts(txn.transactionId)).toEqual(NO_ROWS);
+  });
+
+  it.each([
     { name: 'disputedAmount', extra: { disputedAmount: '10.00' } },
-    { name: 'any unknown field', extra: { priority: 'high' } },
     {
       name: 'unknown field inside a declaration',
       extra: { evidence: [declaration({ path: '/etc/passwd' })] },
@@ -293,14 +338,13 @@ describe('POST /dispute/{transactionId}', () => {
       ...extra,
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(await rowCounts(txn.transactionId)).toEqual(NO_ROWS);
   });
 
   it.each([
     { name: '6 declarations', evidence: Array.from({ length: 6 }, () => declaration()) },
-    { name: 'size > 10 MB', evidence: [declaration({ sizeBytes: 10_485_761 })] },
-    { name: 'type not PDF/JPEG/PNG', evidence: [declaration({ contentType: 'application/x-msdownload' })] },
-    { name: 'malformed sha256', evidence: [declaration({ sha256: FILE_SHA_HEX.toUpperCase() })] },
+    { name: 'a control character in fileName', evidence: [declaration({ fileName: 'receipt\n.pdf' })] },
   ])('evidence with $name → 400, no dispute or evidence rows', async ({ evidence }) => {
     const txn = upstreams.addTransaction(USER_A.userId);
     const res = await post(svc, USER_A.token, txn.transactionId, {
@@ -490,6 +534,44 @@ describe('upstream failures and isolation', () => {
       expect(res.json()).toMatchObject({ code: 'UPSTREAM_UNAVAILABLE' });
       expect(await rowCounts(txn.transactionId)).toEqual(NO_ROWS);
     });
+  });
+
+  it.each([
+    { name: 'users returns expiryMonth 13', txn: {}, card: { expiryMonth: 13 } },
+    { name: 'transactions returns a year-0000 postedAt', txn: { postedAt: '0000-01-01T00:00:00Z' }, card: {} },
+  ])('$name → 503 (callee contract), nothing written', async ({ txn, card }) => {
+    const t = upstreams.addTransaction(USER_A.userId, txn, card);
+    const res = await post(svc, USER_A.token, t.transactionId, { reasonCode: 'FRAUD', description: DESCRIPTION });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ code: 'UPSTREAM_UNAVAILABLE' });
+    expect(await rowCounts(t.transactionId)).toEqual(NO_ROWS);
+  });
+
+  it('extra fields from transactions and users are tolerated and never reach the strict response', async () => {
+    const txn = upstreams.addTransaction(USER_A.userId);
+    const withExtra = async (res: Response, key: 'items' | 'cards') => {
+      const body = (await res.json()) as Record<string, ReadonlyArray<object>>;
+      return json(200, { [key]: (body[key] ?? []).map((row) => ({ ...row, addedLater: 'x' })), page: 1 });
+    };
+    await withService(
+      (url, _body, init) => {
+        const key = isPath(url, URLS.transactions, '/transactions')
+          ? 'items'
+          : isPath(url, URLS.users, '/cards')
+            ? 'cards'
+            : undefined;
+        return key === undefined ? undefined : upstreams.fetch(url, init).then((res) => withExtra(res, key));
+      },
+      async (service) => {
+        const res = await post(service, USER_A.token, txn.transactionId, {
+          reasonCode: 'FRAUD',
+          description: DESCRIPTION,
+        });
+        expect(res.statusCode).toBe(201);
+        expectContract('create', res.json());
+        expect(res.body).not.toContain('addedLater');
+      },
+    );
   });
 
   it.each([

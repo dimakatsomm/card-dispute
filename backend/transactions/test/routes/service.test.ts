@@ -1,8 +1,10 @@
+import { zLookupTransactionsResponse } from '@cd/contracts/transactions.service';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   AUTH_URL,
   TOKEN_URL,
   buildHarness,
+  expectContract,
   fakeId,
   seed,
   serviceToken,
@@ -99,8 +101,9 @@ describe('GET :8081/transactions (service)', () => {
     expect(calls.every((c) => c.url.origin === AUTH_URL || c.url.href === TOKEN_URL)).toBe(true);
   });
 
-  it('returns raw rows: amounts as decimal strings and no dispute fields', async () => {
+  it('returns raw rows (no dispute fields) that satisfy the generated response contract', async () => {
     const { body } = await lookup(`userId=${A}&transactionIds=${T1}`);
+    expectContract(zLookupTransactionsResponse, body);
     expect(body.items).toEqual([
       {
         transactionId: T1,

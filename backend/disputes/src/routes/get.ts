@@ -1,11 +1,10 @@
 import { userPrincipalOf } from '@cd/auth-client';
+import { zGetDisputePath } from '@cd/contracts/disputes.public';
 import { commonProblem, parseRequest, sendProblem, validationProblem } from '@cd/shared';
 import type { Result } from '@cd/shared/fp';
 import type { RouteOptions } from 'fastify';
-import { z } from 'zod';
-import type { DisputeDetail, GetDisputeError, GetDisputeInput } from '../use-cases/get-dispute.ts';
-
-const params = z.object({ transactionId: z.uuid() });
+import type { DisputeDetail } from '../core/types.ts';
+import type { GetDisputeError, GetDisputeInput } from '../use-cases/get-dispute.ts';
 
 export type GetDisputeUseCase = (input: GetDisputeInput) => Promise<Result<DisputeDetail, GetDisputeError>>;
 
@@ -13,7 +12,7 @@ export const getDisputeRoute = (getDispute: GetDisputeUseCase): RouteOptions => 
   method: 'GET',
   url: '/dispute/:transactionId',
   handler: async (request, reply) => {
-    const path = parseRequest(params, request.params);
+    const path = parseRequest(zGetDisputePath, request.params);
     if (!path.ok) return sendProblem(reply, validationProblem(path.error, request.id));
 
     const result = await getDispute({

@@ -1,4 +1,5 @@
 import { userPrincipalOf } from '@cd/auth-client';
+import { zEditDispute, zUpdateDisputePath, zWithdrawDispute } from '@cd/contracts/disputes.public';
 import {
   commonProblem,
   parseRequest,
@@ -12,26 +13,16 @@ import type { RouteOptions } from 'fastify';
 import { z } from 'zod';
 import type { DisputeResource } from '../core/types.ts';
 import type { UpdateAction, UpdateDisputeError, UpdateDisputeInput } from '../use-cases/update-dispute.ts';
+import { DISPUTE_BODY_LIMIT_BYTES, disputeBodyProblem } from './validation.ts';
 
-// Strict, so disputedAmount is a 400 (ADR-024).
-const editBody = z
-  .strictObject({
-    action: z.literal('EDIT'),
-    reasonCode: z.string().optional(),
-    description: z.string().optional(),
-  })
-  .refine((b) => b.reasonCode !== undefined || b.description !== undefined, {
-    message: 'EDIT needs reasonCode or description',
-  });
+type EditBody = z.output<typeof zEditDispute>;
 
-const withdrawBody = z.strictObject({
-  action: z.literal('WITHDRAW'),
-  note: z.string().max(500).optional(),
-});
+const editsSomething = (body: EditBody): boolean => body.reasonCode !== undefined || body.description !== undefined;
 
-const updateBody = z.discriminatedUnion('action', [editBody, withdrawBody]);
-
-const params = z.object({ transactionId: z.uuid() });
+const updateBody = z.discriminatedUnion('action', [
+  zEditDispute.refine(editsSomething, { message: 'EDIT needs reasonCode or description' }),
+  zWithdrawDispute,
+]);
 
 const QUOTED_VERSION = /^"([1-9][0-9]{0,8})"$/;
 
@@ -67,7 +58,7 @@ export const updateDisputeProblem = (error: UpdateDisputeError, correlationId: s
       );
     case 'INVALID_REASON':
     case 'INVALID_DESCRIPTION':
-      return problem(400, 'Bad Request', error, 'The edited dispute is not valid', correlationId);
+      return problem(400, 'Validation Failed', error, 'The edited dispute is not valid', correlationId);
     default:
       return assertNever(error);
   }
@@ -85,8 +76,9 @@ const toAction = (body: z.output<typeof updateBody>): UpdateAction =>
 export const updateDisputeRoute = (updateDispute: UpdateDisputeUseCase): RouteOptions => ({
   method: 'PUT',
   url: '/dispute/:transactionId',
+  bodyLimit: DISPUTE_BODY_LIMIT_BYTES,
   handler: async (request, reply) => {
-    const path = parseRequest(params, request.params);
+    const path = parseRequest(zUpdateDisputePath, request.params);
     if (!path.ok) return sendProblem(reply, validationProblem(path.error, request.id));
     const ifMatch = request.headers['if-match'];
     if (ifMatch === undefined) {
@@ -96,7 +88,7 @@ export const updateDisputeRoute = (updateDispute: UpdateDisputeUseCase): RouteOp
       );
     }
     const body = parseRequest(updateBody, request.body);
-    if (!body.ok) return sendProblem(reply, validationProblem(body.error, request.id));
+    if (!body.ok) return sendProblem(reply, disputeBodyProblem(body.error, request.id));
     // Anything but a quoted version (including "*") can never match, so it is stale rather than a bypass.
     const version = QUOTED_VERSION.exec(ifMatch)?.[1];
     if (version === undefined) return sendProblem(reply, preconditionFailed(request.id));

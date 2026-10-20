@@ -5,7 +5,7 @@
   "milestones": {
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
-    "M2": "in_progress — decomposed 2026-10-20 (analyst). Blocked on S-08 (OpenAPI→zod generation) before M2-00.",
+    "M2": "in_progress — decomposed 2026-10-20 (analyst); S-08 done; next M2-00.",
     "M3": "todo — tasks I-00..I-13, CI-02, X-01, E-03 (docs/08 §8)",
     "M4": "todo — H-01..H-04 (docs/08 §8)"
   },
@@ -209,6 +209,12 @@
       "agent": "implementer",
       "blockedBy": [],
       "notes": "Found by E-01. Non-JWT bearer 401 before auth; auth 400 -> invalid. Stale service token: compare-and-clear invalidate + retry once, 10 s cooldown (no herd/amplification). One 2 s bounded validate lookup; callee getJson invalidates on 401 and aborts at deadline. Security gate PASS (2 rounds). Closes R-10."
+    },
+    "S-08": {
+      "status": "done",
+      "agent": "multiple",
+      "blockedBy": [],
+      "notes": "Backend HTTP boundary on generated zod (@cd/contracts). Specs carry all wire rules; code-point string lengths with cost guard; escaped regexes; per-service contract allow-lists; generic unknown-field detail; disputes bodyLimit 48 KiB + 413 in spec; create reason/description 400. Security gate PASS. Tests: 742 unit/integration, e2e 23/23, UI smoke pass."
     }
   },
   "decisions": [
@@ -500,7 +506,7 @@
     {
       "id": "ADR-058",
       "date": "2026-10-20",
-      "text": "Generated header schemas are not used for If-Match: disputes checks it by hand first (missing 428, malformed or stale 412) before body validation, as today; the spec keeps required+pattern for documentation. Non-uuid userId on users contact path becomes 400 per spec. Residual cross-field rules (from<to, min<=max, EDIT changes >=1 field, cursor decode, calendar validity) stay as .refine in the service, predicates in dispute-domain where they are domain rules."
+      "text": "Generated header schemas are not used for If-Match: disputes checks If-Match by hand, as today: missing → 428 before body validation; malformed or stale → 412 after the body parses; the spec keeps required+pattern for documentation. Non-uuid userId on users contact path becomes 400 per spec. Residual cross-field rules (from<to, min<=max, EDIT changes >=1 field, cursor decode, calendar validity) stay as .refine in the service, predicates in dispute-domain where they are domain rules."
     }
   ],
   "openQuestions": [
@@ -510,7 +516,8 @@
     "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
     "R-11: whoever writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (evidence-intake, P-05 path) must set after={evidenceId}; P-03 timeline depends on it (docs/03).",
-    "V-10: user token on a service port (8081) → 403 is proven in unit/integration tests only; add a compose-network check in M2 e2e."
+    "V-10: user token on a service port (8081) → 403 is proven in unit/integration tests only; add a compose-network check in M2 e2e.",
+    "M2-00: disputes.service lookup response must add version (ADR-055); LOOKUP_MAX_IDS=100 in disputes transactions-client duplicates the transactions.service limit."
   ],
   "peerReviews": [
     {

@@ -1,7 +1,9 @@
 import { userPrincipalOf } from '@cd/auth-client';
+import type { zListMyTransactionsResponse } from '@cd/contracts/transactions.public';
 import { parseRequest, sendProblem, validationProblem } from '@cd/shared';
 import type { Result } from '@cd/shared/fp';
 import type { RouteOptions } from 'fastify';
+import type { z } from 'zod';
 import { listTransactionsProblem } from '../errors.ts';
 import type {
   ListTransactionsError,
@@ -9,6 +11,8 @@ import type {
   ListTransactionsOutput,
 } from '../use-cases/list-transactions.ts';
 import { listQuerySchema } from './query.ts';
+
+type ListResponse = z.infer<typeof zListMyTransactionsResponse>;
 
 export type PublicUseCases = {
   readonly listTransactions: (
@@ -35,7 +39,8 @@ export const publicRoutes = (uc: PublicUseCases): RouteOptions[] => [
       if (result.value.degraded.length > 0) {
         request.log.warn({ degraded: result.value.degraded }, 'transaction enrichment unavailable');
       }
-      return { items: result.value.items, nextCursor: result.value.nextCursor };
+      const body: ListResponse = { items: [...result.value.items], nextCursor: result.value.nextCursor };
+      return body;
     },
   },
 ];

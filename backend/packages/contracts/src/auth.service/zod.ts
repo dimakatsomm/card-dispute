@@ -5,7 +5,18 @@ import * as z from 'zod';
 export const zValidService = z.object({
     valid: z.literal(true),
     principalType: z.literal('service'),
-    clientId: z.string().min(1),
+    clientId: z.string().check(ctx => {
+        const length = [...ctx.value].length;
+        if (length < 1) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 1,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }),
     scopes: z.array(z.string()),
     exp: z.int()
 });
@@ -57,7 +68,37 @@ export const zServiceToken = z.unknown();
 export const zCorrelationIdHeader = z.string().regex(/^[A-Za-z0-9-]{8,64}$/);
 
 export const zValidateTokenBody = z.strictObject({
-    token: z.string().min(20).max(8192)
+    token: z.string().check(ctx => {
+        if (ctx.value.length > 16384) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 8192,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length < 20) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 20,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+        if (length > 8192) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 8192,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    })
 });
 
 export const zValidateTokenHeaders = z.object({

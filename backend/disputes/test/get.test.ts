@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDisputeRepo } from '../src/adapters/dispute-repo.ts';
+import { expectContract } from './helpers/contract.ts';
 import { startDisputesDb, type TestDb } from './helpers/db.ts';
 import { createFakeUpstreams, json, URLS, USER_A, USER_B, type FakeUpstreams } from './helpers/fakes.ts';
 import { DESCRIPTION, seedDispute, seedEvidence, seedHistory } from './helpers/seed.ts';
@@ -122,6 +123,7 @@ describe('GET /dispute/{transactionId}', () => {
     expect(res.headers.etag).toBe('"4"');
     expect(transactionCalls() - callsBefore).toBe(1);
     const body = res.json();
+    expectContract('detail', body);
     expect(body).toMatchObject({
       disputeId: seeded.disputeId,
       transactionId: txn.transactionId,

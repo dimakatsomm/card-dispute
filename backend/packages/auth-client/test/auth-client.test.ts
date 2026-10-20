@@ -2,7 +2,7 @@ import { ok } from '@cd/shared/fp';
 import { describe, expect, it } from 'vitest';
 import { createAuthClient } from '../src/auth-client.ts';
 import { createServiceTokenProvider } from '../src/service-token.ts';
-import { fakeFetch, jsonResponse, userPrincipal } from './fakes.ts';
+import { AUTH_ID, fakeFetch, invalidResult, jsonResponse, USER_ID, userPrincipal } from './fakes.ts';
 
 const T0 = 1_800_000_000_000;
 const secs = (n: number) => n * 1000;
@@ -26,7 +26,7 @@ describe('createAuthClient.validate', () => {
     const result = await client.validate('user-jwt', 'corr-12345678');
     expect(result).toEqual({
       ok: true,
-      value: { principalType: 'user', authId: 'auth-1', userId: 'user-1', scopes: [], exp: epoch(T0) + 900 },
+      value: { principalType: 'user', authId: AUTH_ID, userId: USER_ID, scopes: [], exp: epoch(T0) + 900 },
     });
     expect(stub.calls[0]).toMatchObject({ url: 'http://auth:8081/validate', method: 'POST' });
     expect(stub.calls[0]?.headers['authorization']).toBe('Bearer service-token');
@@ -72,7 +72,7 @@ describe('createAuthClient.validate', () => {
   });
 
   it('never caches an invalid result', async () => {
-    const { stub, client } = setup(() => jsonResponse(200, { valid: false, reason: 'expired' }));
+    const { stub, client } = setup(() => jsonResponse(200, invalidResult('expired')));
     const first = await client.validate('bad-jwt');
     await client.validate('bad-jwt');
     expect(first).toEqual({ ok: false, error: { kind: 'invalid', reason: 'expired' } });
@@ -87,7 +87,9 @@ describe('createAuthClient.validate', () => {
   it.each([
     ['5xx', () => jsonResponse(500, {})],
     ['401 for our own service token', () => jsonResponse(401, {})],
-    ['unparseable body', () => jsonResponse(200, { valid: true, principalType: 'alien' })],
+    ['a non-uuid userId', () => jsonResponse(200, { ...userPrincipal(epoch(T0) + 900), userId: 'user-1' })],
+    ['a fractional exp', () => jsonResponse(200, userPrincipal(epoch(T0) + 900.5))],
+    ['valid:false without principalType none', () => jsonResponse(200, { valid: false, reason: 'expired' })],
     ['non-JSON body', () => new Response('<html>', { status: 200 })],
   ])('treats %s as unavailable and does not cache', async (_name, respond) => {
     const { client } = setup(respond);
@@ -174,7 +176,7 @@ describe('createAuthClient service-token rejection', () => {
   });
 
   it.each([
-    ['valid:false answers', () => jsonResponse(200, { valid: false, reason: 'expired' })],
+    ['valid:false answers', () => jsonResponse(200, invalidResult('expired'))],
     ['400 answers', () => jsonResponse(400, {})],
   ])('many distinct tokens rejected as %s never refetch the service token', async (_name, respond) => {
     const { tokenStub, client } = build(respond);

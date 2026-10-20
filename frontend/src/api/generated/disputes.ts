@@ -331,6 +331,15 @@ export type components = {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description Request body over the route's byte limit (`code` HTTP_413). Any valid body fits, however it is encoded. */
+        PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
     };
     parameters: {
         CorrelationIdHeader: string;
@@ -475,6 +484,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            413: components["responses"]["PayloadTooLarge"];
             /** @description Missing `If-Match`. */
             428: {
                 headers: {
@@ -554,6 +564,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            413: components["responses"]["PayloadTooLarge"];
             /** @description `NOT_ELIGIBLE`; `code` is one of CARD_EXPIRED, TXN_NOT_POSTED, TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW. */
             422: {
                 headers: {

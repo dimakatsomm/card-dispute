@@ -17,7 +17,8 @@
     "@cd/shared": "workspace:*",
     "@cd/auth-client": "workspace:*",
     "@cd/db": "workspace:*",
-    "@cd/dispute-domain": "workspace:*"
+    "@cd/dispute-domain": "workspace:*",
+    "@cd/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

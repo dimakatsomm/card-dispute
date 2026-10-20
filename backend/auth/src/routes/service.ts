@@ -1,6 +1,6 @@
+import { zValidateTokenBody } from '@cd/contracts/auth.service';
 import { parseRequest, sendProblem, validationProblem, type RegisterRoutes } from '@cd/shared';
 import type { Result } from '@cd/shared/fp';
-import { z } from 'zod';
 import type { CallerError, ServiceCaller } from '../core/caller.ts';
 import type { InvalidReason, Principal } from '../core/token.ts';
 import { callerProblem, validateResponse } from '../errors.ts';
@@ -11,8 +11,6 @@ export type ServiceRouteUseCases = {
   }) => Promise<Result<ServiceCaller, CallerError>>;
   readonly validateToken: (token: string) => Promise<Result<Principal, InvalidReason>>;
 };
-
-const validateBody = z.strictObject({ token: z.string().min(20).max(8192) });
 
 export const serviceRoutes =
   (uc: ServiceRouteUseCases): RegisterRoutes =>
@@ -31,7 +29,7 @@ export const serviceRoutes =
         },
       },
       async (request, reply) => {
-        const body = parseRequest(validateBody, request.body);
+        const body = parseRequest(zValidateTokenBody, request.body);
         if (!body.ok) return sendProblem(reply, validationProblem(body.error, request.id));
         return validateResponse(await uc.validateToken(body.value.token));
       },

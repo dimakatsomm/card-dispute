@@ -1,41 +1,27 @@
 import type { DisputeStatus } from '@cd/dispute-domain';
 import { assertNever } from '@cd/shared/fp';
-import type { EvidenceRecord, HistoryAction, HistoryRecord } from './types.ts';
+import type {
+  DisputeSummary,
+  EvidenceRecord,
+  HistoryAction,
+  HistoryRecord,
+  TimelineEvent,
+} from './types.ts';
 
 export const REJECTION_REASONS = ['MALWARE', 'TYPE_MISMATCH', 'CHECKSUM', 'SIZE'] as const;
 export type RejectionReason = (typeof REJECTION_REASONS)[number];
 
 export type EvidenceDetail = EvidenceRecord & { readonly rejectionReason: RejectionReason | null };
 
-export type TimelineType =
-  | 'SUBMITTED'
-  | 'EDITED'
-  | 'EVIDENCE_ADDED'
-  | 'EVIDENCE_REJECTED'
-  | 'UNDER_REVIEW'
-  | 'RESOLVED_ACCEPTED'
-  | 'RESOLVED_REJECTED'
-  | 'WITHDRAWN';
+export type TimelineType = TimelineEvent['type'];
 
-export type TimelineBy = 'CUSTOMER' | 'BANK';
+export type TimelineBy = TimelineEvent['by'];
 
 export type EditedField = 'description' | 'reasonCode';
 
-export type TimelineDetail = {
-  readonly fields?: ReadonlyArray<EditedField>;
-  readonly fileName?: string;
-  readonly reason?: string;
-  readonly note?: string;
-};
+export type TimelineDetail = NonNullable<TimelineEvent['detail']>;
 
-export type TimelineEvent = {
-  readonly type: TimelineType;
-  readonly at: string;
-  readonly by: TimelineBy;
-  readonly detail?: TimelineDetail;
-};
-
-export type LastEvent = { readonly type: TimelineType; readonly at: string };
+export type LastEvent = DisputeSummary['lastEvent'];
 
 const EDITED_FIELDS: ReadonlyArray<EditedField> = ['description', 'reasonCode'];
 

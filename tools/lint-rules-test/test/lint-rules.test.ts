@@ -55,6 +55,12 @@ const violations = [
     /never users\.public/,
   ],
   [
+    'service importing a service contract it does not call',
+    'backend/transactions/src/routes/bad-uncalled-service-contract.ts',
+    'no-restricted-imports',
+    /never auth\.service/,
+  ],
+  [
     'non-main file importing adapters',
     'backend/disputes/src/errors.ts',
     'no-restricted-imports',

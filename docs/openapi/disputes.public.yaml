@@ -115,6 +115,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '413': { $ref: './common.yaml#/components/responses/PayloadTooLarge' }
         '422':
           description: |
             `NOT_ELIGIBLE`; `code` is one of CARD_EXPIRED, TXN_NOT_POSTED, TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW.
@@ -186,6 +187,7 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '413': { $ref: './common.yaml#/components/responses/PayloadTooLarge' }
         '428':
           description: Missing `If-Match`.
           content:

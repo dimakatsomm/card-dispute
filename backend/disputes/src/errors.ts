@@ -7,7 +7,7 @@ const notEligible = (code: string, correlationId: string): ProblemBody => ({
     status: 422,
     title: 'Not Eligible',
     code,
-    detail: 'The transaction cannot be disputed with this request',
+    detail: 'The transaction cannot be disputed',
     correlationId,
   }),
   type: 'urn:cd:problem:NOT_ELIGIBLE',
@@ -29,9 +29,16 @@ export const createDisputeProblem = (error: CreateDisputeError, correlationId: s
     case 'TXN_NOT_POSTED':
     case 'TXN_TYPE_NOT_DISPUTABLE':
     case 'OUTSIDE_WINDOW':
+      return notEligible(error, correlationId);
     case 'INVALID_REASON':
     case 'INVALID_DESCRIPTION':
-      return notEligible(error, correlationId);
+      return problemBody({
+        status: 400,
+        title: 'Validation Failed',
+        code: error,
+        detail: 'The dispute input is not valid',
+        correlationId,
+      });
     case 'UPSTREAM_UNAVAILABLE':
       return problemBody({
         status: 503,

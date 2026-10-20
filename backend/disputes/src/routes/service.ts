@@ -1,20 +1,15 @@
 import type { ServiceRoute } from '@cd/auth-client';
+import { zLookupDisputesQuery, type zLookupDisputesResponse } from '@cd/contracts/disputes.service';
+import { queryOf } from '@cd/contracts/query';
 import { parseRequest, sendProblem, validationProblem } from '@cd/shared';
 import { assertNever, type Result } from '@cd/shared/fp';
-import { z } from 'zod';
+import type { z } from 'zod';
 import type { DisputeRef } from '../use-cases/ports.ts';
 import type { LookupDisputesInput } from '../use-cases/lookup-disputes.ts';
 
-const MAX_IDS = 100;
+type LookupResponse = z.output<typeof zLookupDisputesResponse>;
 
-// guid, not uuid: accept exactly the ids the caller (transactions' own lookup schema) accepts, so it never sees a 400.
-const lookupQuery = z.object({
-  userId: z.guid(),
-  transactionIds: z
-    .string()
-    .transform((s) => s.split(','))
-    .pipe(z.array(z.guid()).min(1).max(MAX_IDS)),
-});
+const lookupQuery = queryOf(zLookupDisputesQuery, { csv: ['transactionIds'] });
 
 export type LookupDisputesUseCase = (
   input: LookupDisputesInput,
@@ -29,7 +24,9 @@ export const serviceRoutes = (lookupDisputes: LookupDisputesUseCase): ReadonlyAr
       const query = parseRequest(lookupQuery, request.query);
       if (!query.ok) return sendProblem(reply, validationProblem(query.error, request.id));
       const result = await lookupDisputes(query.value);
-      return result.ok ? reply.code(200).send({ items: result.value }) : assertNever(result.error);
+      if (!result.ok) return assertNever(result.error);
+      const body: LookupResponse = { items: [...result.value] };
+      return reply.code(200).send(body);
     },
   },
 ];

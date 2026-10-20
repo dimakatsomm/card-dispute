@@ -1,18 +1,13 @@
+import { zGetUserContactResponse, zListCardsForUserResponse } from '@cd/contracts/users.service';
 import type { Servers } from '@cd/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { z } from 'zod';
 import { bearer, buildTestServers, keysDeep, serviceToken, userToken } from '../helpers/app.ts';
+import { expectContract } from '../helpers/contract.ts';
 import { startUsersDb, type TestDb } from '../helpers/db.ts';
 import { accountAt, CARD_TOKEN_PREFIX, cardIdsOf, seedFixture, type Fixture } from '../helpers/fixture.ts';
 
-type CardsBody = {
-  readonly cards: ReadonlyArray<{
-    readonly cardId: string;
-    readonly accountId: string;
-    readonly userId: string;
-    readonly last4: string;
-    readonly expired: boolean;
-  }>;
-};
+type CardsBody = z.output<typeof zListCardsForUserResponse>;
 
 const UNKNOWN_USER = '0192f0c1-0000-7000-8000-00000000dead';
 
@@ -76,13 +71,13 @@ describe('GET /cards (service port)', () => {
     const res = await get(`/cards?userId=${fx.a.userId}`, 'hdr.token-cards.signature');
 
     expect(res.statusCode).toBe(200);
-    const body = res.json<CardsBody>();
+    const body = expectContract(zListCardsForUserResponse, res);
     expect(body.cards.map((c) => [c.cardId, c.userId, c.expired])).toEqual([
       [cardIdsOf(fx.a)[0], fx.a.userId, true],
       [cardIdsOf(fx.a)[1], fx.a.userId, false],
       [cardIdsOf(fx.a)[2], fx.a.userId, false],
     ]);
-    expect(keysDeep(body)).not.toContain('token');
+    expect(keysDeep(res.json())).not.toContain('token');
     expect(res.body).not.toContain(CARD_TOKEN_PREFIX);
   });
 
@@ -125,15 +120,22 @@ describe('GET /users/{userId}/contact (service port)', () => {
     const res = await get(`/users/${fx.b.userId}/contact`, 'hdr.token-contact.signature');
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ userId: fx.b.userId, email: 'sipho@example.com', name: 'Sipho' });
+    expect(expectContract(zGetUserContactResponse, res)).toEqual({
+      userId: fx.b.userId,
+      email: 'sipho@example.com',
+      name: 'Sipho',
+    });
   });
 
-  it.each([
-    ['unknown', UNKNOWN_USER],
-    ['malformed', 'not-a-uuid'],
-  ])('returns 404 when the userId is %s', async (_name, userId) => {
-    const res = await get(`/users/${userId}/contact`, 'hdr.token-contact.signature');
+  it('returns 404 when the userId is unknown', async () => {
+    const res = await get(`/users/${UNKNOWN_USER}/contact`, 'hdr.token-contact.signature');
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('returns 400 when the userId is not a uuid, as the spec says', async () => {
+    const res = await get('/users/not-a-uuid/contact', 'hdr.token-contact.signature');
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 });

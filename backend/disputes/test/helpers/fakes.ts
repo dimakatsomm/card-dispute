@@ -111,7 +111,7 @@ export const createFakeUpstreams = () => {
       return {
         valid: true,
         principalType: 'user',
-        authId: `auth-${user.userId}`,
+        authId: `a0a0a0a0${user.userId.slice(8)}`,
         userId: user.userId,
         scopes: [],
         exp,
@@ -122,7 +122,7 @@ export const createFakeUpstreams = () => {
       return {
         valid: true,
         principalType: 'user',
-        authId: `auth-${extraUserId}`,
+        authId: `a0a0a0a0${extraUserId.slice(8)}`,
         userId: extraUserId,
         scopes: [],
         exp,
@@ -137,7 +137,7 @@ export const createFakeUpstreams = () => {
         exp,
       };
     }
-    return { valid: false, reason: 'bad_signature' };
+    return { valid: false, principalType: 'none', reason: 'bad_signature' };
   };
 
   const fetch: Fetch = async (input, init) => {

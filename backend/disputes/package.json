@@ -18,6 +18,7 @@
     "@cd/auth-client": "workspace:*",
     "@cd/db": "workspace:*",
     "@cd/dispute-domain": "workspace:*",
+    "@cd/contracts": "workspace:*",
     "@aws-sdk/client-s3": "catalog:",
     "@aws-sdk/s3-request-presigner": "catalog:",
     "@aws-sdk/client-sqs": "catalog:"

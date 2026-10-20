@@ -1,6 +1,13 @@
 import type { ServiceRoute } from '@cd/auth-client';
+import { queryOf } from '@cd/contracts/query';
+import {
+  zGetUserContactPath,
+  zListCardsForUserQuery,
+  type zGetUserContactResponse,
+  type zListCardsForUserResponse,
+} from '@cd/contracts/users.service';
 import { parseRequest, sendProblem, validationProblem } from '@cd/shared';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { toProblem } from '../errors.ts';
 import type { UseCases } from './use-cases.ts';
 
@@ -9,13 +16,10 @@ export const SCOPES = Object.freeze({
   contactRead: 'users/contact.read',
 } as const);
 
-const cardsQuery = z.object({
-  userId: z.guid(),
-  accountId: z.guid().optional(),
-  cardId: z.guid().optional(),
-});
+type CardsResponse = z.output<typeof zListCardsForUserResponse>;
+type ContactResponse = z.output<typeof zGetUserContactResponse>;
 
-const contactParams = z.object({ userId: z.guid() });
+const cardsQuery = queryOf(zListCardsForUserQuery);
 
 export const serviceRoutes = (uc: UseCases): readonly ServiceRoute[] => [
   {
@@ -26,7 +30,9 @@ export const serviceRoutes = (uc: UseCases): readonly ServiceRoute[] => [
       const query = parseRequest(cardsQuery, request.query);
       if (!query.ok) return sendProblem(reply, validationProblem(query.error, request.id));
       const result = await uc.listCards(query.value);
-      return result.ok ? { cards: result.value } : sendProblem(reply, toProblem(result.error, request.id));
+      if (!result.ok) return sendProblem(reply, toProblem(result.error, request.id));
+      const body: CardsResponse = { cards: [...result.value] };
+      return body;
     },
   },
   {
@@ -34,11 +40,12 @@ export const serviceRoutes = (uc: UseCases): readonly ServiceRoute[] => [
     url: '/users/:userId/contact',
     scope: SCOPES.contactRead,
     handler: async (request, reply) => {
-      const params = parseRequest(contactParams, request.params);
-      // Not a uuid cannot name a user: same answer as unknown, so ids are not probeable by shape.
-      if (!params.ok) return sendProblem(reply, toProblem('NOT_FOUND', request.id));
+      const params = parseRequest(zGetUserContactPath, request.params);
+      if (!params.ok) return sendProblem(reply, validationProblem(params.error, request.id));
       const result = await uc.getContact(params.value.userId);
-      return result.ok ? result.value : sendProblem(reply, toProblem(result.error, request.id));
+      if (!result.ok) return sendProblem(reply, toProblem(result.error, request.id));
+      const body: ContactResponse = result.value;
+      return body;
     },
   },
 ];
