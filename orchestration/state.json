@@ -276,13 +276,14 @@
       ]
     },
     "L-03": {
-      "status": "todo",
+      "status": "done",
       "agent": "async-lambda",
       "blockedBy": [
         "S-06",
         "S-07",
         "M2-00"
-      ]
+      ],
+      "notes": "Security gate PASS + mediums: 409 EVIDENCE_CLOSED deletes, RESULT_CONFLICT/unknown keep + throw (+metric); scanned events require eTag; secret trimmed. Verdict only from event; record then copy (CopySourceIfMatch, metadata replaced) then delete. 93 tests."
     },
     "L-04": {
       "status": "done",
@@ -636,7 +637,9 @@
     "M2-00: disputes.service lookup response adds version (done in the spec; P-05b implements it); LOOKUP_MAX_IDS=100 in disputes transactions-client duplicates the transactions.service limit.",
     "R-12 (D-06 gate, low): the [erased] tombstones are only unforgeable via API validation (description min 10); an app-side write of [erased] would make the sweeper skip a row. Consider an erased_at column in a later migration. Index builds run inside the migration transaction (no CONCURRENTLY) — fine for dev; plan out-of-band builds before large tables.",
     "P-05x follow-up: move the evidence cap-counting statuses (PENDING+STORED) and the ADR-050 declaration-matching rule from disputes core into @cd/dispute-domain (rule 2).",
-    "L-07: pin public.ecr.aws/lambda/nodejs:24 by digest (or dated tag) and set --platform=linux/arm64 consistently in all three Lambda Dockerfiles; confirm RIE runs as USER 65534 in evidence-intake."
+    "L-07: pin public.ecr.aws/lambda/nodejs:24 by digest (or dated tag) and set --platform=linux/arm64 consistently in all three Lambda Dockerfiles; confirm RIE runs as USER 65534 in evidence-intake.",
+    "M3 infra (from L-03 gate): default event bus must reject aws.-prefixed PutEvents; intake Lambda resource policy allows only events.amazonaws.com with the rule SourceArn; quarantine bucket policy denies GetObject unless tagged NO_THREATS_FOUND and must not exempt the intake role; client secret stored as raw string.",
+    "auth-client: service-token fetch has no timeout of its own; a hung token endpoint pins the in-flight promise in a warm container. Add a per-fetch timeout (follow-up task)."
   ],
   "peerReviews": [
     {
