@@ -19,6 +19,7 @@ export type Config = {
   readonly port: number;
   readonly issuer: string;
   readonly testHooks: boolean;
+  readonly corsOrigins: ReadonlyArray<string>;
   readonly privateKey: KeyObject;
   readonly clients: ReadonlyArray<Client>;
 };
@@ -105,6 +106,10 @@ export const loadConfig = (env: NodeJS.ProcessEnv): Config => {
     port,
     issuer: env['MOCK_ISSUER_URL'] ?? `http://localhost:${port}`,
     testHooks: env['MOCK_ISSUER_TEST_HOOKS'] === 'true',
+    corsOrigins: (env['MOCK_ISSUER_CORS_ORIGINS'] ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     privateKey: pem ? createPrivateKey(pem.replaceAll('\\n', '\n')) : generateKey(),
     clients: clientsJson ? parseClients(clientsJson) : defaultClients(env),
   };

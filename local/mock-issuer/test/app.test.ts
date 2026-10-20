@@ -260,3 +260,36 @@ describe('test hooks', () => {
     expect(verify('RSA-SHA256', Buffer.from(signingInput), key, signature)).toBe(false);
   });
 });
+
+describe('CORS', () => {
+  const ORIGIN = 'http://localhost:5173';
+  const { app } = setup({ MOCK_ISSUER_CORS_ORIGINS: ORIGIN });
+  const requests = [
+    { method: 'GET', url: '/.well-known/openid-configuration' },
+    { method: 'GET', url: '/.well-known/jwks.json' },
+    { method: 'POST', url: '/oauth2/token' },
+  ] as const;
+
+  it('echoes an allowed origin on discovery, JWKS, token and the token preflight', async () => {
+    for (const r of requests) {
+      const res = await app.inject({ ...r, headers: { origin: ORIGIN } });
+      expect(res.headers['access-control-allow-origin']).toBe(ORIGIN);
+      expect(res.headers['vary']).toBe('Origin');
+    }
+    const preflight = await app.inject({
+      method: 'OPTIONS',
+      url: '/oauth2/token',
+      headers: { origin: ORIGIN, 'access-control-request-method': 'POST' },
+    });
+    expect(preflight.statusCode).toBe(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe(ORIGIN);
+    expect(preflight.headers['access-control-allow-headers']).toBe('content-type, authorization');
+  });
+
+  it('sends no allow-origin to a disallowed origin', async () => {
+    for (const r of requests) {
+      const res = await app.inject({ ...r, headers: { origin: 'http://evil.example' } });
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    }
+  });
+});

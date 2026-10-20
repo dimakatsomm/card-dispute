@@ -11,6 +11,11 @@ const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 24 * 60 * 60;
 const CODE_TTL_SECONDS = 60;
 const USER_SCOPE = 'openid profile email';
+const CORS_PATHS: ReadonlyArray<string> = [
+  '/.well-known/openid-configuration',
+  '/.well-known/jwks.json',
+  '/oauth2/token',
+];
 const OTHER_POOL_ISSUER = 'https://cognito-idp.af-south-1.amazonaws.com/af-south-1_otherpool';
 
 type AuthCode = {
@@ -78,6 +83,22 @@ export const buildApp = (config: Config, deps: Deps): FastifyInstance => {
 
   app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => {
     done(null, Object.fromEntries(new URLSearchParams(body as string)));
+  });
+
+  app.addHook('onRequest', async (req, reply) => {
+    const path = req.url.split('?')[0] ?? '';
+    if (!CORS_PATHS.includes(path)) return;
+    reply.header('vary', 'Origin');
+    const origin = req.headers.origin;
+    if (!origin || !config.corsOrigins.includes(origin)) return;
+    reply.header('access-control-allow-origin', origin);
+    if (req.method === 'OPTIONS' && path === '/oauth2/token') {
+      return reply
+        .code(204)
+        .header('access-control-allow-methods', 'POST')
+        .header('access-control-allow-headers', 'content-type, authorization')
+        .send();
+    }
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
