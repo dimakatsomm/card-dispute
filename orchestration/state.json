@@ -101,10 +101,10 @@
       "notes": "security PASS + should-fixes (apk upgrade, pool timeouts, cross-user /cards test); 56 tests; orchestrator re-ran (2026-10-19). Image build + Trivy to be verified in L-02/CI"
     },
     "T-01": {
-      "status": "in_review",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [],
-      "notes": "68 tests; security review running"
+      "notes": "Security gate PASS; S1-S3 applied plus from/to and cursor range checks (year 0000, rolled-over dates, offsets beyond +/-14:00 give 400). 76 tests."
     },
     "P-01": {
       "status": "in_review",
