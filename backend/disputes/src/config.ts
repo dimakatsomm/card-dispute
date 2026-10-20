@@ -20,6 +20,7 @@ export const configSchema = serverConfigSchema.extend({
   SERVICE_CLIENT_SECRET: z.string().min(1),
   AWS_REGION: z.string().min(1).default('af-south-1'),
   S3_ENDPOINT: z.url().optional(),
+  S3_PRESIGN_ENDPOINT: z.url().optional(),
   S3_FORCE_PATH_STYLE: booleanFlag,
   QUARANTINE_BUCKET: z.string().min(3),
   SQS_ENDPOINT: z.url().optional(),

@@ -9,6 +9,7 @@ export type HttpRequest = {
   readonly headers?: Readonly<Record<string, string>>;
   readonly body?: string;
   readonly correlationId?: string;
+  readonly signal?: AbortSignal;
 };
 
 export type HttpResponse = { readonly status: number; readonly body: unknown };
@@ -51,7 +52,7 @@ const attempt = async (
       headers,
       redirect: 'error',
       ...(req.body === undefined ? {} : { body: req.body }),
-      signal: controller.signal,
+      signal: req.signal ? AbortSignal.any([controller.signal, req.signal]) : controller.signal,
     });
     const text = await res.text();
     return res.status >= 500
@@ -69,6 +70,7 @@ const attempt = async (
 export const createHttpClient = ({ fetch: fetchFn, timeoutMs = 2000 }: HttpClientDeps): HttpClient => ({
   request: async (req) => {
     const first = await attempt(fetchFn, timeoutMs, req);
-    return !first.ok && (req.method ?? 'GET') === 'GET' ? attempt(fetchFn, timeoutMs, req) : first;
+    const retryable = !first.ok && (req.method ?? 'GET') === 'GET' && !req.signal?.aborted;
+    return retryable ? attempt(fetchFn, timeoutMs, req) : first;
   },
 });

@@ -12,6 +12,9 @@ declare module 'fastify' {
 // Scheme is case-insensitive (RFC 7235); the length cap keeps oversized tokens away from auth.
 const BEARER = /^Bearer ([A-Za-z0-9\-._~+/]{1,4096}={0,2})$/i;
 
+const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+const JWT_MIN_LENGTH = 20;
+
 export type GuardKind = 'user' | 'service';
 export type GuardHook = onRequestAsyncHookHandler & { readonly guardKind: GuardKind };
 
@@ -39,6 +42,7 @@ const guard = (kind: GuardKind, authClient: AuthClient, authorize: Authorize): G
   const hook: onRequestAsyncHookHandler = async (request, reply) => {
     const token = BEARER.exec(request.headers.authorization ?? '')?.[1];
     if (!token) return unauthorized(reply, request, 'Missing or malformed bearer token');
+    if (token.length < JWT_MIN_LENGTH || !JWT_SHAPE.test(token)) return unauthorized(reply, request, 'Invalid token');
 
     const result = await authClient.validate(token, request.id);
     if (!result.ok) {

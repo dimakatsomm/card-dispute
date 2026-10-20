@@ -40,6 +40,7 @@ const authClient = createAuthClient({
   fetch,
   now: Date.now,
   getServiceToken: serviceTokens.getToken,
+  invalidateServiceToken: serviceTokens.invalidate,
 });
 
 const users = createUsersRepo(pool);

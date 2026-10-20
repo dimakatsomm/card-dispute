@@ -203,6 +203,12 @@
       "agent": "frontend",
       "blockedBy": [],
       "notes": "Gate fixes: add-evidence screen (/evidence only), shared evidence module, one money formatter, reason codes once, one test harness. 73 tests; build + docker build OK."
+    },
+    "S-05": {
+      "status": "done",
+      "agent": "implementer",
+      "blockedBy": [],
+      "notes": "Found by E-01. Non-JWT bearer 401 before auth; auth 400 -> invalid. Stale service token: compare-and-clear invalidate + retry once, 10 s cooldown (no herd/amplification). One 2 s bounded validate lookup; callee getJson invalidates on 401 and aborts at deadline. Security gate PASS (2 rounds). Closes R-10."
     }
   },
   "decisions": [
@@ -483,7 +489,6 @@
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
     "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
-    "R-10: shared auth-client http-client allows 2 s per attempt + GET retry (~4 s); services cap with a local overall deadline. Fold one deadline into @cd/auth-client (follow-up task).",
     "R-11: whoever writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (evidence-intake, P-05 path) must set after={evidenceId}; P-03 timeline depends on it (docs/03)."
   ],
   "peerReviews": [

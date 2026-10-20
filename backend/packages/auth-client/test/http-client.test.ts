@@ -14,6 +14,19 @@ const neverResolvesUntilAborted: Fetch = (_input, init) =>
   });
 
 describe('createHttpClient', () => {
+  it('aborts when the caller signal fires and does not retry a GET', async () => {
+    let calls = 0;
+    const fetch: Fetch = (input, init) => {
+      calls += 1;
+      return neverResolvesUntilAborted(input, init);
+    };
+    const caller = new AbortController();
+    const pending = createHttpClient({ fetch }).request({ url: 'http://x', signal: caller.signal });
+    caller.abort();
+    expect(await pending).toMatchObject({ ok: false });
+    expect(calls).toBe(1);
+  });
+
   it('forwards x-correlation-id', async () => {
     const stub = fakeFetch(() => jsonResponse(200, { ok: true }));
     const result = await createHttpClient({ fetch: stub.fetch }).request({

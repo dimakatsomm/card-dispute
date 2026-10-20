@@ -29,6 +29,14 @@ describe('createServiceTokenProvider', () => {
     expect(results.every((r) => r.ok && r.value === 'token-1')).toBe(true);
   });
 
+  it('refetches after invalidate even though the cached token is still fresh', async () => {
+    const { stub, provider } = setup();
+    await provider.getToken();
+    provider.invalidate('token-1');
+    expect(await provider.getToken()).toEqual({ ok: true, value: 'token-2' });
+    expect(stub.calls).toHaveLength(2);
+  });
+
   it('sends client_credentials with Basic auth and the requested scopes', async () => {
     const { stub, provider } = setup();
     await provider.getToken();

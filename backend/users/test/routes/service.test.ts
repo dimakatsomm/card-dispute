@@ -24,9 +24,9 @@ beforeAll(async () => {
   db = await startUsersDb();
   fx = await seedFixture(db.seedPool);
   servers = buildTestServers(db.appPool, {
-    'token-user-a': userToken(fx.a.userId),
-    'token-cards': serviceToken(['auth/validate', 'users/cards.read']),
-    'token-contact': serviceToken(['users/contact.read']),
+    'hdr.token-user-a.signature': userToken(fx.a.userId),
+    'hdr.token-cards.signature': serviceToken(['auth/validate', 'users/cards.read']),
+    'hdr.token-contact.signature': serviceToken(['users/contact.read']),
   });
 });
 
@@ -39,7 +39,7 @@ const get = (url: string, token?: string) =>
   servers.service.inject({ method: 'GET', url, ...(token === undefined ? {} : { headers: bearer(token) }) });
 
 const cards = async (query: string): Promise<CardsBody['cards']> => {
-  const res = await get(`/cards?${query}`, 'token-cards');
+  const res = await get(`/cards?${query}`, 'hdr.token-cards.signature');
   expect(res.statusCode).toBe(200);
   return res.json<CardsBody>().cards;
 };
@@ -52,20 +52,20 @@ describe('service port guard', () => {
   });
 
   it('does not register /me on the service port', async () => {
-    expect((await get('/me', 'token-user-a')).statusCode).toBe(404);
+    expect((await get('/me', 'hdr.token-user-a.signature')).statusCode).toBe(404);
   });
 });
 
 describe('GET /cards (service port)', () => {
   it.each([
-    ['a user token', 'token-user-a'],
-    ['a service token without users/cards.read', 'token-contact'],
+    ['a user token', 'hdr.token-user-a.signature'],
+    ['a service token without users/cards.read', 'hdr.token-contact.signature'],
   ])('rejects %s with 403', async (_name, token) => {
     expect((await get(`/cards?userId=${fx.a.userId}`, token)).statusCode).toBe(403);
   });
 
   it("rejects a user token asking for another user's cards with 403 and no card data", async () => {
-    const res = await get(`/cards?userId=${fx.b.userId}`, 'token-user-a');
+    const res = await get(`/cards?userId=${fx.b.userId}`, 'hdr.token-user-a.signature');
 
     expect(res.statusCode).toBe(403);
     expect(keysDeep(res.json())).not.toContain('cards');
@@ -73,7 +73,7 @@ describe('GET /cards (service port)', () => {
   });
 
   it('with users/cards.read returns only that user’s cards, with userId and expired and never the token', async () => {
-    const res = await get(`/cards?userId=${fx.a.userId}`, 'token-cards');
+    const res = await get(`/cards?userId=${fx.a.userId}`, 'hdr.token-cards.signature');
 
     expect(res.statusCode).toBe(200);
     const body = res.json<CardsBody>();
@@ -107,7 +107,7 @@ describe('GET /cards (service port)', () => {
     ['userId not a uuid', 'userId=not-a-uuid'],
     ['accountId not a uuid', `userId=${UNKNOWN_USER}&accountId=1`],
   ])('returns 400 when %s', async (_name, query) => {
-    const res = await get(`/cards?${query}`, 'token-cards');
+    const res = await get(`/cards?${query}`, 'hdr.token-cards.signature');
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
@@ -115,14 +115,14 @@ describe('GET /cards (service port)', () => {
 
 describe('GET /users/{userId}/contact (service port)', () => {
   it.each([
-    ['a user token', 'token-user-a'],
-    ['a service token with only users/cards.read', 'token-cards'],
+    ['a user token', 'hdr.token-user-a.signature'],
+    ['a service token with only users/cards.read', 'hdr.token-cards.signature'],
   ])('rejects %s with 403 (requires users/contact.read)', async (_name, token) => {
     expect((await get(`/users/${fx.a.userId}/contact`, token)).statusCode).toBe(403);
   });
 
   it('returns userId, email and name for a known user', async () => {
-    const res = await get(`/users/${fx.b.userId}/contact`, 'token-contact');
+    const res = await get(`/users/${fx.b.userId}/contact`, 'hdr.token-contact.signature');
 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ userId: fx.b.userId, email: 'sipho@example.com', name: 'Sipho' });
@@ -132,7 +132,7 @@ describe('GET /users/{userId}/contact (service port)', () => {
     ['unknown', UNKNOWN_USER],
     ['malformed', 'not-a-uuid'],
   ])('returns 404 when the userId is %s', async (_name, userId) => {
-    const res = await get(`/users/${userId}/contact`, 'token-contact');
+    const res = await get(`/users/${userId}/contact`, 'hdr.token-contact.signature');
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({ code: 'NOT_FOUND' });
   });

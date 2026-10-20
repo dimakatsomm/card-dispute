@@ -47,13 +47,15 @@ export const composeServers = (infra: Infra): Servers => {
       now: nowMs,
     });
   const http = createHttpClient({ fetch: infra.fetch });
+  const authTokens = tokens('auth/validate');
 
   const authClient = withValidateDeadline(
     createAuthClient({
       authUrl: config.AUTH_URL,
       fetch: infra.fetch,
       now: nowMs,
-      getServiceToken: tokens('auth/validate').getToken,
+      getServiceToken: authTokens.getToken,
+      invalidateServiceToken: authTokens.invalidate,
     }),
     UPSTREAM_DEADLINE_MS,
   );
@@ -119,6 +121,18 @@ export const composeServers = (infra: Infra): Servers => {
   });
 };
 
+// Browsers sign against a host they can reach, which locally differs from the docker-internal S3 endpoint.
+export const createConfiguredUploadSigner = (config: Config, now: () => Date): PresignUploads => {
+  const endpoint = config.S3_PRESIGN_ENDPOINT ?? config.S3_ENDPOINT;
+  return createUploadSigner({
+    region: config.AWS_REGION,
+    bucket: config.QUARANTINE_BUCKET,
+    forcePathStyle: config.S3_FORCE_PATH_STYLE,
+    now,
+    ...(endpoint === undefined ? {} : { endpoint }),
+  });
+};
+
 export const startService = async (env: Env): Promise<{ readonly close: () => Promise<void> }> => {
   const config = loadDisputesConfig(env);
   const logger = createLogger({ level: config.LOG_LEVEL });
@@ -138,13 +152,7 @@ export const startService = async (env: Env): Promise<{ readonly close: () => Pr
       region: config.AWS_REGION,
       ...(config.SQS_ENDPOINT === undefined ? {} : { endpoint: config.SQS_ENDPOINT }),
     }),
-    presignUploads: createUploadSigner({
-      region: config.AWS_REGION,
-      bucket: config.QUARANTINE_BUCKET,
-      forcePathStyle: config.S3_FORCE_PATH_STYLE,
-      now,
-      ...(config.S3_ENDPOINT === undefined ? {} : { endpoint: config.S3_ENDPOINT }),
-    }),
+    presignUploads: createConfiguredUploadSigner(config, now),
     logger,
     now,
     newId: randomUUID,

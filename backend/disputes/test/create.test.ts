@@ -3,6 +3,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { loadDisputesConfig } from '../src/config.ts';
+import { createConfiguredUploadSigner } from '../src/main.ts';
 import { createDisputeRepo, TRANSACTION_UNIQUE } from '../src/adapters/dispute-repo.ts';
 import { startDisputesDb, type TestDb } from './helpers/db.ts';
 import {
@@ -511,6 +513,28 @@ describe('upstream failures and isolation', () => {
     );
   });
 
+  it('the deadline aborts the hung callee fetch and no second attempt starts', async () => {
+    const signals: Array<AbortSignal | null | undefined> = [];
+    await withService(
+      (url, _body, init) => {
+        if (!isPath(url, URLS.transactions, '/transactions')) return undefined;
+        signals.push(init?.signal);
+        return hang(url, init);
+      },
+      async (service) => {
+        const txn = upstreams.addTransaction(USER_A.userId);
+        const res = await post(service, USER_A.token, txn.transactionId, {
+          reasonCode: 'FRAUD',
+          description: DESCRIPTION,
+        });
+        expect(res.statusCode).toBe(503);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(signals).toHaveLength(1);
+        expect(signals[0]?.aborted).toBe(true);
+      },
+    );
+  });
+
   it('users returning the card under a different userId → 404, nothing written', async () => {
     const txn = upstreams.addTransaction(USER_A.userId);
     await withService(
@@ -559,6 +583,32 @@ describe('upstream failures and isolation', () => {
     }
   });
 
+  it.each([
+    { name: 'auth /validate', scope: 'auth/validate', origin: () => URLS.auth, path: '/validate' },
+    { name: 'transactions', scope: 'transactions/read', origin: () => URLS.transactions, path: '/transactions' },
+  ])('a stale service token rejected by $name (401 then 200) is refetched once and the call succeeds', async (c) => {
+    const isolated = createFakeUpstreams();
+    let rejected = 0;
+    const service = await startTestService({
+      pool: db.appPool,
+      upstreams: isolated,
+      s3Endpoint: front.endpoint,
+      fault: (url) => (isPath(url, c.origin(), c.path) && ++rejected === 1 ? Promise.resolve(json(401, {})) : undefined),
+    });
+    try {
+      const txn = isolated.addTransaction(USER_A.userId);
+      const res = await post(service, USER_A.token, txn.transactionId, {
+        reasonCode: 'FRAUD',
+        description: DESCRIPTION,
+      });
+      expect(res.statusCode).toBe(201);
+      const issued = isolated.calls.filter((x) => x.url.href === URLS.token && scopeOf(x.body) === c.scope);
+      expect(issued).toHaveLength(2);
+    } finally {
+      await service.servers.close();
+    }
+  });
+
   it('the unique constraint the repo matches is the one the migration creates', async () => {
     const res = await db.appQuery(
       `select conname from pg_constraint
@@ -592,6 +642,41 @@ describe('presigned upload URLs', () => {
     expect(url.searchParams.get('X-Amz-Expires')).toBe('600');
     expect([...url.searchParams.keys()].filter((k) => /checksum/i.test(k))).toEqual([]);
     expect(upload.url).not.toMatch(/receipt/i);
+  });
+
+  it('signs against S3_PRESIGN_ENDPOINT when it is set', async () => {
+    const config = loadDisputesConfig({
+      DATABASE_URL: 'postgres://unused-by-tests',
+      AUTH_URL: URLS.auth,
+      TRANSACTIONS_SERVICE_URL: URLS.transactions,
+      USERS_SERVICE_URL: URLS.users,
+      TOKEN_URL: URLS.token,
+      SERVICE_CLIENT_ID: 'svc-disputes',
+      SERVICE_CLIENT_SECRET: 'fake-client-secret',
+      S3_ENDPOINT: 'http://moto:5000',
+      S3_PRESIGN_ENDPOINT: 'http://localhost:55000',
+      S3_FORCE_PATH_STYLE: 'true',
+      QUARANTINE_BUCKET,
+      NOTIFICATIONS_QUEUE_URL: 'http://sqs.test/000000000000/dispute-notifications',
+    });
+    const browserFacing = await startTestService({
+      pool: db.appPool,
+      upstreams,
+      s3Endpoint: config.S3_ENDPOINT ?? '',
+      presign: createConfiguredUploadSigner(config, () => new Date()),
+    });
+    try {
+      const txn = upstreams.addTransaction(USER_A.userId);
+      const res = await post(browserFacing, USER_A.token, txn.transactionId, {
+        reasonCode: 'NOT_RECEIVED',
+        description: DESCRIPTION,
+        evidence: [declaration()],
+      });
+      expect(res.statusCode).toBe(201);
+      expect(new URL((res.json().uploads as Upload[])[0]?.url ?? '').origin).toBe('http://localhost:55000');
+    } finally {
+      await browserFacing.servers.close();
+    }
   });
 
   it('S3 accepts the PUT with exactly the signed headers (stored in moto)', async () => {

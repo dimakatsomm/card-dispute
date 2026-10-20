@@ -41,10 +41,13 @@ export const compose = (rt: Runtime): Servers => {
     fetch: rt.fetch,
     now: rt.nowMs,
     getServiceToken: tokens.getToken,
+    invalidateServiceToken: tokens.invalidate,
   });
   const upstream = {
     http: createHttpClient({ fetch: rt.fetch, timeoutMs: UPSTREAM_TIMEOUT_MS }),
     getToken: tokens.getToken,
+    invalidateToken: tokens.invalidate,
+    log: rt.logger,
     timeoutMs: UPSTREAM_TIMEOUT_MS,
   };
   const users = createUsersClient({

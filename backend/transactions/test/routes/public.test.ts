@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   DISPUTES_URL,
+  TOKEN_URL,
   USERS_URL,
   buildHarness,
   fakeId,
@@ -96,10 +97,10 @@ const disputesOk: Upstream = (call) => {
 };
 
 const PRINCIPALS = {
-  'token-a': userToken(A),
-  'token-b': userToken(B),
-  'token-c': userToken(C),
-  'token-svc': serviceToken(['transactions/read']),
+  'hdr.token-a.signature': userToken(A),
+  'hdr.token-b.signature': userToken(B),
+  'hdr.token-c.signature': userToken(C),
+  'hdr.token-svc.signature': serviceToken(['transactions/read']),
 };
 
 type Item = {
@@ -147,15 +148,15 @@ describe('GET /transactions (public)', () => {
   it('scopes every query to the caller: user B with A’s accountId, cardId or transactionId gets empty items', async () => {
     const h = harness();
     for (const query of [`?accountId=${A1}`, `?cardId=${CARD_A1}`, `?transactionId=${T1}`]) {
-      expect(await list(h, 'token-b', query)).toEqual({ status: 200, body: { items: [], nextCursor: null } });
+      expect(await list(h, 'hdr.token-b.signature', query)).toEqual({ status: 200, body: { items: [], nextCursor: null } });
     }
-    expect(idsOf((await list(h, 'token-b')).body)).toEqual([TB1]);
+    expect(idsOf((await list(h, 'hdr.token-b.signature')).body)).toEqual([TB1]);
   });
 
   it('ignores a client-supplied userId: identity comes only from the token', async () => {
     const h = harness();
-    expect(idsOf((await list(h, 'token-b', `?userId=${A}`)).body)).toEqual([TB1]);
-    expect(await list(h, 'token-b', `?userId=${A}&cardId=${CARD_A1}`)).toEqual({
+    expect(idsOf((await list(h, 'hdr.token-b.signature', `?userId=${A}`)).body)).toEqual([TB1]);
+    expect(await list(h, 'hdr.token-b.signature', `?userId=${A}&cardId=${CARD_A1}`)).toEqual({
       status: 200,
       body: { items: [], nextCursor: null },
     });
@@ -174,7 +175,7 @@ describe('GET /transactions (public)', () => {
     ['minAmount = maxAmount bounds', '?minAmount=99.99&maxAmount=125.50', [T1, T5]],
     ['combined', `?accountId=${A1}&status=POSTED&minAmount=50.00`, [T1, T5]],
   ])('filter: %s', async (_name, query, expected) => {
-    const { status, body } = await list(harness(), 'token-a', query);
+    const { status, body } = await list(harness(), 'hdr.token-a.signature', query);
     expect(status).toBe(200);
     expect(idsOf(body)).toEqual(expected);
   });
@@ -198,7 +199,7 @@ describe('GET /transactions (public)', () => {
     const res = await harness().servers.public.inject({
       method: 'GET',
       url: `/transactions${query}`,
-      headers: { authorization: 'Bearer token-a' },
+      headers: { authorization: 'Bearer hdr.token-a.signature' },
     });
     expect(res.statusCode).toBe(400);
     expect(res.headers['content-type']).toContain('application/problem+json');
@@ -215,7 +216,7 @@ describe('GET /transactions (public)', () => {
     const res = await harness().servers.public.inject({
       method: 'GET',
       url: `/transactions?cursor=${cursor}`,
-      headers: { authorization: 'Bearer token-a' },
+      headers: { authorization: 'Bearer hdr.token-a.signature' },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ code: 'INVALID_CURSOR' });
@@ -229,7 +230,7 @@ describe('GET /transactions (public)', () => {
       let cursor: string | null = null;
       do {
         const query: string = `?limit=${limit}${cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`;
-        const { status, body } = await list(h, 'token-c', query);
+        const { status, body } = await list(h, 'hdr.token-c.signature', query);
         expect(status).toBe(200);
         expect(body.items.length).toBeLessThanOrEqual(limit);
         seen.push(...idsOf(body));
@@ -247,7 +248,7 @@ describe('GET /transactions (public)', () => {
 
   it('computes dispute + disputable per row with evaluateTransactionEligibility, one disputes batch per page', async () => {
     const h = harness();
-    const { status, body } = await list(h, 'token-a');
+    const { status, body } = await list(h, 'hdr.token-a.signature');
     expect(status).toBe(200);
     const byId = new Map(body.items.map((i) => [i.transactionId, i]));
     expect(byId.get(T1)).toMatchObject({ dispute: null, disputable: { allowed: true } });
@@ -266,16 +267,51 @@ describe('GET /transactions (public)', () => {
     expect(disputeCalls[0]?.headers.authorization).toBe('Bearer svc-transactions-token');
   });
 
+  it('recovers from a stale service token: a callee 401 refetches the token and retries once', async () => {
+    let seen = 0;
+    const h = harness(usersOk, (call, signal) => (++seen === 1 ? json(401, {}) : disputesOk(call, signal)));
+    const { status, body } = await list(h, 'hdr.token-a.signature');
+    expect(status).toBe(200);
+    expect(body.items.find((i) => i.transactionId === T5)).toMatchObject({ dispute: { disputeId: DISPUTE_T5 } });
+    expect(outboundTo(h.calls, DISPUTES_URL)).toHaveLength(2);
+    expect(h.calls.filter((c) => c.url.href === TOKEN_URL)).toHaveLength(2);
+  });
+
+  it('recovers when auth rejects the cached service token on validate (401 then 200)', async () => {
+    let seen = 0;
+    open = buildHarness(db.app, PRINCIPALS, {
+      users: usersOk,
+      disputes: disputesOk,
+      auth: () => (++seen === 1 ? json(401, {}) : undefined),
+    });
+    const { status } = await list(open, 'hdr.token-a.signature');
+    expect(status).toBe(200);
+    expect(open.calls.filter((c) => c.url.href === TOKEN_URL)).toHaveLength(2);
+  });
+
+  it('the deadline aborts the hung callee fetch and no second attempt starts', async () => {
+    const signals: Array<AbortSignal | undefined> = [];
+    const h = harness(usersOk, (call, signal) => {
+      signals.push(signal);
+      return hang(call, signal);
+    });
+    const { status } = await list(h, 'hdr.token-a.signature');
+    expect(status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(signals).toHaveLength(1);
+    expect(signals[0]?.aborted).toBe(true);
+  });
+
   it('caches users GET /cards for 60 s per user', async () => {
     const h = harness();
-    await list(h, 'token-a');
-    await list(h, 'token-a', `?accountId=${A1}`);
+    await list(h, 'hdr.token-a.signature');
+    await list(h, 'hdr.token-a.signature', `?accountId=${A1}`);
     expect(outboundTo(h.calls, USERS_URL)).toHaveLength(1);
-    await list(h, 'token-b');
+    await list(h, 'hdr.token-b.signature');
     expect(outboundTo(h.calls, USERS_URL)).toHaveLength(2);
 
     h.clock.now += 60_001;
-    await list(h, 'token-a');
+    await list(h, 'hdr.token-a.signature');
     const usersCalls = outboundTo(h.calls, USERS_URL);
     expect(usersCalls).toHaveLength(3);
     expect(usersCalls.map((c) => c.url.searchParams.get('userId'))).toEqual([A, B, A]);
@@ -290,7 +326,7 @@ describe('GET /transactions (public)', () => {
     ['disputes silent > 2 s', usersOk, hang],
   ])('%s → 200, every row dispute null + disputable UNAVAILABLE', async (_name, users, disputes) => {
     const started = performance.now();
-    const { status, body } = await list(harness(users, disputes), 'token-a');
+    const { status, body } = await list(harness(users, disputes), 'hdr.token-a.signature');
     expect(performance.now() - started).toBeLessThan(3000);
     expect(status).toBe(200);
     expect(body.items).toHaveLength(ROWS_A.length);
@@ -300,7 +336,7 @@ describe('GET /transactions (public)', () => {
   });
 
   it('serialises amounts as decimal strings', async () => {
-    const { body } = await list(harness(), 'token-a');
+    const { body } = await list(harness(), 'hdr.token-a.signature');
     expect(body.items.map((i) => i.amount)).toEqual(['125.50', '40.00', '300.00', '1000.00', '99.99']);
   });
 
@@ -308,7 +344,7 @@ describe('GET /transactions (public)', () => {
     const res = await harness().servers.public.inject({
       method: 'GET',
       url: '/transactions',
-      headers: { authorization: 'Bearer token-svc' },
+      headers: { authorization: 'Bearer hdr.token-svc.signature' },
     });
     expect(res.statusCode).toBe(403);
   });

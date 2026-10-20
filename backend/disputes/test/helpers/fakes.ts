@@ -8,10 +8,10 @@ export const URLS = {
   users: 'http://users.test:8081',
 } as const;
 
-export const USER_A = { token: 'user-a-token', userId: randomUUID() };
-export const USER_B = { token: 'user-b-token', userId: randomUUID() };
-export const SERVICE_CALLER = { token: 'service-caller-token', scopes: ['disputes/read'] };
-export const WRONG_SCOPE_CALLER = { token: 'wrong-scope-caller-token', scopes: ['disputes/review'] };
+export const USER_A = { token: 'hdr.user-a-token.signature', userId: randomUUID() };
+export const USER_B = { token: 'hdr.user-b-token.signature', userId: randomUUID() };
+export const SERVICE_CALLER = { token: 'hdr.service-caller-token.signature', scopes: ['disputes/read'] };
+export const WRONG_SCOPE_CALLER = { token: 'hdr.wrong-scope-caller-token.signature', scopes: ['disputes/review'] };
 
 export type FakeTransaction = {
   readonly transactionId: string;
@@ -62,7 +62,7 @@ export const createFakeUpstreams = () => {
 
   const addUser = (): { readonly token: string; readonly userId: string } => {
     const userId = randomUUID();
-    const token = `user-${userId}-token`;
+    const token = `hdr.user-${userId}.signature`;
     extraUsers.set(token, userId);
     return { token, userId };
   };

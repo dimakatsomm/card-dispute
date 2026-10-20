@@ -1,26 +1,34 @@
 import type { HttpClient, TokenError } from '@cd/auth-client';
 import { CARD_STATUSES, DISPUTE_STATUSES } from '@cd/dispute-domain';
 import { err, ok, type Result } from '@cd/shared/fp';
+import type { FastifyBaseLogger } from 'fastify';
 import { z } from 'zod';
 import type { CardRef, DisputeRef, UpstreamError } from '../core/disputable.ts';
 
 export type UpstreamDeps = {
   readonly http: HttpClient;
   readonly getToken: () => Promise<Result<string, TokenError>>;
+  readonly invalidateToken: (rejectedToken: string) => void;
+  readonly log: FastifyBaseLogger;
   readonly baseUrl: string;
   readonly timeoutMs: number;
 };
 
 // One budget for token + request + the http client's GET retry, so a slow upstream never holds the page past it.
-const withDeadline = async <T>(ms: number, work: Promise<Result<T, string>>): Promise<Result<T, string>> => {
+const withDeadline = async <T>(
+  ms: number,
+  work: (signal: AbortSignal) => Promise<Result<T, string>>,
+): Promise<Result<T, string>> => {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<Result<T, string>>((resolve) => {
     timer = setTimeout(() => {
+      controller.abort();
       resolve(err(`no answer within ${ms}ms`));
     }, ms);
   });
   try {
-    return await Promise.race([work, deadline]);
+    return await Promise.race([work(controller.signal), deadline]);
   } finally {
     clearTimeout(timer);
   }
@@ -31,6 +39,8 @@ const getJson = async <S extends z.ZodType>(
   path: string,
   schema: S,
   correlationId: string,
+  signal: AbortSignal,
+  mayRetry = true,
 ): Promise<Result<z.output<S>, string>> => {
   const token = await deps.getToken();
   if (!token.ok) return err(token.error.detail);
@@ -38,7 +48,13 @@ const getJson = async <S extends z.ZodType>(
     url: `${deps.baseUrl}${path}`,
     headers: { authorization: `Bearer ${token.value}` },
     correlationId,
+    signal,
   });
+  if (mayRetry && res.ok && res.value.status === 401) {
+    deps.log.warn({ path }, 'upstream rejected the service token; retrying once');
+    deps.invalidateToken(token.value);
+    return getJson(deps, path, schema, correlationId, signal, false);
+  }
   if (!res.ok) return err(res.error.detail);
   if (res.value.status !== 200) return err(`responded ${res.value.status}`);
   const parsed = schema.safeParse(res.value.body);
@@ -52,7 +68,7 @@ const call = async <S extends z.ZodType>(
   schema: S,
   correlationId: string,
 ): Promise<Result<z.output<S>, UpstreamError>> => {
-  const result = await withDeadline(deps.timeoutMs, getJson(deps, path, schema, correlationId));
+  const result = await withDeadline(deps.timeoutMs, (signal) => getJson(deps, path, schema, correlationId, signal));
   return result.ok ? result : err({ service, detail: result.error });
 };
 

@@ -132,7 +132,7 @@ export type Harness = {
 export const buildHarness = (
   pool: pg.Pool,
   principals: Principals,
-  upstream: { readonly users: Upstream; readonly disputes: Upstream },
+  upstream: { readonly users: Upstream; readonly disputes: Upstream; readonly auth?: (call: Call) => Response | undefined },
 ): Harness => {
   const calls: Call[] = [];
   const clock = { now: 1_800_000_000_000 };
@@ -145,6 +145,8 @@ export const buildHarness = (
     const signal = init?.signal ?? undefined;
     if (call.url.href === TOKEN_URL) return json(200, { access_token: 'svc-transactions-token', expires_in: 3600 });
     if (call.url.origin === AUTH_URL) {
+      const override = upstream.auth?.(call);
+      if (override) return override;
       const { token } = JSON.parse(String(init?.body)) as { token: string };
       return json(200, principals[token] ?? { valid: false, reason: 'bad_signature' });
     }

@@ -15,9 +15,11 @@ export type ServiceTokenProviderDeps = {
 
 export type ServiceTokenProvider = {
   readonly getToken: () => Promise<Result<string, TokenError>>;
+  readonly invalidate: (rejectedToken: string) => void;
 };
 
 const MAX_REFRESH_MARGIN_MS = 60_000;
+const INVALIDATE_COOLDOWN_MS = 10_000;
 
 const formEncode = (value: string): string => new URLSearchParams({ v: value }).toString().slice(2);
 
@@ -31,6 +33,7 @@ export const createServiceTokenProvider = (deps: ServiceTokenProviderDeps): Serv
   const basic = Buffer.from(`${formEncode(deps.clientId)}:${formEncode(deps.clientSecret)}`).toString('base64');
   let cached: Cached | undefined;
   let inflight: Promise<Result<string, TokenError>> | undefined;
+  let lastForcedAt: number | undefined;
 
   const unavailable = (detail: string) => err<TokenError>({ kind: 'token_unavailable', detail });
 
@@ -56,6 +59,15 @@ export const createServiceTokenProvider = (deps: ServiceTokenProviderDeps): Serv
   };
 
   return {
+    // Only the token that was rejected is dropped, and not while a refresh runs or right after a forced one,
+    // so a sustained rejection cannot amplify into a token-endpoint storm.
+    invalidate: (rejectedToken) => {
+      if (inflight || cached?.token !== rejectedToken) return;
+      const now = deps.now();
+      if (lastForcedAt !== undefined && now - lastForcedAt < INVALIDATE_COOLDOWN_MS) return;
+      lastForcedAt = now;
+      cached = undefined;
+    },
     getToken: async () => {
       if (cached && deps.now() < cached.refreshAt) return ok(cached.token);
       // Single-flight: Cognito bills per token request.

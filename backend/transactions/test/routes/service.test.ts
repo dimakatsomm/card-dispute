@@ -49,9 +49,9 @@ const mustNotBeCalled: Upstream = () => {
 };
 
 const PRINCIPALS = {
-  'token-svc': serviceToken(['transactions/read']),
-  'token-svc-other-scopes': serviceToken(['users/read', 'disputes/read']),
-  'token-a': userToken(A),
+  'hdr.token-svc.signature': serviceToken(['transactions/read']),
+  'hdr.token-svc-other-scopes.signature': serviceToken(['users/read', 'disputes/read']),
+  'hdr.token-a.signature': userToken(A),
 };
 
 type LookupBody = { readonly items: ReadonlyArray<Record<string, unknown>> };
@@ -73,7 +73,7 @@ afterAll(async () => {
   await db?.stop();
 });
 
-const lookup = async (query: string, token = 'token-svc') => {
+const lookup = async (query: string, token = 'hdr.token-svc.signature') => {
   open = buildHarness(db.app, PRINCIPALS, { users: mustNotBeCalled, disputes: mustNotBeCalled });
   const res = await open.servers.service.inject({
     method: 'GET',
@@ -129,10 +129,10 @@ describe('GET :8081/transactions (service)', () => {
   });
 
   it('rejects a user token on the service port with 403', async () => {
-    expect((await lookup(`userId=${A}&transactionIds=${T1}`, 'token-a')).status).toBe(403);
+    expect((await lookup(`userId=${A}&transactionIds=${T1}`, 'hdr.token-a.signature')).status).toBe(403);
   });
 
   it('rejects a service token lacking transactions/read (other scopes present) with 403', async () => {
-    expect((await lookup(`userId=${A}&transactionIds=${T1}`, 'token-svc-other-scopes')).status).toBe(403);
+    expect((await lookup(`userId=${A}&transactionIds=${T1}`, 'hdr.token-svc-other-scopes.signature')).status).toBe(403);
   });
 });

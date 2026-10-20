@@ -11,10 +11,10 @@ const NOW = 1_800_000_000_000;
 const EXP = Math.floor(NOW / 1000) + 900;
 
 const tokens: Record<string, unknown> = {
-  'user-token': userPrincipal(EXP),
-  'service-token-ok': servicePrincipal(EXP, ['users/cards.read']),
-  'service-token-other-scope': servicePrincipal(EXP, ['transactions/read']),
-  'revoked-token': { valid: false, reason: 'disabled' },
+  'header.user-token.signature': userPrincipal(EXP),
+  'header.service-token-ok.signature': servicePrincipal(EXP, ['users/cards.read']),
+  'header.service-token-other-scope.signature': servicePrincipal(EXP, ['transactions/read']),
+  'header.revoked-token.signature': { valid: false, reason: 'disabled' },
 };
 
 let open: Servers | undefined;
@@ -70,13 +70,13 @@ const get = (app: Servers['public'], url: string, authorization?: string, method
 
 describe('public routes (requireUser)', () => {
   it('attaches the user principal for a valid user token', async () => {
-    const res = await get(build().servers.public, '/me', 'Bearer user-token');
+    const res = await get(build().servers.public, '/me', 'Bearer header.user-token.signature');
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ userId: 'user-1' });
   });
 
   it('accepts the Bearer scheme case-insensitively', async () => {
-    expect((await get(build().servers.public, '/me', 'bearer user-token')).statusCode).toBe(200);
+    expect((await get(build().servers.public, '/me', 'bearer header.user-token.signature')).statusCode).toBe(200);
   });
 
   it.each([
@@ -90,6 +90,16 @@ describe('public routes (requireUser)', () => {
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.json()).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
   });
+
+  it.each(['not-a-jwt', 'aaaaaaaaaa.bbbbbbbbbbbb', 'a'.repeat(300), `${'a'.repeat(150)}.${'b'.repeat(150)}`, 'aaaaaaaaaa.bbbbbbbbbb.', '..aaaaaaaaaaaaaaaaaaaa', 'aaaaaaaa.bbbbbbbb.ccéc'])(
+    'rejects non-JWT bearer %s with 401 without calling auth',
+    async (value) => {
+      const { servers, stub } = build();
+      const res = await get(servers.public, '/me', `Bearer ${value}`);
+      expect(res.statusCode).toBe(401);
+      expect(stub.calls).toHaveLength(0);
+    },
+  );
 
   it('rejects an oversized token with 401 without calling auth', async () => {
     const { servers, stub } = build();
@@ -107,26 +117,26 @@ describe('public routes (requireUser)', () => {
 
   it('answers 404 for an unknown path without calling auth', async () => {
     const { servers, stub } = build();
-    const res = await get(servers.public, '/nope', 'Bearer user-token');
+    const res = await get(servers.public, '/nope', 'Bearer header.user-token.signature');
     expect(res.statusCode).toBe(404);
     expect(stub.calls).toHaveLength(0);
   });
 
   it('rejects an invalid token with 401 and does not leak the reason', async () => {
-    const res = await get(build().servers.public, '/me', 'Bearer revoked-token');
+    const res = await get(build().servers.public, '/me', 'Bearer header.revoked-token.signature');
     expect(res.statusCode).toBe(401);
     expect(res.body).not.toContain('disabled');
   });
 
   it('rejects a service principal with 403', async () => {
-    const res = await get(build().servers.public, '/me', 'Bearer service-token-ok');
+    const res = await get(build().servers.public, '/me', 'Bearer header.service-token-ok.signature');
     expect(res.statusCode).toBe(403);
     expect(res.json()).toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('answers 503 when auth is unavailable, never letting the request through', async () => {
     const { servers, handlerRuns } = build(true);
-    const res = await get(servers.public, '/me', 'Bearer user-token');
+    const res = await get(servers.public, '/me', 'Bearer header.user-token.signature');
     expect(res.statusCode).toBe(503);
     expect(res.headers['content-type']).toContain('application/problem+json');
     expect(res.json()).toMatchObject({ code: 'AUTH_UNAVAILABLE', status: 503 });
@@ -136,22 +146,22 @@ describe('public routes (requireUser)', () => {
 
 describe('service routes (requireService)', () => {
   it('allows a service principal with the route scope', async () => {
-    const res = await get(build().servers.service, '/cards', 'Bearer service-token-ok');
+    const res = await get(build().servers.service, '/cards', 'Bearer header.service-token-ok.signature');
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ clientId: 'svc-transactions' });
   });
 
   it('rejects a user principal with 403', async () => {
-    expect((await get(build().servers.service, '/cards', 'Bearer user-token')).statusCode).toBe(403);
+    expect((await get(build().servers.service, '/cards', 'Bearer header.user-token.signature')).statusCode).toBe(403);
   });
 
   it('rejects a missing scope with 403', async () => {
-    expect((await get(build().servers.service, '/cards', 'Bearer service-token-other-scope')).statusCode).toBe(403);
+    expect((await get(build().servers.service, '/cards', 'Bearer header.service-token-other-scope.signature')).statusCode).toBe(403);
   });
 
   it('rejects a missing token with 401 and answers 503 when auth is unavailable', async () => {
     expect((await get(build().servers.service, '/cards')).statusCode).toBe(401);
-    expect((await get(build(true).servers.service, '/cards', 'Bearer service-token-ok')).statusCode).toBe(503);
+    expect((await get(build(true).servers.service, '/cards', 'Bearer header.service-token-ok.signature')).statusCode).toBe(503);
   });
 
   it('keeps the guard in front of a route-level onRequest hook', async () => {
@@ -168,7 +178,7 @@ describe('service routes (requireService)', () => {
         handler: async () => ({}),
       },
     ]);
-    expect((await get(app, '/x', 'Bearer revoked-token')).statusCode).toBe(401);
+    expect((await get(app, '/x', 'Bearer header.revoked-token.signature')).statusCode).toBe(401);
     expect(order).toEqual([]);
     await app.close();
   });

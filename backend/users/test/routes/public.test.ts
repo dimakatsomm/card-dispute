@@ -22,10 +22,10 @@ beforeAll(async () => {
   db = await startUsersDb();
   fx = await seedFixture(db.seedPool);
   servers = buildTestServers(db.appPool, {
-    'token-a': userToken(fx.a.userId),
-    'token-b': userToken(fx.b.userId),
-    'token-no-profile': userToken('0192f0c1-0000-7000-8000-00000000dead'),
-    'token-svc': serviceToken(['users/cards.read', 'users/contact.read']),
+    'hdr.token-a.signature': userToken(fx.a.userId),
+    'hdr.token-b.signature': userToken(fx.b.userId),
+    'hdr.token-no-profile.signature': userToken('0192f0c1-0000-7000-8000-00000000dead'),
+    'hdr.token-svc.signature': serviceToken(['users/cards.read', 'users/contact.read']),
   });
 });
 
@@ -38,7 +38,7 @@ const me = (token: string) => servers.public.inject({ method: 'GET', url: '/me',
 
 describe('GET /me (public port)', () => {
   it("returns the caller's profile, accounts and cards grouped by account, with no token key anywhere", async () => {
-    const res = await me('token-a');
+    const res = await me('hdr.token-a.signature');
 
     expect(res.statusCode).toBe(200);
     const body = res.json<MeBody>();
@@ -51,7 +51,7 @@ describe('GET /me (public port)', () => {
   });
 
   it("never includes another user's accounts or cards (user B sees only B)", async () => {
-    const body = (await me('token-b')).json<MeBody>();
+    const body = (await me('hdr.token-b.signature')).json<MeBody>();
 
     expect(body.userId).toBe(fx.b.userId);
     expect(body.accounts.map((a) => a.accountId)).toEqual([accountAt(fx.b, 0).accountId]);
@@ -61,7 +61,7 @@ describe('GET /me (public port)', () => {
   });
 
   it('computes expired with isCardExpired and the injected clock: passed expiry month true, current month false', async () => {
-    const cards = (await me('token-a')).json<MeBody>().accounts.flatMap((a) => a.cards);
+    const cards = (await me('hdr.token-a.signature')).json<MeBody>().accounts.flatMap((a) => a.cards);
 
     expect(cards.map((c) => [c.last4, c.expired])).toEqual([
       ['1111', true],
@@ -71,7 +71,7 @@ describe('GET /me (public port)', () => {
   });
 
   it('a user principal without a profile gets 404', async () => {
-    const res = await me('token-no-profile');
+    const res = await me('hdr.token-no-profile.signature');
 
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({ code: 'NOT_FOUND' });
@@ -85,13 +85,13 @@ describe('public port guard', () => {
   });
 
   it('rejects a service token on /me with 403', async () => {
-    expect((await me('token-svc')).statusCode).toBe(403);
+    expect((await me('hdr.token-svc.signature')).statusCode).toBe(403);
   });
 
   it.each(['/cards', `/users/0192f0c1-0000-7000-8000-000000000001/contact`])(
     'does not register service route %s on the public port, even for a scoped service token',
     async (url) => {
-      const res = await servers.public.inject({ method: 'GET', url, headers: bearer('token-svc') });
+      const res = await servers.public.inject({ method: 'GET', url, headers: bearer('hdr.token-svc.signature') });
       expect(res.statusCode).toBe(404);
     },
   );
