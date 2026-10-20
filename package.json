@@ -10,7 +10,7 @@
     "compose:local": "docker compose --env-file local/.env.example -f docker-compose.yml -f docker-compose.services.yml",
     "bootstrap:local": "node --env-file=local/.env.example backend/packages/db/bootstrap/main.ts",
     "dev": "pnpm compose:local up -d --wait postgres moto mock-issuer && pnpm bootstrap:local && pnpm compose:local up --build",
-    "test": "pnpm -r --if-present --filter '!@cd/e2e' test",
+    "test": "pnpm -r --if-present --filter \"!@cd/e2e\" test",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",

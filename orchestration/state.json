@@ -4,7 +4,7 @@
   "updatedAt": "2026-10-19T00:00:00Z",
   "milestones": {
     "M0": "done",
-    "M1": "in_progress — paused at usage limit 2026-10-19. Done: C-04,F-01,S-01..S-04,D-00..D-05,L-01,CI-01,W-01,U-01. Uncommitted WIP: A-01,T-01,P-01 (stopped), W-02..W-04+W-INT (review findings pending). Todo: P-02,P-03,L-02,E-01,W-05",
+    "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
     "M2": "todo — tasks P-04..P-06, L-03..L-05, B-01, W-06, E-02 (docs/08 §8)",
     "M3": "todo — tasks I-00..I-13, CI-02, X-01, E-03 (docs/08 §8)",
     "M4": "todo — H-01..H-04 (docs/08 §8)"
@@ -166,19 +166,19 @@
       "status": "done",
       "agent": "frontend",
       "blockedBy": [],
-      "notes": "gate PASS; should-fix: money formatter guard (format.ts RangeError), single formatter; uncommitted"
+      "notes": "gate PASS; should-fix: money formatter guard (format.ts RangeError), single formatter;"
     },
     "W-03": {
       "status": "done",
       "agent": "frontend",
       "blockedBy": [],
-      "notes": "gate PASS; uncommitted"
+      "notes": "gate PASS;"
     },
     "W-04": {
       "status": "done",
       "agent": "frontend",
       "blockedBy": [],
-      "notes": "gate CHANGES REQUIRED: BLOCKER add-evidence link targets create form (need files-only add-evidence mode at /disputes/:transactionId/evidence + non-vacuous test); should-fix reuse useMe instead of loadAccounts; move test harness out of src; uncommitted"
+      "notes": "gate CHANGES REQUIRED: BLOCKER add-evidence link targets create form (need files-only add-evidence mode at /disputes/:transactionId/evidence + non-vacuous test); should-fix reuse useMe instead of loadAccounts; move test harness out of src;"
     },
     "W-05": {
       "status": "done",
@@ -196,7 +196,7 @@
       "status": "done",
       "agent": "implementer",
       "blockedBy": [],
-      "notes": "security PASS + should-fix applied (trusted gitleaks config, pinned redocly via pnpm, ci-gate, dependabot); actionlint clean. CODEOWNERS uses @OWNER_GITHUB_HANDLE placeholder until owner supplies handle (2026-10-19)"
+      "notes": "security PASS + should-fix applied (trusted gitleaks config, pinned redocly via pnpm, ci-gate, dependabot); actionlint clean. CODEOWNERS = @dimakatsomm"
     },
     "W-INT": {
       "status": "done",
@@ -489,7 +489,8 @@
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
     "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
-    "R-11: whoever writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (evidence-intake, P-05 path) must set after={evidenceId}; P-03 timeline depends on it (docs/03)."
+    "R-11: whoever writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (evidence-intake, P-05 path) must set after={evidenceId}; P-03 timeline depends on it (docs/03).",
+    "V-10: user token on a service port (8081) → 403 is proven in unit/integration tests only; add a compose-network check in M2 e2e."
   ],
   "peerReviews": [
     {
