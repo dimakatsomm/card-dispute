@@ -2,6 +2,23 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 const accountLinks = (page: Page): Locator => page.getByRole('list', { name: 'Accounts' }).locator('a[href^="/accounts/"]');
 
+const loadMore = (page: Page): Locator => page.getByRole('button', { name: 'Load more transactions' });
+
+// Rows arrive after the table renders and later pages sit behind "Load more", so wait and page before giving up.
+const hasDisputableRow = async (page: Page, disputeLinks: Locator): Promise<boolean> => {
+  for (let pageNo = 0; pageNo < 10; pageNo++) {
+    const found = await disputeLinks
+      .first()
+      .waitFor({ state: 'visible', timeout: 3_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (found) return true;
+    if (!(await loadMore(page).isVisible())) return false;
+    await loadMore(page).click();
+  }
+  return false;
+};
+
 // Disputes are never deleted, so a card's disputable rows run out: walk accounts and cards for one that still has some.
 export const openCardWithDisputableRow = async (page: Page): Promise<Locator> => {
   const disputeLinks = page.getByRole('link', { name: /^Dispute .+ on / });
@@ -18,7 +35,7 @@ export const openCardWithDisputableRow = async (page: Page): Promise<Locator> =>
       if ((await cards.nth(card).textContent())?.includes('(Expired)')) continue;
       await cards.nth(card).click();
       await expect(page.getByRole('table')).toBeVisible();
-      if ((await disputeLinks.count()) > 0) return disputeLinks;
+      if (await hasDisputableRow(page, disputeLinks)) return disputeLinks;
       await page.goBack();
     }
   }

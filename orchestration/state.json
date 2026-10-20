@@ -5,7 +5,7 @@
   "milestones": {
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
-    "M2": "in_progress — decomposed 2026-10-20 (analyst); S-08 done; next M2-00.",
+    "M2": "done 2026-10-20 — integration-verifier: M2 MET. 1,182 unit/integration tests across 17 packages; API e2e 42/42 (incl. expired token); Playwright 5/5 twice after fixing the card helper. Scan → STORED/REJECTED on timeline, email to owner on every step, 24 h slot expiry and 1-year erasure incl. file names (clock-injected), poison → both DLQs. Real AWS (GuardDuty, S3 checksum enforcement V-08, SES delivery) is M3.",
     "M3": "todo — tasks I-00..I-13, CI-02, X-01, E-03 (docs/08 §8)",
     "M4": "todo — H-01..H-04 (docs/08 §8)"
   },
@@ -247,9 +247,10 @@
       "notes": "Security gate PASS. Migration 004: retention skips updated_at, file_name erase grant + guard, SCAN_FAILED CHECK, partial indexes proven by plan test."
     },
     "W-06": {
-      "status": "todo",
+      "status": "done",
       "agent": "frontend",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "Commit c9e339d. Polling while PENDING (3 s, capped), last-good data on refetch failure, per-reason rejection text, EXPIRED upload-again link, ERASED/erased-dispute notices, resolution note, aria-live. Frontend review via orchestrator (not security-mandatory)."
     },
     "L-06": {
       "status": "done",
@@ -642,7 +643,8 @@
     "P-05x follow-up: move the evidence cap-counting statuses (PENDING+STORED) and the ADR-050 declaration-matching rule from disputes core into @cd/dispute-domain (rule 2).",
     "L-07: pin public.ecr.aws/lambda/nodejs:24 by digest (or dated tag) and set --platform=linux/arm64 consistently in all three Lambda Dockerfiles; confirm RIE runs as USER 65534 in evidence-intake.",
     "M3 infra (from L-03 gate): default event bus must reject aws.-prefixed PutEvents; intake Lambda resource policy allows only events.amazonaws.com with the rule SourceArn; quarantine bucket policy denies GetObject unless tagged NO_THREATS_FOUND and must not exempt the intake role; client secret stored as raw string.",
-    "auth-client: service-token fetch has no timeout of its own; a hung token endpoint pins the in-flight promise in a warm container. Add a per-fetch timeout (follow-up task)."
+    "auth-client: service-token fetch has no timeout of its own; a hung token endpoint pins the in-flight promise in a warm container. Add a per-fetch timeout (follow-up task).",
+    "tests/ui: card helper now waits for rows and pages; e2e and UI share user A data, which never resets (disputes are permanent) — reseed occasionally on long-lived local stacks."
   ],
   "peerReviews": [
     {
