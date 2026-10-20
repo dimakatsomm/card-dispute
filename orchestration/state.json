@@ -6,7 +6,7 @@
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
     "M2": "done 2026-10-20 — integration-verifier: M2 MET. 1,182 unit/integration tests across 17 packages; API e2e 42/42 (incl. expired token); Playwright 5/5 twice after fixing the card helper. Scan → STORED/REJECTED on timeline, email to owner on every step, 24 h slot expiry and 1-year erasure incl. file names (clock-injected), poison → both DLQs. Real AWS (GuardDuty, S3 checksum enforcement V-08, SES delivery) is M3.",
-    "M3": "todo — tasks I-00..I-13, CI-02, X-01, E-03 (docs/08 §8)",
+    "M3": "in_progress — decomposed 2026-10-20; waves 0–3 offline, wave 4 owner-gated.",
     "M4": "todo — H-01..H-04 (docs/08 §8)"
   },
   "tasks": {
@@ -337,6 +337,287 @@
         "P-05b"
       ],
       "notes": "evidence-status.spec: clean PDF Scanning->Stored+Evidence added without reload; EICAR Rejected malware; seeded resolution note; add-evidence reaches Stored. M1 smoke finds a disputable card via helper. 5/5 twice on fresh stack."
+    },
+    "M3-00": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": []
+    },
+    "V-M3": {
+      "status": "todo",
+      "agent": "orchestrator",
+      "blockedBy": []
+    },
+    "DB-TLS": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": []
+    },
+    "DB-BOOT": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": []
+    },
+    "ACL-TO": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": []
+    },
+    "I-ENV": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": []
+    },
+    "OWN-1": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": []
+    },
+    "OWN-3": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": []
+    },
+    "OWN-4": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": [
+        "I-00",
+        "OWN-1",
+        "OWN-3"
+      ]
+    },
+    "OWN-5": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": []
+    },
+    "OWN-6": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": [
+        "I-12",
+        "I-13"
+      ]
+    },
+    "I-00": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-01": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-02": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-03": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-03t": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "I-03"
+      ]
+    },
+    "I-04": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-05": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-06a": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-06b": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-07": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "V-M3"
+      ]
+    },
+    "I-08": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-09": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-10": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-11": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-12": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-13": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "I-14": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-05",
+        "I-00"
+      ]
+    },
+    "I-15": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-ENV"
+      ]
+    },
+    "DOC-M3": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "V-M3"
+      ]
+    },
+    "X-01": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "M3-00",
+        "DB-BOOT",
+        "DB-TLS"
+      ]
+    },
+    "I-WIRE": {
+      "status": "todo",
+      "agent": "infra-terraform",
+      "blockedBy": [
+        "I-00",
+        "I-01",
+        "I-02",
+        "I-03",
+        "I-04",
+        "I-05",
+        "I-06a",
+        "I-06b",
+        "I-07",
+        "I-08",
+        "I-09",
+        "I-10",
+        "I-11",
+        "I-12",
+        "I-13",
+        "I-14",
+        "I-15"
+      ]
+    },
+    "CI-02a": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "I-14"
+      ]
+    },
+    "CI-02b": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "CI-02a"
+      ]
+    },
+    "CI-02c": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "CI-02a"
+      ]
+    },
+    "CI-02d": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "I-00",
+        "I-WIRE"
+      ]
+    },
+    "CI-02e": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "CI-02a",
+        "I-15"
+      ]
+    },
+    "E-03a": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "X-01",
+        "CI-02e",
+        "I-WIRE"
+      ]
+    },
+    "E-03b": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "E-03a"
+      ]
     }
   },
   "decisions": [
@@ -629,13 +910,37 @@
       "id": "ADR-058",
       "date": "2026-10-20",
       "text": "Generated header schemas are not used for If-Match: disputes checks If-Match by hand, as today: missing → 428 before body validation; malformed or stale → 412 after the body parses; the spec keeps required+pattern for documentation. Non-uuid userId on users contact path becomes 400 per spec. Residual cross-field rules (from<to, min<=max, EDIT changes >=1 field, cursor decode, calendar validity) stay as .refine in the service, predicates in dispute-domain where they are domain rules."
+    },
+    {
+      "id": "ADR-059",
+      "date": "2026-10-20",
+      "text": "Lambdas reach service ports via one internal ALB :8081 listener (default 404; SG allows only Lambda SGs); same ALB is the CloudFront VPC origin on :80. Fallback if no VPC origins: Cloud Map DNS. Plain HTTP inside the VPC is acceptable with mock data only."
+    },
+    {
+      "id": "ADR-060",
+      "date": "2026-10-20",
+      "text": "Infra plan runs on main only with a read-only role; plan stored in the encrypted state bucket (plans/<sha>), never as a GitHub artifact; plan output masked. PRs run offline checks only."
+    },
+    {
+      "id": "ADR-061",
+      "date": "2026-10-20",
+      "text": "dev-tools image (from local/seed) runs one-shot ECS tasks db-bootstrap, dev-seed, net-probe via a workflow_dispatch pipeline gated by environment dev."
+    },
+    {
+      "id": "ADR-062",
+      "date": "2026-10-20",
+      "text": "e2e Cognito app client with ALLOW_ADMIN_USER_PASSWORD_AUTH only, usable via IAM-signed AdminInitiateAuth by the e2e CI role; dev only."
+    },
+    {
+      "id": "ADR-063",
+      "date": "2026-10-20",
+      "text": "M3 owner rulings: managed NAT gateway; budget $200/month (alerts forecast 100%, actual 80/100%); if CloudFront VPC origins unavailable use a CloudFront-only public ALB with secret header (mock data only); CI logs mask account id and role ARNs; owner email stays public (O-02 closed); erased_at deferred to M4 (R-12); main branch protection with 0 approvals and admin bypass. Base WAF in M3, tuning M4; SNS alarm channel in I-13; X-Ray dropped."
     }
   ],
   "openQuestions": [
     "V-06: Verify CloudFront VPC origins in af-south-1 (optional — would make the ALB internal) and CloudFront/WAF/Route 53 pricing.",
     "V-08: Confirm against real S3 in dev that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
-    "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
     "R-11: P-05b writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (in the same transaction as the evidence status change) and must set after={evidenceId}; P-03 timeline depends on it (docs/03).",
     "M2-00: disputes.service lookup response adds version (done in the spec; P-05b implements it); LOOKUP_MAX_IDS=100 in disputes transactions-client duplicates the transactions.service limit.",
