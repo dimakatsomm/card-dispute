@@ -107,10 +107,10 @@
       "notes": "Security gate PASS; S1-S3 applied plus from/to and cursor range checks (year 0000, rolled-over dates, offsets beyond +/-14:00 give 400). 76 tests."
     },
     "P-01": {
-      "status": "in_review",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [],
-      "notes": "83 tests (31 new); moto does not enforce presigned signatures — SigV4+checksum verifier in tests; real-S3 test V-08 in M3; security review pending"
+      "notes": "Security gate: B1/S1/S2/S3/N3 fixed. 94 tests."
     },
     "E-01": {
       "status": "todo",
@@ -473,7 +473,7 @@
     },
     {
       "id": "ADR-054",
-      "text": "P-01 rulings: one notifications queue only; one service token per callee (scope isolation); publish awaited with 3 retries before 201; signing failure after commit → 500, recover via re-sign (P-05); file_name rejects control chars ≤255; circuit breaker deferred to M4.",
+      "text": "P-01 rulings: one notifications queue only; one service token per callee (scope isolation); publish right after commit, before signing, awaited with retries inside a 1.5 s budget (SQS client 1 s timeouts, SDK retries off); signing failure after commit → 503 UPLOAD_SIGNING_UNAVAILABLE (dispute stays created), recover by re-declaring via /evidence; file_name rejects control chars ≤255; circuit breaker deferred to M4. Each upstream call (token + request + retry) has one 2 s overall deadline.",
       "date": "2026-10-20"
     }
   ],

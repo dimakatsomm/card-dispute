@@ -189,6 +189,8 @@ Errors:
 - 409 `ALREADY_DISPUTED` — any dispute exists for this transaction, in any status (ADR-020)
 - 422 `NOT_ELIGIBLE` with `code`: `INVALID_REASON | INVALID_DESCRIPTION | TXN_NOT_POSTED | TXN_TYPE_NOT_DISPUTABLE | OUTSIDE_WINDOW | CARD_EXPIRED`
 - 400 validation (unknown fields, >5 declarations, bad size/type/sha256)
+- 503 upstream unavailable (each upstream call has one 2 s overall deadline)
+- 503 `UPLOAD_SIGNING_UNAVAILABLE` — the dispute **was created** and DisputeCreated published, but URLs could not be signed; re-declare via `POST /dispute/{transactionId}/evidence` (ADR-054)
 
 Dispute resource:
 ```json

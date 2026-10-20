@@ -67,6 +67,9 @@ paths:
         No `Idempotency-Key`: a retry hits the unique constraint → 409 `ALREADY_DISPUTED`; the client then calls
         `GET /dispute/{transactionId}`.
 
+        503 `UPLOAD_SIGNING_UNAVAILABLE`: the dispute was created but upload URLs could not be signed; the client
+        re-declares the files via `POST /dispute/{transactionId}/evidence` (retry-safe, ADR-050).
+
         For each declared file the response carries a presigned **PUT** URL for the quarantine bucket. The client must
         send exactly the returned headers (Content-Type, Content-Length, x-amz-checksum-sha256); S3 rejects anything else.
         Evidence stays `PENDING` until scanned; unused slots become `EXPIRED` after 1 day.
