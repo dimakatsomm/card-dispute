@@ -639,13 +639,12 @@ describe('presigned upload URLs', () => {
 });
 
 describe('ports and placeholders', () => {
-  it('public port: user token reaches the P-02/P-03 placeholders (501), a service token is 403', async () => {
+  it('public port: user token reaches the P-03 placeholders (501), a service token is 403', async () => {
     const id = randomUUID();
-    const inject = (method: 'GET' | 'PUT', url: string, token: string) =>
+    const inject = (method: 'GET', url: string, token: string) =>
       svc.servers.public.inject({ method, url, headers: { authorization: `Bearer ${token}` } });
     expect((await inject('GET', '/disputes', USER_A.token)).statusCode).toBe(501);
     expect((await inject('GET', `/dispute/${id}`, USER_A.token)).statusCode).toBe(501);
-    expect((await inject('PUT', `/dispute/${id}`, USER_A.token)).statusCode).toBe(501);
     expect((await inject('GET', '/disputes', SERVICE_CALLER.token)).statusCode).toBe(403);
   });
 

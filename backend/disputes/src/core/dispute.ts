@@ -1,4 +1,4 @@
-import type { EligibilityTransaction } from '@cd/dispute-domain';
+import type { DisputeStatus, EligibilityTransaction } from '@cd/dispute-domain';
 import type {
   DisputeEvent,
   DisputeRecord,
@@ -59,6 +59,26 @@ export const disputeCreatedEvent = (dispute: DisputeRecord, eventId: string): Di
   userId: dispute.userId,
   version: dispute.version,
   data: { fromStatus: null, toStatus: dispute.status, reasonCode: dispute.reasonCode },
+});
+
+export type DisputeChange = {
+  readonly from: DisputeStatus;
+  readonly eventType: 'DisputeEdited' | 'DisputeStatusChanged';
+};
+
+export const disputeChangedEvent = (
+  dispute: DisputeRecord,
+  change: DisputeChange,
+  eventId: string,
+): DisputeEvent => ({
+  eventId,
+  eventType: change.eventType,
+  occurredAt: dispute.updatedAt.toISOString(),
+  disputeId: dispute.disputeId,
+  transactionId: dispute.transactionId,
+  userId: dispute.userId,
+  version: dispute.version,
+  data: { fromStatus: change.from, toStatus: dispute.status, reasonCode: dispute.reasonCode },
 });
 
 export const evidenceObjectKey = (disputeId: string, evidenceId: string): string =>

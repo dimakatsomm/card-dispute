@@ -128,12 +128,12 @@
       "notes": ""
     },
     "P-02": {
-      "status": "todo",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [
         "P-01"
       ],
-      "notes": "security gate"
+      "notes": "Security gate PASS + should-fixes. Rulings: bad EDIT input 400 (PUT has no 422); NO_OP edit 200 same version; If-Match */weak/unquoted 412; order 428>400>412fmt>404>412ver>409; PRECONDITION_REQUIRED/FAILED codes; post-commit transactions lookup never fails the write. 121 tests."
     },
     "L-02": {
       "status": "todo",

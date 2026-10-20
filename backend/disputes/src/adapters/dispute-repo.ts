@@ -212,6 +212,14 @@ const txOps = (client: Queryable): DisputeTx => ({
     return inserted;
   },
 
+  listEvidence: async (disputeRowId) => {
+    const res = await client.query(
+      `select ${EVIDENCE_COLUMNS} from dispute_evidence where dispute_id = $1 order by id`,
+      [disputeRowId],
+    );
+    return res.rows.map((r) => evidenceRow.parse(r));
+  },
+
   updateWithVersion: async (u: VersionedUpdate) => {
     const sets = setClauses(u.changes);
     const assignments = sets.map((s, i) => `${s.column} = $${i + 4}`);

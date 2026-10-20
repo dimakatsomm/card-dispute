@@ -16,6 +16,7 @@ import { createUsersClient } from './adapters/users-client.ts';
 import { createApp } from './app.ts';
 import { loadDisputesConfig, migrateConfigSchema, type Config } from './config.ts';
 import { createDispute } from './use-cases/create-dispute.ts';
+import { updateDispute } from './use-cases/update-dispute.ts';
 
 export type Infra = {
   readonly config: Config;
@@ -68,6 +69,13 @@ export const composeServers = (infra: Infra): Servers => {
     timeoutMs: UPSTREAM_DEADLINE_MS,
   });
   const repo = createDisputeRepo(infra.pool);
+  const publish = createEventPublisher({
+    send: infra.sendMessage,
+    queueUrl: config.NOTIFICATIONS_QUEUE_URL,
+    log: logger,
+    sleep: infra.sleep,
+    now: infra.now,
+  });
 
   const useCases = {
     createDispute: createDispute({
@@ -75,13 +83,13 @@ export const composeServers = (infra: Infra): Servers => {
       findCard: users.findCard,
       transact: repo.transact,
       signUploads: guardSigner(infra.presignUploads, logger),
-      publish: createEventPublisher({
-        send: infra.sendMessage,
-        queueUrl: config.NOTIFICATIONS_QUEUE_URL,
-        log: logger,
-        sleep: infra.sleep,
-        now: infra.now,
-      }),
+      publish,
+      newId: infra.newId,
+    }),
+    updateDispute: updateDispute({
+      transact: repo.transact,
+      findTransaction: transactions.findTransaction,
+      publish,
       newId: infra.newId,
     }),
   };

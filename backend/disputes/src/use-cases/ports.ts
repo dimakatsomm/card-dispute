@@ -73,6 +73,7 @@ export type DisputeTx = {
     disputeRowId: string,
     evidence: ReadonlyArray<EvidenceDeclaration>,
   ) => Promise<ReadonlyArray<EvidenceRecord>>;
+  readonly listEvidence: (disputeRowId: string) => Promise<ReadonlyArray<EvidenceRecord>>;
   readonly updateWithVersion: (update: VersionedUpdate) => Promise<Result<DisputeRecord, 'STALE_VERSION'>>;
 };
 
