@@ -143,7 +143,7 @@ Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` pagin
 | id | bigint PK | |
 | evidence_id | uuid UQ | also the object name in both buckets |
 | dispute_id | bigint FK → dispute.id ON DELETE RESTRICT | indexed |
-| file_name | text not null | client-declared, display only (sanitised, ≤ 255); never used in an S3 key |
+| file_name | text not null | client-declared, display only: control characters rejected, ≤ 255 chars; never used in an S3 key |
 | declared_content_type | text not null | CHECK `application/pdf | image/jpeg | image/png` |
 | declared_size_bytes | int not null | CHECK 1–10 485 760 |
 | declared_sha256 | char(64) not null | signed into the upload URL; S3 verifies it |

@@ -114,7 +114,7 @@ Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (o
 | Notifier fetches contact by userId | No email address in queue messages | Embed email in events (rejected — PII in queues) |
 
 ## Failure handling
-- Inter-service HTTP: 2 s timeout, 1 retry on GETs only, circuit opens after 5 consecutive failures (30 s).
+- Inter-service HTTP: one overall 2 s deadline per call (token + request + retry), 1 retry on GETs only. Circuit breaker deferred to M4 (not in @cd/auth-client yet).
 - SQS publish after commit: 3 in-process retries with backoff. On final failure: error log +
   `EventPublishFailed` metric + alarm. The dispute itself is already committed.
 - SQS: visibility timeout 6× Lambda timeout, `maxReceiveCount` 5 → DLQ. CloudWatch alarm on DLQ depth > 0.

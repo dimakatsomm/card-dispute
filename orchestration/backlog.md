@@ -274,7 +274,7 @@ acceptance:
   - POST fetches txn via transactions GET :8081/transactions?userId=<principal>&transactionIds=<id> (service token) and card via users GET /cards (service token); not found/not owned → 404 [ADR-020: card expiry blocks]
   - eligibility decided only by evaluateTransactionEligibility + validateDisputeInput from @cd/dispute-domain with now = DB now() from the same transaction (no rule literals in service code — grep test for "120")
   - one DB transaction writes dispute + history; a forced failure after the dispute insert leaves no rows
-  - after commit, publishes DisputeCreated to both queues via an injected publisher; publish failure is logged + metric and does NOT change the 201 (test with a failing stub)
+  - after commit, publishes DisputeCreated to the notifications queue via an injected publisher; publish failure is logged + metric and does NOT change the 201 (test with a failing stub)
   - retried / concurrent POSTs for the same transaction → exactly one 201, the rest 409 ALREADY_DISPUTED (unique constraint; test with 5 parallel requests)
   - any existing dispute (any status) → 409 ALREADY_DISPUTED; expired card → 422 CARD_EXPIRED; concurrent POSTs with different keys → exactly one 201 (unique constraint)
   - user B on A's transaction → 404; event payload contains no PII and carries version

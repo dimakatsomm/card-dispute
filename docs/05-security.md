@@ -44,7 +44,7 @@
 | Principal | Allowed |
 |---|---|
 | each ECS task role | read own secrets; KMS decrypt `cd-data`; X-Ray put |
-| disputes task role | + `s3:PutObject` on the quarantine bucket only — used solely to **sign** presigned URLs (no reads, no evidence-bucket access); `sqs:SendMessage` to the dispute-events and dispute-notifications queues |
+| disputes task role | + `s3:PutObject` on the quarantine bucket only — used solely to **sign** presigned URLs (no reads, no evidence-bucket access); `sqs:SendMessage` to the dispute-notifications queue only (ADR-033) |
 | notifier Lambda | own queue; own client secret; `ses:SendEmail` on verified identity |
 | GuardDuty malware-protection role | read + tag objects in the quarantine bucket; `kms:Decrypt` on the quarantine key (verify-claims-02 #2) |
 | evidence-intake Lambda | `s3:GetObject`, `s3:DeleteObject` on the quarantine bucket; `s3:PutObject` on `evidence/*` in the evidence bucket; KMS for both keys; own client secret |

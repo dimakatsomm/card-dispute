@@ -71,6 +71,8 @@ Standard service env (every service, ADR-053): `PUBLIC_PORT`, `SERVICE_PORT`, `L
 
 Service runtime standards (U-01 gate): runtime stage runs `apk upgrade --no-cache`; pg pools set `connectionTimeoutMillis` 5000, `idleTimeoutMillis` 30000, `statement_timeout` 5000 ms (env-overridable).
 
+Upstream calls (T-01 pattern): each service-to-service call gets ONE overall 2 s deadline covering token fetch, request and the http-client GET retry; a per-attempt timeout alone can let a silent upstream take ~4 s.
+
 Image tags: the git SHA (immutable; ECR tag immutability on). No `latest` in any environment.
 Scanning: Trivy on every PR build (fail on HIGH/CRITICAL with a fix available) + ECR scan on push. SBOM (SPDX) attached as a build artifact.
 

@@ -80,10 +80,11 @@ Headers: `Authorization: Bearer <calling service's token with auth/validate>` �
 Request: `{ "token": "<jwt being validated>" }`
 200: `{ "valid": true, "principalType": "user", "authId": "uuid", "userId": "uuid", "scopes": [], "exp": 1760000000 }`
 200 (service): `{ "valid": true, "principalType": "service", "clientId": "…", "scopes": ["users/cards.read"], "exp": … }`
-200 invalid: `{ "valid": false, "reason": "expired|bad_signature|wrong_issuer|wrong_client|wrong_token_use|unknown_subject|disabled" }`
+200 invalid: `{ "valid": false, "principalType": "none", "reason": "expired|bad_signature|wrong_issuer|wrong_client|wrong_token_use|unknown_subject|disabled" }`
 400: malformed body.
 Rules: only Cognito **access** tokens accepted (id tokens rejected). `client_id` must be in the allow-list.
 `auth_identity.status` is the single access-control switch (PR-01 F7).
+Principal type is decided by which client allow-list the token's `client_id` is on (user clients vs service clients), not by the presence of `sub`. User principals return the token's actual scopes. JWKS unreachable → 500 (callers treat any non-200 as unavailable → 503).
 
 ## Users — `GET /me`
 200:
