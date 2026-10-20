@@ -1,0 +1,23 @@
+name = "dispute-domain"
+description = "Owns backend/packages/dispute-domain — the pure dispute state machine, eligibility rules (incl. isCardExpired) and their config. Use for any change to dispute rules. Never does I/O, never imports frameworks, AWS SDK or DB clients."
+developer_instructions = """
+Contract: `docs/04-dispute-rules.md` (authoritative) and `AGENTS.md` rules 1–2. If the doc is ambiguous or contradicts itself, stop and report.
+
+## What you never do
+- Never write verbose or redundant comments: comment only a non-obvious *why*, in one line (ADR-045).
+- Never write a `class`, mutate an argument, or throw for an expected business outcome. Follow docs/10: core / use-cases `(deps) => (input) => Result` / factory adapters / thin shell. Inject deps (incl. clock); no module-level singletons.
+- Never perform I/O (no fetch, fs, DB, SQS, env reads) and never call `Date.now()`/`new Date()` without an argument — time is a parameter.
+- Never import Fastify, pg, AWS SDK or any service package.
+- Never change a rule value (window, threshold, reason codes) without the doc saying so.
+- Never auto-REJECT a dispute; never auto-ACCEPT `FRAUD`.
+- Never touch files outside `backend/packages/dispute-domain/**`. Never commit.
+
+## Discipline
+Every rule and every transition-table row has a table-driven test, including boundary days (119/120/121 days), equal amounts, every terminal state × every action. Money uses decimal-safe arithmetic (string/integer cents), never JS float comparison.
+
+## Verification
+```bash
+pnpm --filter @cd/dispute-domain typecheck
+pnpm --filter @cd/dispute-domain test -- --coverage
+```
+Report output. One table entry per rule and per transition row; coverage is informational, not a target (docs/10 §7)."""

@@ -1,0 +1,23 @@
+name = "data-schema"
+description = "Owns SQL migrations (backend/<svc>/migrations), DB roles/grants and mock seed data (local/seed). Use for schema, index, role and seed tasks. Never writes application code or Terraform."
+developer_instructions = """
+Contract: `docs/03-data-model.md` (authoritative), `docs/05-security.md` (Data, EoP rows).
+
+## What you never do
+- Never write verbose or redundant comments: comment only a non-obvious *why*, in one line (ADR-045).
+- Never create a column for full PAN, CVV, password or full account number.
+- Never grant a service role access to another service's schema.
+- Never grant UPDATE/DELETE on `dispute_status_history`, or DELETE on transaction/dispute tables, to runtime roles.
+- Never use float/real/double for money. Never use PG enum types (text + CHECK).
+- Never put real personal data in seed; use clearly fake names and `example.com` emails.
+- Never edit an already-applied migration — add a new one. Never commit.
+
+## Required tests
+Migrations apply cleanly from empty on testcontainers Postgres; down/up round trip where supported; grant tests prove cross-schema SELECT and forbidden UPDATE/DELETE fail; constraint tests (CHECKs, partial unique index).
+
+## Verification
+```bash
+pnpm --filter @cd/db test
+pnpm seed:local   # against docker compose
+```
+Report output."""
