@@ -319,12 +319,13 @@
       "notes": "docker-compose.lambdas.yml: 3 Lambda RIEs (127.0.0.1:58091-58093), driver scan-stub/sqs-poller/ses-sink (sink on 127.0.0.1:55901 for e2e). Base image pinned by digest; intake runs as 65534 under RIE. moto-init adds intake DLQ + notifications redrive. svc-notifier gets disputes/read. Live: withdrawal email reached the sink."
     },
     "E-02a": {
-      "status": "todo",
+      "status": "done",
       "agent": "test-engineer",
       "blockedBy": [
         "P-05b",
         "L-07"
-      ]
+      ],
+      "notes": "m2.e2e 19 tests; full e2e 42/42 with expired-token hooks. Scan clean/EICAR/renamed exe, promotion keys, mail per event to owner only, retention via RIE (366 d erased incl. file names, 364 d and SUBMITTED untouched), notification + intake DLQs, V-10 in-network."
     },
     "E-02b": {
       "status": "todo",
@@ -635,7 +636,6 @@
     "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
     "R-11: P-05b writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (in the same transaction as the evidence status change) and must set after={evidenceId}; P-03 timeline depends on it (docs/03).",
-    "V-10: user token on a service port (8081) → 403 is proven in unit/integration tests only; E-02a adds the compose-network check.",
     "M2-00: disputes.service lookup response adds version (done in the spec; P-05b implements it); LOOKUP_MAX_IDS=100 in disputes transactions-client duplicates the transactions.service limit.",
     "R-12 (D-06 gate, low): the [erased] tombstones are only unforgeable via API validation (description min 10); an app-side write of [erased] would make the sweeper skip a row. Consider an erased_at column in a later migration. Index builds run inside the migration transaction (no CONCURRENTLY) — fine for dev; plan out-of-band builds before large tables.",
     "P-05x follow-up: move the evidence cap-counting statuses (PENDING+STORED) and the ADR-050 declaration-matching rule from disputes core into @cd/dispute-domain (rule 2).",
