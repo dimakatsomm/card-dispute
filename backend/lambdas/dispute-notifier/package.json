@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run --passWithNoTests"
+    "build": "node build.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "catalog:",
