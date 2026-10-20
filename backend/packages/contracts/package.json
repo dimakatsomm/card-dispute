@@ -1,0 +1,31 @@
+{
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "name": "@cd/contracts",
+  "exports": {
+    "./auth.service": "./src/auth.service/zod.ts",
+    "./users.public": "./src/users.public/zod.ts",
+    "./users.service": "./src/users.service/zod.ts",
+    "./transactions.public": "./src/transactions.public/zod.ts",
+    "./transactions.service": "./src/transactions.service/zod.ts",
+    "./disputes.public": "./src/disputes.public/zod.ts",
+    "./disputes.service": "./src/disputes.service/zod.ts",
+    "./query": "./src/query.ts"
+  },
+  "scripts": {
+    "gen": "openapi-ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cd/dispute-domain": "workspace:*",
+    "@hey-api/openapi-ts": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

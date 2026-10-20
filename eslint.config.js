@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 const SERVICES = ['auth', 'users', 'transactions', 'disputes'];
 const LAMBDAS = ['evidence-intake', 'dispute-notifier', 'retention-sweeper'];
-const PACKAGES = ['shared', 'auth-client', 'dispute-domain', 'db'];
+const PACKAGES = ['shared', 'auth-client', 'dispute-domain', 'db', 'contracts'];
 const LAYERS = ['core', 'use-cases', 'routes'];
 
 const NO_CLASSES = [
@@ -70,6 +70,26 @@ const otherDeployables = (self) =>
       ),
     );
 
+const foreignPublicContracts = (self) =>
+  SERVICES.filter((name) => name !== self).map((name) =>
+    group(
+      [`@cd/contracts/${name}.public`],
+      `A deployable may import only its own *.public contract and callees' *.service contracts, never ${name}.public (ADR-057).`,
+    ),
+  );
+
+const restrictedFor = (self) => [
+  ...otherDeployables(self),
+  ...(SERVICES.includes(self)
+    ? foreignPublicContracts(self)
+    : [
+        group(
+          SERVICES.map((name) => `@cd/contracts/${name}.public`),
+          'Lambdas call service ports: import *.service contracts only, never a *.public contract (ADR-057).',
+        ),
+      ]),
+];
+
 const importRule = (patterns, paths = []) => ({
   'no-restricted-imports': ['error', { patterns, paths }],
 });
@@ -98,14 +118,14 @@ const PURE_PATTERNS = [
 const pureImportRule = (patterns) => importRule([...patterns, ...PURE_PATTERNS], PURE_PATHS);
 
 const deployableBlocks = deployables.flatMap(({ name, dir }) => [
-  { files: [`${dir}/**/*.ts`], rules: importRule(otherDeployables(name)) },
+  { files: [`${dir}/**/*.ts`], rules: importRule(restrictedFor(name)) },
   {
     files: [`${dir}/src/**/*.ts`],
     ignores: [`${dir}/src/main.ts`, `${dir}/src/adapters/**`],
-    rules: importRule([...otherDeployables(name), ADAPTERS_ONLY_IN_MAIN]),
+    rules: importRule([...restrictedFor(name), ADAPTERS_ONLY_IN_MAIN]),
   },
   ...LAYERS.map((layer) => {
-    const patterns = [...otherDeployables(name), LAYER_RULES[layer]];
+    const patterns = [...restrictedFor(name), LAYER_RULES[layer]];
     return {
       files: [`${dir}/src/${layer}/**/*.ts`],
       rules: layer === 'core' ? pureImportRule(patterns) : importRule(patterns),
@@ -134,6 +154,7 @@ export default defineConfig(
       '**/test-results/**',
       'infra/**',
       'tools/lint-rules-test/fixtures/**',
+      'backend/packages/contracts/src/*/**',
     ],
   },
   eslint.configs.recommended,

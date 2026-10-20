@@ -43,6 +43,18 @@ const violations = [
     /never users/,
   ],
   [
+    'frontend importing contracts',
+    'frontend/src/bad-contracts-import.ts',
+    'no-restricted-imports',
+    /frontend\/ must not import/,
+  ],
+  [
+    'service importing another service public contract',
+    'backend/disputes/src/routes/bad-foreign-public-contract.ts',
+    'no-restricted-imports',
+    /never users\.public/,
+  ],
+  [
     'non-main file importing adapters',
     'backend/disputes/src/errors.ts',
     'no-restricted-imports',
@@ -70,5 +82,9 @@ describe('lint rules', () => {
 
   it('reports nothing for clean functional code', async () => {
     expect(await lintFixture('backend/disputes/src/core/good.ts')).toEqual([]);
+  });
+
+  it('allows own contracts and callee service contracts', async () => {
+    expect(await lintFixture('backend/disputes/src/routes/good-contracts.ts')).toEqual([]);
   });
 });

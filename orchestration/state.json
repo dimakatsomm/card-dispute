@@ -5,7 +5,7 @@
   "milestones": {
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
-    "M2": "todo — tasks P-04..P-06, L-03..L-05, B-01, W-06, E-02 (docs/08 §8)",
+    "M2": "in_progress — decomposed 2026-10-20 (analyst). Blocked on S-08 (OpenAPI→zod generation) before M2-00.",
     "M3": "todo — tasks I-00..I-13, CI-02, X-01, E-03 (docs/08 §8)",
     "M4": "todo — H-01..H-04 (docs/08 §8)"
   },
@@ -481,6 +481,26 @@
       "id": "ADR-054",
       "text": "P-01 rulings: one notifications queue only; one service token per callee (scope isolation); publish right after commit, before signing, awaited with retries inside a 1.5 s budget (SQS client 1 s timeouts, SDK retries off); signing failure after commit → 503 UPLOAD_SIGNING_UNAVAILABLE (dispute stays created), recover by re-declaring via /evidence; file_name rejects control chars ≤255; circuit breaker deferred to M4. Each upstream call (token + request + retry) has one 2 s overall deadline.",
       "date": "2026-10-20"
+    },
+    {
+      "id": "ADR-055",
+      "date": "2026-10-20",
+      "text": "M2 rulings (owner): quarantine key intake/{transactionId}/{evidenceId}; disputes decides STORED/REJECTED from declared-vs-detected facts and returns the evidence-bucket key; intake promotes only on STORED. Notifier checks current dispute version (svc-notifier gets disputes/read; service lookup returns version) and skips stale status emails; evidence emails always send. Retention also erases evidence file_name. Lambdas read secrets via @aws-sdk/client-secrets-manager. GuardDuty fallback = metric+log only, flag off by default. P-06 folded into P-01/P-05b."
+    },
+    {
+      "id": "ADR-056",
+      "date": "2026-10-20",
+      "text": "Backend HTTP boundary schemas are generated as zod from docs/openapi (owner chose generation over a contract test). Constraints that hand-written zod carried move into the specs. Raw parameterised SQL stays; no ORM (owner)."
+    },
+    {
+      "id": "ADR-057",
+      "date": "2026-10-20",
+      "text": "Generator: @hey-api/openapi-ts 0.99.0 (zod plugin only, exact pin, devDependency of backend/packages/contracts), custom resolvers: additionalProperties:false -> z.strictObject, format uuid -> z.guid(), date-time with offset. pnpm override js-yaml 5.5.0 (advisories in 0.99.0 pin). Layout: @cd/contracts/<spec> exports; services import own specs + callee *.service only (lint-enforced). Handlers parse with generated schemas (no Fastify type provider); queryOf helper coerces query strings. Spec policy: oneOf with $ref members + const discriminators; no allOf on strict schemas; *.service responses tolerant (no additionalProperties:false); bad reasonCode/description on create = 400 (was 422), 422 only for eligibility. Contract tests: integration responses safeParse against generated response schemas. Fallback: orval 8.40.0."
+    },
+    {
+      "id": "ADR-058",
+      "date": "2026-10-20",
+      "text": "Generated header schemas are not used for If-Match: disputes checks it by hand first (missing 428, malformed or stale 412) before body validation, as today; the spec keeps required+pattern for documentation. Non-uuid userId on users contact path becomes 400 per spec. Residual cross-field rules (from<to, min<=max, EDIT changes >=1 field, cursor decode, calendar validity) stay as .refine in the service, predicates in dispute-domain where they are domain rules."
     }
   ],
   "openQuestions": [

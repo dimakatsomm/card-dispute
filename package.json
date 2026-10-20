@@ -13,6 +13,8 @@
     "test": "pnpm -r --if-present --filter \"!@cd/e2e\" test",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint .",
+    "gen:contracts": "pnpm --filter @cd/contracts gen",
+    "check:contracts": "pnpm gen:contracts && git diff --exit-code -- backend/packages/contracts/src",
     "format": "prettier --write .",
     "test:e2e": "pnpm --filter ./tests/e2e --if-present test",
     "test:ui": "pnpm --filter ./tests/ui --if-present test:ui",

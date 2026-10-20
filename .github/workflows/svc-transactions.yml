@@ -5,8 +5,8 @@ on:
     paths:
       - "backend/transactions/**"
       - "backend/packages/**"
-      - "docs/openapi/transactions.*"
-      - "docs/openapi/common.yaml"
+      - "docs/openapi/**"
+      - "backend/packages/contracts/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "tsconfig.base.json"
@@ -20,8 +20,8 @@ on:
     paths:
       - "backend/transactions/**"
       - "backend/packages/**"
-      - "docs/openapi/transactions.*"
-      - "docs/openapi/common.yaml"
+      - "docs/openapi/**"
+      - "backend/packages/contracts/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - "tsconfig.base.json"
