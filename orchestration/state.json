@@ -328,13 +328,14 @@
       "notes": "m2.e2e 19 tests; full e2e 42/42 with expired-token hooks. Scan clean/EICAR/renamed exe, promotion keys, mail per event to owner only, retention via RIE (366 d erased incl. file names, 364 d and SUBMITTED untouched), notification + intake DLQs, V-10 in-network."
     },
     "E-02b": {
-      "status": "todo",
+      "status": "done",
       "agent": "test-engineer",
       "blockedBy": [
         "W-06",
         "L-07",
         "P-05b"
-      ]
+      ],
+      "notes": "evidence-status.spec: clean PDF Scanning->Stored+Evidence added without reload; EICAR Rejected malware; seeded resolution note; add-evidence reaches Stored. M1 smoke finds a disputable card via helper. 5/5 twice on fresh stack."
     }
   },
   "decisions": [

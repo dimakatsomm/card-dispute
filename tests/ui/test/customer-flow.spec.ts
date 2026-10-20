@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openCardWithDisputableRow } from '../fixtures/cards.ts';
 import { minimalPdf } from '../fixtures/pdf.ts';
 
 const signInAsA = async (page: Page) => {
@@ -21,11 +22,9 @@ test('customer A disputes a transaction with evidence, sees it listed, withdraws
 
   // Tokens live in memory, so navigate in-app: a reload would sign the user out.
   await page.goBack();
-  await page.getByRole('list', { name: /^Cards on / }).getByRole('link', { name: /^Visa debit card/ }).click();
-  await expect(page.getByRole('heading', { level: 1, name: /^Visa debit card/ })).toBeVisible();
 
-  // The first disputable row is unused: a disputed or withdrawn row stops being disputable.
-  const disputeLink = page.getByRole('link', { name: /^Dispute .+ on / }).first();
+  // A disputed or withdrawn row stops being disputable and rows run out, so find a card that still has one.
+  const disputeLink = (await openCardWithDisputableRow(page)).first();
   const href = await disputeLink.getAttribute('href');
   const transactionId = href?.match(/\/transactions\/([^/]+)\/dispute$/)?.[1];
   expect(transactionId, 'a disputable row on the card').toBeTruthy();
