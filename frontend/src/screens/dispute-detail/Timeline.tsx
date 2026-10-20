@@ -5,30 +5,33 @@ import {
   timelineLabel,
 } from '../disputes/labels';
 import type { TimelineEvent } from './api';
+import { visibleText } from './core';
 
 const fieldLabel = { description: 'description', reasonCode: 'reason' } as const;
 
 const EventDetail = ({ event }: { readonly event: TimelineEvent }) => {
   const detail = event.detail;
   if (!detail) return null;
+  const fileName = visibleText(detail.fileName);
+  const note = visibleText(detail.note);
   switch (event.type) {
     case 'EDITED':
       return detail.fields && detail.fields.length > 0 ? (
         <p>Changed: {detail.fields.map((f) => fieldLabel[f]).join(', ')}</p>
       ) : null;
     case 'EVIDENCE_ADDED':
-      return detail.fileName ? <p>{detail.fileName}</p> : null;
+      return fileName ? <p>{fileName}</p> : null;
     case 'EVIDENCE_REJECTED':
       return (
         <p>
-          {detail.fileName ? `${detail.fileName}: ` : ''}
+          {fileName ? `${fileName}: ` : ''}
           {describeRejection(detail.reason)}
         </p>
       );
     case 'RESOLVED_ACCEPTED':
     case 'RESOLVED_REJECTED':
     case 'WITHDRAWN':
-      return detail.note ? <p>Note: {detail.note}</p> : null;
+      return note ? <p>Note: {note}</p> : null;
     case 'SUBMITTED':
     case 'UNDER_REVIEW':
       return null;

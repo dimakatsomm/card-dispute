@@ -1,29 +1,27 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useApi } from '../../api/ApiProvider';
 import { routes } from '../../app/routes';
 import type { Result } from '../../app/result';
 import { formatMoney } from '../../lib/format/money';
-import { formatDateTime, reasonLabel, statusLabel, type DisputeStatus } from '../disputes/labels';
+import { formatDateTime, reasonLabel, statusLabel } from '../disputes/labels';
 import {
-  loadDispute,
   updateDispute,
   type Dispute,
   type DisputeChange,
   type DisputeDetail,
   type UpdateError,
 } from './api';
+import { isErased, isOpen, isResolved, visibleText } from './core';
 import { EditForm } from './EditForm';
 import { EvidenceList } from './EvidenceList';
+import { useChangeAnnouncement, useDispute } from './hooks';
 import { Timeline } from './Timeline';
 import { WithdrawDialog } from './WithdrawDialog';
 
 type Mode = 'view' | 'editing' | 'confirmingWithdraw';
 type Notice = { readonly kind: 'success' | 'error'; readonly text: string };
-
-const isOpen = (status: DisputeStatus) => status === 'SUBMITTED' || status === 'UNDER_REVIEW';
-const isResolved = (status: DisputeStatus) => status === 'RESOLVED_ACCEPTED' || status === 'RESOLVED_REJECTED';
 
 const updateErrorMessage: Readonly<Record<UpdateError, string>> = {
   STALE: 'This dispute changed, please review it before trying again.',
@@ -64,8 +62,9 @@ const TransactionSummary = ({ transaction }: { readonly transaction: DisputeDeta
   </section>
 );
 
-const Resolution = ({ dispute }: { readonly dispute: DisputeDetail }) =>
-  isResolved(dispute.status) ? (
+const Resolution = ({ dispute }: { readonly dispute: DisputeDetail }) => {
+  const note = visibleText(dispute.resolutionNote);
+  return isResolved(dispute.status) ? (
     <section aria-labelledby="resolution-heading">
       <h2 id="resolution-heading">Resolution</h2>
       <p>{statusLabel[dispute.status]}</p>
@@ -74,23 +73,30 @@ const Resolution = ({ dispute }: { readonly dispute: DisputeDetail }) =>
           Resolved <time dateTime={dispute.resolvedAt}>{formatDateTime(dispute.resolvedAt)}</time>
         </p>
       ) : null}
-      {dispute.resolutionNote ? <p>{dispute.resolutionNote}</p> : null}
+      {note ? <p>Note from the bank: {note}</p> : null}
     </section>
   ) : null;
+};
 
 const DisputeView = ({
   transactionId,
   dispute,
   etag,
+  stillChecking,
+  onRecheck,
 }: {
   readonly transactionId: string;
   readonly dispute: DisputeDetail;
   readonly etag: string;
+  readonly stillChecking: boolean;
+  readonly onRecheck: () => void;
 }) => {
   const api = useApi();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>('view');
   const [notice, setNotice] = useState<Notice | null>(null);
+  const announcement = useChangeAnnouncement(dispute);
+  const erased = isErased(dispute);
 
   const refresh = () =>
     Promise.all([
@@ -129,6 +135,10 @@ const DisputeView = ({
       {notice ? (
         <p role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</p>
       ) : null}
+      <p aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
+      {erased ? <p>Some details of this dispute were removed under our retention policy.</p> : null}
       <TransactionSummary transaction={dispute.transaction} />
       <section aria-labelledby="details-heading">
         <h2 id="details-heading">Dispute details</h2>
@@ -138,7 +148,7 @@ const DisputeView = ({
           <dt>Reason</dt>
           <dd>{reasonLabel[dispute.reasonCode]}</dd>
           <dt>Description</dt>
-          <dd>{dispute.description}</dd>
+          <dd>{erased ? 'Removed under our retention policy' : dispute.description}</dd>
           <dt>Submitted</dt>
           <dd>
             <time dateTime={dispute.createdAt}>{formatDateTime(dispute.createdAt)}</time>
@@ -177,7 +187,18 @@ const DisputeView = ({
       <Resolution dispute={dispute} />
       <section aria-labelledby="evidence-heading">
         <h2 id="evidence-heading">Evidence</h2>
-        <EvidenceList evidence={dispute.evidence} />
+        <EvidenceList
+          evidence={dispute.evidence}
+          addEvidencePath={isOpen(dispute.status) ? routes.addEvidence(transactionId) : null}
+        />
+        {stillChecking ? (
+          <p>
+            We are still checking your files. Refresh to see the latest status.{' '}
+            <button type="button" onClick={onRecheck}>
+              Refresh
+            </button>
+          </p>
+        ) : null}
         {isOpen(dispute.status) ? (
           <Link to={routes.addEvidence(transactionId)}>Add evidence</Link>
         ) : null}
@@ -188,15 +209,12 @@ const DisputeView = ({
 };
 
 export const DisputeDetailScreen = () => {
-  const api = useApi();
   const { transactionId = '' } = useParams();
-  const query = useQuery({
-    queryKey: ['dispute', transactionId],
-    queryFn: () => loadDispute(api)(transactionId),
-  });
+  const { query, stillChecking, recheck } = useDispute(transactionId);
 
   if (query.isPending) return <p role="status">Loading dispute…</p>;
-  if (query.isError || !query.data.ok) {
+  // A failed refetch after a good load keeps showing the dispute instead of replacing it with an error.
+  if (!query.data?.ok) {
     const notFound = query.data?.ok === false && query.data.error === 'NOT_FOUND';
     return (
       <section role="alert">
@@ -210,5 +228,14 @@ export const DisputeDetailScreen = () => {
       </section>
     );
   }
-  return <DisputeView transactionId={transactionId} dispute={query.data.value.dispute} etag={query.data.value.etag} />;
+  return (
+    <DisputeView
+      key={transactionId}
+      transactionId={transactionId}
+      dispute={query.data.value.dispute}
+      etag={query.data.value.etag}
+      stillChecking={stillChecking}
+      onRecheck={recheck}
+    />
+  );
 };

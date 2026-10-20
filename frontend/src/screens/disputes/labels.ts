@@ -57,7 +57,7 @@ export const evidenceStatusLabel: Readonly<Record<EvidenceStatus, string>> = {
   STORED: 'Stored',
   REJECTED: 'Rejected',
   EXPIRED: 'Expired (not uploaded in time)',
-  ERASED: 'Erased',
+  ERASED: 'Removed',
 };
 
 export const rejectionReasonLabel: Readonly<Record<RejectionReason, string>> = {

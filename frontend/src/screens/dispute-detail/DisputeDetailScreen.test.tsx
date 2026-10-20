@@ -1,39 +1,15 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { json, problem, renderWithApi, type Handler } from '../../../test/support/api';
-import type { DisputeStatus } from '../disputes/labels';
-import type { DisputeDetail } from './api';
-import { DisputeDetailScreen } from './DisputeDetailScreen';
-
-const transactionId = '0192f0c1-0000-7000-8000-0000000000t1';
-
-const detail = (overrides: Partial<DisputeDetail> = {}): DisputeDetail => ({
-  disputeId: '0192f0c1-0000-7000-8000-0000000000d1',
+import { problem, renderWithApi, type Handler } from '../../../test/support/api';
+import {
+  disputeDetail as detail,
+  disputeResponse as getResponse,
+  evidenceItem,
   transactionId,
-  status: 'SUBMITTED',
-  reasonCode: 'FRAUD',
-  description: 'I did not make this purchase.',
-  transaction: {
-    accountId: '0192f0c1-0000-7000-8000-0000000000a1',
-    cardId: '0192f0c1-0000-7000-8000-0000000000c1',
-    amount: '125.50',
-    currency: 'ZAR',
-    merchantName: 'Corner Shop',
-    transactionAt: '2026-09-01T10:00:00Z',
-    postedAt: '2026-09-02T10:00:00Z',
-  },
-  evidence: [],
-  version: 7,
-  createdAt: '2026-10-01T10:00:00Z',
-  updatedAt: '2026-10-01T10:00:00Z',
-  resolvedAt: null,
-  resolutionNote: null,
-  timeline: [{ type: 'SUBMITTED', at: '2026-10-01T10:00:00Z', by: 'CUSTOMER' }],
-  ...overrides,
-});
-
-const getResponse = (body: unknown, etag = '"7"') => json(body, { headers: { ETag: etag } });
+} from '../../../test/evidence/fixtures';
+import type { DisputeStatus, RejectionReason } from '../disputes/labels';
+import { DisputeDetailScreen } from './DisputeDetailScreen';
 
 const renderDetail = (handler: Handler) =>
   renderWithApi({
@@ -159,22 +135,75 @@ describe('DisputeDetailScreen', () => {
     expect(screen.getByRole('heading', { name: 'Resolution' })).toBeTruthy();
   });
 
-  it('shows evidence statuses, including the reason a file was rejected', async () => {
+  it.each<[RejectionReason, string]>([
+    ['MALWARE', 'Rejected: the file failed the security scan'],
+    ['TYPE_MISMATCH', 'Rejected: the file contents do not match its type'],
+    ['CHECKSUM', 'Rejected: the file does not match what was declared'],
+    ['SIZE', 'Rejected: the file size does not match what was declared'],
+  ])('a file rejected for %s explains why', async (rejectionReason, message) => {
+    renderDetail(() => getResponse(detail({ evidence: [evidenceItem({ status: 'REJECTED', rejectionReason })] })));
+
+    const list = await screen.findByRole('list', { name: 'Evidence' });
+    expect(within(list).getByRole('listitem').textContent).toContain(message);
+  });
+
+  it.each<[DisputeStatus, boolean]>([
+    ['SUBMITTED', true],
+    ['UNDER_REVIEW', true],
+    ['RESOLVED_REJECTED', false],
+    ['WITHDRAWN', false],
+  ])('an expired upload while %s links to add evidence: %s', async (status, linked) => {
+    renderDetail(() => getResponse(detail({ status, evidence: [evidenceItem({ status: 'EXPIRED' })] })));
+
+    const item = within(await screen.findByRole('list', { name: 'Evidence' })).getByRole('listitem');
+    expect(item.textContent).toContain('Expired (not uploaded in time)');
+    expect(within(item).queryByRole('link', { name: 'upload it again' })?.getAttribute('href') ?? null).toBe(
+      linked ? `/disputes/${transactionId}/evidence` : null,
+    );
+  });
+
+  it('an erased file renders neutrally without its tombstone name', async () => {
+    renderDetail(() =>
+      getResponse(detail({ status: 'RESOLVED_ACCEPTED', evidence: [evidenceItem({ status: 'ERASED', fileName: '[erased]' })] })),
+    );
+
+    const item = within(await screen.findByRole('list', { name: 'Evidence' })).getByRole('listitem');
+    expect(item.textContent).toBe('File removed under our retention policy.');
+  });
+
+  it.each<[DisputeStatus, string | null, string | null]>([
+    ['RESOLVED_ACCEPTED', 'Refund issued.', 'Note from the bank: Refund issued.'],
+    ['RESOLVED_REJECTED', 'Merchant proved delivery.', 'Note from the bank: Merchant proved delivery.'],
+    ['RESOLVED_ACCEPTED', null, null],
+  ])('a %s resolution shows the note %s', async (status, resolutionNote, shown) => {
+    renderDetail(() => getResponse(detail({ status, resolutionNote, resolvedAt: '2026-10-03T10:00:00Z' })));
+
+    await screen.findByRole('heading', { name: 'Resolution' });
+    expect(screen.queryByText(/^Note from the bank/)?.textContent ?? null).toBe(shown);
+  });
+
+  it('an erased dispute says it was removed under the retention policy and never shows tombstones', async () => {
     renderDetail(() =>
       getResponse(
         detail({
-          evidence: [
-            { evidenceId: '0192f0c1-0000-7000-8000-0000000000e1', fileName: 'receipt.pdf', contentType: 'application/pdf', sizeBytes: 2048, status: 'PENDING' },
-            { evidenceId: '0192f0c1-0000-7000-8000-0000000000e2', fileName: 'photo.png', contentType: 'image/png', sizeBytes: 2048, status: 'REJECTED', rejectionReason: 'MALWARE' },
+          status: 'RESOLVED_REJECTED',
+          description: '[erased]',
+          resolutionNote: null,
+          resolvedAt: '2025-09-01T10:00:00Z',
+          evidence: [evidenceItem({ status: 'ERASED', fileName: '[erased]' })],
+          timeline: [
+            { type: 'SUBMITTED', at: '2025-08-01T10:00:00Z', by: 'CUSTOMER' },
+            { type: 'EVIDENCE_ADDED', at: '2025-08-01T10:05:00Z', by: 'BANK', detail: { fileName: '[erased]' } },
+            { type: 'RESOLVED_REJECTED', at: '2025-09-01T10:00:00Z', by: 'BANK', detail: { note: '[erased]' } },
           ],
         }),
       ),
     );
 
-    const list = await screen.findByRole('list', { name: 'Evidence' });
-    const [pending, rejected] = within(list).getAllByRole('listitem');
-    expect(pending?.textContent).toContain('Scanning');
-    expect(rejected?.textContent).toContain('Rejected: the file failed the security scan');
+    expect(await screen.findByText('Some details of this dispute were removed under our retention policy.')).toBeTruthy();
+    expect(screen.getByText('Removed under our retention policy')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('[erased]');
+    expect(document.body.textContent).not.toContain('Note from the bank');
   });
 
   it('shows "details unavailable" when the transaction is null but still shows the dispute', async () => {
