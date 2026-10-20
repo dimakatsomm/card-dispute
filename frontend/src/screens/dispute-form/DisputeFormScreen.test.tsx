@@ -42,7 +42,7 @@ const created = (uploads: ReadonlyArray<unknown>) =>
   );
 
 const renderScreen = (routes: Readonly<Record<string, Handler>> = {}) => {
-  const { requests, router } = renderWithApi({
+  const { requests, router, queryClient } = renderWithApi({
     routes: [
       { path: '/transactions/:transactionId/dispute', element: <DisputeFormScreen /> },
       { path: '/disputes/:transactionId', element: <h1>Dispute detail</h1> },
@@ -50,7 +50,7 @@ const renderScreen = (routes: Readonly<Record<string, Handler>> = {}) => {
     url: `/transactions/${transactionId}/dispute`,
     handler: (request) => routes[`${request.method} ${new URL(request.url).pathname}`]?.(request) ?? json({}, { status: 500 }),
   });
-  return { requests, router, user: userEvent.setup({ applyAccept: false }) };
+  return { requests, router, queryClient, user: userEvent.setup({ applyAccept: false }) };
 };
 
 const fillValidForm = async (user: ReturnType<typeof userEvent.setup>, description = VALID_DESCRIPTION) => {
@@ -104,6 +104,18 @@ describe('DisputeFormScreen', () => {
       expect(describedText(field)).toMatch(/Enter at least 10 characters/);
       expect(requests).toHaveLength(0);
     }
+  });
+
+  it('marks cached transaction lists stale once the dispute is created', async () => {
+    const { queryClient, user } = renderScreen({ [`POST /api/dispute/${transactionId}`]: () => created([]) });
+    const listKey = ['transactions', { cardId: 'card-1' }];
+    queryClient.setQueryData(listKey, { pages: [], pageParams: [] });
+    await fillValidForm(user);
+
+    await user.click(screen.getByRole('button', { name: 'Submit dispute' }));
+
+    expect(await screen.findByRole('heading', { name: 'Dispute detail' })).toBeTruthy();
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
   });
 
   it('navigates to the existing dispute on 409 ALREADY_DISPUTED', async () => {

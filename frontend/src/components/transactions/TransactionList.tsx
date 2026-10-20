@@ -23,11 +23,10 @@ type TransactionListProps = { readonly filter: TransactionFilter; readonly capti
 
 export const TransactionList = ({ filter, caption }: TransactionListProps) => {
   const query = useTransactions(filter);
-  const { fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = query;
-  const loadMore = useCallback(() => {
-    if (!isFetchingNextPage) void fetchNextPage();
-  }, [fetchNextPage, isFetchingNextPage]);
-  const sentinel = useLoadOnScroll(hasNextPage && !isFetchingNextPage && !isFetchNextPageError, loadMore);
+  const { fetchNextPage, hasNextPage, isFetching, isFetchingNextPage, isFetchNextPageError } = query;
+  // By default fetchNextPage cancels a running refetch, which would leave the earlier pages stale.
+  const loadMore = useCallback(() => void fetchNextPage({ cancelRefetch: false }), [fetchNextPage]);
+  const sentinel = useLoadOnScroll(hasNextPage && !isFetching && !isFetchNextPageError, loadMore);
 
   if (query.isPending) return <p role="status">Loading transactions…</p>;
   if (query.isError && !query.data) {
@@ -60,7 +59,7 @@ export const TransactionList = ({ filter, caption }: TransactionListProps) => {
       {isFetchNextPageError ? <LoadError message="We couldn't load more transactions." onRetry={loadMore} /> : null}
       {hasNextPage && !isFetchNextPageError ? (
         <div ref={sentinel}>
-          <button type="button" onClick={loadMore} disabled={isFetchingNextPage}>
+          <button type="button" onClick={loadMore} disabled={isFetching}>
             {isFetchingNextPage ? 'Loading more…' : 'Load more transactions'}
           </button>
         </div>

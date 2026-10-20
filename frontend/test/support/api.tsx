@@ -49,5 +49,5 @@ export const renderWithApi = (options: {
       </QueryClientProvider>
     </ApiProvider>,
   );
-  return { ...view, requests, router };
+  return { ...view, requests, router, queryClient };
 };

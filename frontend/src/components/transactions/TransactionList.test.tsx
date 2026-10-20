@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { json, problem, renderWithApi, urlsTo, type Handler } from '../../../test/support/api';
 import { page, txn } from '../../../test/transactions/fixtures';
 import { TransactionList } from './TransactionList';
@@ -75,5 +75,55 @@ describe('TransactionList', () => {
 
     expect(await screen.findByRole('rowheader', { name: 'Merchant 1' })).toBeDefined();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a scroll-triggered page load does not cancel the refresh when the list is shown again', async () => {
+    const intersecting = { now: false };
+    vi.stubGlobal(
+      'IntersectionObserver',
+      vi.fn(function (callback: IntersectionObserverCallback) {
+        return {
+          observe: () => {
+            if (!intersecting.now) return;
+            queueMicrotask(() => callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+          },
+          disconnect: () => undefined,
+        };
+      }),
+    );
+    const disputed = { now: false };
+    const refreshGate = { resolve: () => undefined as void, promise: Promise.resolve() };
+    refreshGate.promise = new Promise<void>((resolve) => {
+      refreshGate.resolve = resolve;
+    });
+    const { router } = renderWithApi({
+      routes: [
+        { path: '/', element: <TransactionList filter={{}} caption="Transactions" /> },
+        { path: '/away', element: <p>Away</p> },
+      ],
+      url: '/',
+      handler: async (request) => {
+        if (new URL(request.url).searchParams.get('cursor') === 'cursor-2') return json(page([txn(2)]));
+        if (!disputed.now) return json(page([txn(1)], 'cursor-2'));
+        await refreshGate.promise;
+        const dispute = { disputeId: '0192f0c1-0000-7000-8000-0000000000d1', status: 'SUBMITTED' } as const;
+        return json(page([txn(1, { dispute, disputable: { allowed: false, reason: 'ALREADY_DISPUTED' } })], 'cursor-2'));
+      },
+    });
+    await rowOf('Merchant 1');
+
+    await act(() => router.navigate('/away'));
+    disputed.now = true;
+    intersecting.now = true;
+    await act(() => router.navigate(-1));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      refreshGate.resolve();
+    });
+
+    const row = await rowOf('Merchant 1');
+    expect(await row.findByRole('link', { name: 'Dispute submitted' })).toBeDefined();
+    expect(row.queryByRole('link', { name: DISPUTE_LINK })).toBeNull();
+    expect(await screen.findByRole('rowheader', { name: 'Merchant 2' })).toBeDefined();
   });
 });

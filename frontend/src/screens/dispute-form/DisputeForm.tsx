@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { routes } from '../../app/routes';
@@ -35,6 +36,7 @@ export type DisputeFormProps = { readonly transactionId: string; readonly deps: 
 
 export const DisputeForm = ({ transactionId, deps }: DisputeFormProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const id = useId();
   const reasonRef = useRef<HTMLSelectElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -75,6 +77,9 @@ export const DisputeForm = ({ transactionId, deps }: DisputeFormProps) => {
     if (!result) {
       setPhase({ kind: 'editing', submitError: createFailureMessage({ kind: 'UNEXPECTED' }) });
       return;
+    }
+    if (result.ok || result.error.kind === 'ALREADY_DISPUTED') {
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] });
     }
     if (!result.ok) {
       if (result.error.kind === 'ALREADY_DISPUTED') {
