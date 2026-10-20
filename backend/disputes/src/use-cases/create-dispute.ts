@@ -92,8 +92,8 @@ export const createDispute =
 
     const { dispute, evidence } = inserted.value;
     await deps.publish(disputeCreatedEvent(dispute, deps.newId()), input.correlationId);
-    // The rows are committed either way; on failure the customer re-obtains URLs via re-sign (P-05).
-    const uploads = await deps.signUploads(dispute.disputeId, evidence);
+    // The rows are committed either way; on failure the customer re-obtains URLs via POST …/evidence (ADR-050).
+    const uploads = await deps.signUploads(dispute, evidence);
     if (!uploads.ok) return uploads;
     return ok({
       ...toDisputeResource(dispute, evidence, toTransactionRef(transaction)),

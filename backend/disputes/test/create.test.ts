@@ -22,6 +22,7 @@ import {
 import {
   createBucket,
   headObject,
+  quarantineKey,
   S3_KEY,
   startMoto,
   startVerifyingS3Front,
@@ -701,7 +702,7 @@ describe('upstream failures and isolation', () => {
 });
 
 describe('presigned upload URLs', () => {
-  const createWithUpload = async (): Promise<{ readonly disputeId: string; readonly upload: Upload }> => {
+  const createWithUpload = async (): Promise<{ readonly transactionId: string; readonly upload: Upload }> => {
     const txn = upstreams.addTransaction(USER_A.userId);
     const res = await post(svc, USER_A.token, txn.transactionId, {
       reasonCode: 'NOT_RECEIVED',
@@ -710,14 +711,14 @@ describe('presigned upload URLs', () => {
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
-    return { disputeId: body.disputeId, upload: (body.uploads as Upload[])[0] as Upload };
+    return { transactionId: txn.transactionId, upload: (body.uploads as Upload[])[0] as Upload };
   };
 
   it('signs content-length, content-type, host and x-amz-checksum-sha256 as headers (no checksum in the query), 10 min', async () => {
-    const { disputeId, upload } = await createWithUpload();
+    const { transactionId, upload } = await createWithUpload();
     const url = new URL(upload.url);
     expect(upload.method).toBe('PUT');
-    expect(url.pathname).toBe(`/${QUARANTINE_BUCKET}/evidence/${disputeId}/${upload.evidenceId}`);
+    expect(url.pathname).toBe(`/${QUARANTINE_BUCKET}/${quarantineKey(transactionId, upload.evidenceId)}`);
     expect(url.searchParams.get('X-Amz-SignedHeaders')).toBe(
       'content-length;content-type;host;x-amz-checksum-sha256',
     );
@@ -762,13 +763,13 @@ describe('presigned upload URLs', () => {
   });
 
   it('S3 accepts the PUT with exactly the signed headers (stored in moto)', async () => {
-    const { disputeId, upload } = await createWithUpload();
+    const { transactionId, upload } = await createWithUpload();
     const res = await fetch(upload.url, { method: 'PUT', headers: upload.headers, body: FILE });
     expect(res.status).toBe(200);
     const head = await headObject(
       moto.endpoint,
       QUARANTINE_BUCKET,
-      `evidence/${disputeId}/${upload.evidenceId}`,
+      quarantineKey(transactionId, upload.evidenceId),
     );
     expect(head.ContentType).toBe('application/pdf');
     expect(head.ContentLength).toBe(FILE.length);

@@ -15,6 +15,7 @@ import { createUploadSigner, guardSigner, type PresignUploads } from './adapters
 import { createUsersClient } from './adapters/users-client.ts';
 import { createApp } from './app.ts';
 import { loadDisputesConfig, migrateConfigSchema, type Config } from './config.ts';
+import { addEvidence } from './use-cases/add-evidence.ts';
 import { createDispute } from './use-cases/create-dispute.ts';
 import { getDispute } from './use-cases/get-dispute.ts';
 import { listDisputes } from './use-cases/list-disputes.ts';
@@ -82,15 +83,18 @@ export const composeServers = (infra: Infra): Servers => {
     now: infra.now,
   });
 
+  const signUploads = guardSigner(infra.presignUploads, logger);
+
   const useCases = {
     createDispute: createDispute({
       findTransaction: transactions.findTransaction,
       findCard: users.findCard,
       transact: repo.transact,
-      signUploads: guardSigner(infra.presignUploads, logger),
+      signUploads,
       publish,
       newId: infra.newId,
     }),
+    addEvidence: addEvidence({ transact: repo.transact, signUploads }),
     updateDispute: updateDispute({
       transact: repo.transact,
       findTransaction: transactions.findTransaction,

@@ -1,5 +1,6 @@
 import { commonProblem, problemBody, type ProblemBody } from '@cd/shared';
 import { assertNever } from '@cd/shared/fp';
+import type { AddEvidenceError } from './use-cases/add-evidence.ts';
 import type { CreateDisputeError } from './use-cases/create-dispute.ts';
 
 const notEligible = (code: string, correlationId: string): ProblemBody => ({
@@ -53,6 +54,39 @@ export const createDisputeProblem = (error: CreateDisputeError, correlationId: s
         title: 'Service Unavailable',
         code: 'UPLOAD_SIGNING_UNAVAILABLE',
         detail: 'The dispute was created but upload URLs could not be issued; request them again later',
+        correlationId,
+      });
+    default:
+      return assertNever(error);
+  }
+};
+
+export const addEvidenceProblem = (error: AddEvidenceError, correlationId: string): ProblemBody => {
+  switch (error) {
+    case 'NOT_FOUND':
+      return commonProblem('NOT_FOUND', 'Dispute not found', correlationId);
+    case 'INVALID_TRANSITION':
+      return problemBody({
+        status: 409,
+        title: 'Conflict',
+        code: 'INVALID_TRANSITION',
+        detail: 'Evidence cannot be added to a closed dispute',
+        correlationId,
+      });
+    case 'TOO_MANY_FILES':
+      return problemBody({
+        status: 413,
+        title: 'Content Too Large',
+        code: 'TOO_MANY_FILES',
+        detail: 'The dispute would exceed its evidence limit',
+        correlationId,
+      });
+    case 'UPLOAD_SIGNING_UNAVAILABLE':
+      return problemBody({
+        status: 503,
+        title: 'Service Unavailable',
+        code: 'UPLOAD_SIGNING_UNAVAILABLE',
+        detail: 'The evidence was recorded but upload URLs could not be issued; request them again later',
         correlationId,
       });
     default:

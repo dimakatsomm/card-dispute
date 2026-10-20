@@ -102,3 +102,27 @@ export const poolFailingOn = (pool: pg.Pool, sqlFragment: string): Infra['pool']
       });
     },
   }) as unknown as Infra['pool'];
+
+// Holds each transaction after the matching statement, so concurrent requests overlap instead of running back to back.
+export const poolPausingAfter = (pool: pg.Pool, sqlFragment: string, ms: number): Infra['pool'] =>
+  ({
+    query: pool.query.bind(pool),
+    connect: async () => {
+      const client = await pool.connect();
+      return new Proxy(client, {
+        get: (target, prop, receiver) => {
+          if (prop === 'query') {
+            return async (sql: unknown, ...rest: unknown[]) => {
+              const result: unknown = await (target.query as (...a: unknown[]) => unknown).call(target, sql, ...rest);
+              if (typeof sql === 'string' && sql.includes(sqlFragment)) {
+                await new Promise((resolve) => setTimeout(resolve, ms));
+              }
+              return result;
+            };
+          }
+          const value: unknown = Reflect.get(target, prop, receiver);
+          return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value;
+        },
+      });
+    },
+  }) as unknown as Infra['pool'];

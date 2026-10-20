@@ -260,12 +260,13 @@
       "notes": "Scan stub (self-copy for checksum), SQS poller, SES sink, invoke CLI; 7 tests on moto."
     },
     "P-05a": {
-      "status": "todo",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [
         "S-06",
         "M2-00"
-      ]
+      ],
+      "notes": "Security gate PASS. POST evidence: locked cap (PENDING+STORED), ADR-050 re-sign of PENDING only, intake/{transactionId}/{evidenceId} key, 503 after commit, no side effects. 198 disputes tests. Fixes typecheck of 52112fd."
     },
     "P-05b": {
       "status": "todo",
@@ -631,7 +632,8 @@
     "R-11: P-05b writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (in the same transaction as the evidence status change) and must set after={evidenceId}; P-03 timeline depends on it (docs/03).",
     "V-10: user token on a service port (8081) → 403 is proven in unit/integration tests only; E-02a adds the compose-network check.",
     "M2-00: disputes.service lookup response adds version (done in the spec; P-05b implements it); LOOKUP_MAX_IDS=100 in disputes transactions-client duplicates the transactions.service limit.",
-    "R-12 (D-06 gate, low): the [erased] tombstones are only unforgeable via API validation (description min 10); an app-side write of [erased] would make the sweeper skip a row. Consider an erased_at column in a later migration. Index builds run inside the migration transaction (no CONCURRENTLY) — fine for dev; plan out-of-band builds before large tables."
+    "R-12 (D-06 gate, low): the [erased] tombstones are only unforgeable via API validation (description min 10); an app-side write of [erased] would make the sweeper skip a row. Consider an erased_at column in a later migration. Index builds run inside the migration transaction (no CONCURRENTLY) — fine for dev; plan out-of-band builds before large tables.",
+    "P-05x follow-up: move the evidence cap-counting statuses (PENDING+STORED) and the ADR-050 declaration-matching rule from disputes core into @cd/dispute-domain (rule 2)."
   ],
   "peerReviews": [
     {

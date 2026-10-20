@@ -1,13 +1,12 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { UPLOAD_URL_TTL_SECONDS } from '@cd/dispute-domain';
 import { err, ok } from '@cd/shared/fp';
 import type { FastifyBaseLogger } from 'fastify';
-import { evidenceObjectKey } from '../core/dispute.ts';
+import { quarantineObjectKey } from '../core/dispute.ts';
 import type { EvidenceRecord, UploadInstruction } from '../core/types.ts';
-import type { SignUploads } from '../use-cases/ports.ts';
+import type { SignUploads, UploadTarget } from '../use-cases/ports.ts';
 import { summarizeError } from './deadline.ts';
-
-export const UPLOAD_URL_TTL_SECONDS = 600;
 
 export type UploadSignerOptions = {
   readonly region: string;
@@ -21,7 +20,7 @@ export type UploadSignerOptions = {
 const hexToBase64 = (hex: string): string => Buffer.from(hex, 'hex').toString('base64');
 
 export type PresignUploads = (
-  disputeId: string,
+  target: UploadTarget,
   evidence: ReadonlyArray<EvidenceRecord>,
 ) => Promise<ReadonlyArray<UploadInstruction>>;
 
@@ -33,14 +32,14 @@ export const createUploadSigner = (options: UploadSignerOptions): PresignUploads
   });
 
   const signOne = async (
-    disputeId: string,
+    target: UploadTarget,
     evidence: EvidenceRecord,
     signedAt: Date,
   ): Promise<UploadInstruction> => {
     const checksum = hexToBase64(evidence.sha256);
     const command = new PutObjectCommand({
       Bucket: options.bucket,
-      Key: evidenceObjectKey(disputeId, evidence.evidenceId),
+      Key: quarantineObjectKey(target.transactionId, evidence.evidenceId),
       ContentType: evidence.contentType,
       ContentLength: evidence.sizeBytes,
       ChecksumSHA256: checksum,
@@ -65,19 +64,19 @@ export const createUploadSigner = (options: UploadSignerOptions): PresignUploads
     };
   };
 
-  return async (disputeId, evidence) => {
+  return async (target, evidence) => {
     const signedAt = options.now();
-    return Promise.all(evidence.map((e) => signOne(disputeId, e, signedAt)));
+    return Promise.all(evidence.map((e) => signOne(target, e, signedAt)));
   };
 };
 
 export const guardSigner =
   (presign: PresignUploads, log: FastifyBaseLogger): SignUploads =>
-  async (disputeId, evidence) => {
+  async (target, evidence) => {
     try {
-      return ok(await presign(disputeId, evidence));
+      return ok(await presign(target, evidence));
     } catch (error) {
-      log.error({ disputeId, error: summarizeError(error) }, 'upload signing failed');
+      log.error({ disputeId: target.disputeId, error: summarizeError(error) }, 'upload signing failed');
       return err('UPLOAD_SIGNING_UNAVAILABLE');
     }
   };

@@ -81,5 +81,6 @@ export const disputeChangedEvent = (
   data: { fromStatus: change.from, toStatus: dispute.status, reasonCode: dispute.reasonCode },
 });
 
-export const evidenceObjectKey = (disputeId: string, evidenceId: string): string =>
-  `evidence/${disputeId}/${evidenceId}`;
+// Keyed by ids only, so the customer never chooses the object path (ADR-055).
+export const quarantineObjectKey = (transactionId: string, evidenceId: string): string =>
+  `intake/${transactionId}/${evidenceId}`;

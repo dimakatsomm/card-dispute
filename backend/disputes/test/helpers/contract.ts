@@ -1,4 +1,5 @@
 import {
+  zAddEvidenceResponse,
   zCreateDisputeResponse,
   zGetDisputeResponse,
   zListMyDisputesResponse,
@@ -9,6 +10,7 @@ import { expect } from 'vitest';
 
 const RESPONSES = {
   create: zCreateDisputeResponse,
+  addEvidence: zAddEvidenceResponse,
   update: zUpdateDisputeResponse,
   list: zListMyDisputesResponse,
   detail: zGetDisputeResponse,

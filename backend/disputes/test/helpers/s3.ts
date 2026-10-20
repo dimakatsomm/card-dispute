@@ -48,10 +48,15 @@ export const startMoto = async (): Promise<Moto> => {
 export const s3ClientFor = (endpoint: string): S3Client =>
   new S3Client({ region: S3_REGION, endpoint, forcePathStyle: true, credentials: S3_KEY });
 
+// Idempotent because test files share the compose moto when MOTO_ENDPOINT is set.
 export const createBucket = async (endpoint: string, bucket: string): Promise<void> => {
-  await s3ClientFor(endpoint).send(
-    new CreateBucketCommand({ Bucket: bucket, CreateBucketConfiguration: { LocationConstraint: S3_REGION } }),
-  );
+  await s3ClientFor(endpoint)
+    .send(
+      new CreateBucketCommand({ Bucket: bucket, CreateBucketConfiguration: { LocationConstraint: S3_REGION } }),
+    )
+    .catch((e: unknown) => {
+      if ((e as { name?: unknown }).name !== 'BucketAlreadyOwnedByYou') throw e;
+    });
 };
 
 export const headObject = (endpoint: string, bucket: string, key: string) =>
@@ -154,3 +159,7 @@ export const startVerifyingS3Front = async (motoEndpoint: string): Promise<S3Fro
       }),
   };
 };
+
+// Written out independently of src so a wrong key in the signer fails the test (ADR-055).
+export const quarantineKey = (transactionId: string, evidenceId: string): string =>
+  `intake/${transactionId}/${evidenceId}`;

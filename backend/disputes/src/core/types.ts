@@ -48,8 +48,6 @@ export type Card = {
   readonly status: CardStatus;
 };
 
-export const EVIDENCE_CONTENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const;
-
 export type EvidenceDeclaration = Wire<typeof zEvidenceDeclaration>;
 
 export type EvidenceStatus = Wire<typeof zEvidence>['status'];

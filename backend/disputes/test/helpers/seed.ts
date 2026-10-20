@@ -83,16 +83,28 @@ export const seedEvidence = async (
   seeded: SeededDispute,
   e: {
     readonly fileName: string;
-    readonly status: 'PENDING' | 'STORED' | 'REJECTED';
+    readonly status: 'PENDING' | 'STORED' | 'REJECTED' | 'EXPIRED' | 'ERASED';
     readonly rejectionReason?: 'MALWARE' | 'TYPE_MISMATCH' | 'CHECKSUM' | 'SIZE';
+    readonly contentType?: 'application/pdf' | 'image/jpeg' | 'image/png';
+    readonly sizeBytes?: number;
+    readonly sha256?: string;
   },
 ): Promise<string> => {
+  const reason = e.status === 'REJECTED' ? (e.rejectionReason ?? 'MALWARE') : null;
   const res = await db.appQuery(
     `insert into dispute_evidence
        (dispute_id, file_name, declared_content_type, declared_size_bytes, declared_sha256, status, rejection_reason)
-     values ($1, $2, 'application/pdf', 1024, repeat('a', 64), $3, $4)
+     values ($1, $2, $5, $6, $7, $3, $4)
      returning evidence_id::text as evidence_id`,
-    [seeded.rowId, e.fileName, e.status === 'STORED' ? 'PENDING' : e.status, e.rejectionReason ?? null],
+    [
+      seeded.rowId,
+      e.fileName,
+      e.status === 'STORED' ? 'PENDING' : e.status,
+      reason,
+      e.contentType ?? 'application/pdf',
+      e.sizeBytes ?? 1024,
+      e.sha256 ?? 'a'.repeat(64),
+    ],
   );
   const evidenceId = (res.rows[0] as { evidence_id: string }).evidence_id;
   // STORED needs an s3_key derived from the generated evidence_id, so it is promoted the way evidence-intake does.
