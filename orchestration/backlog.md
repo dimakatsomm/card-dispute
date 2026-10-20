@@ -413,6 +413,225 @@ acceptance:
 
 ---
 
+## M2 — Evidence pipeline, notifications, retention (decomposed 2026-10-20)
+
+**Outcome:** an uploaded file is scanned and shows as added or rejected on the timeline; the customer is emailed at every step; unused upload slots expire and closed disputes' PII (incl. evidence file names) is erased after a year (clock injection); poison messages land in DLQs.
+
+Scope rulings: back office deferred (ADR-039); no automation changes dispute status (ADR-016); one notifications queue (ADR-054); M2 rulings ADR-055; boundary schemas generated from docs/openapi (ADR-056/057, S-08 done), so every new route and Lambda parses with `@cd/contracts`. P-06 dropped (publish-after-commit and EventPublishFailed already shipped in P-01/P-02).
+
+Waves: 0 M2-00 → 1 S-06, S-07, D-06, W-06, L-06 → 2 P-05a, L-03, L-04, L-05 → 3 P-05b, then L-07 → 4 E-02a, E-02b → milestone-close. Critical path S-06 → P-05a → P-05b → E-02. 🔒 = security-reviewer mandatory.
+
+### M2-00 · Contract, catalog and scaffold prep
+```yaml
+agent: implementer
+owns: [docs/**, orchestration/**, pnpm-workspace.yaml, pnpm-lock.yaml, package.json, backend/packages/contracts/src/**, frontend/src/api/generated/**, backend/lambdas/*/package.json, local/lambda-driver/package.json]
+depends_on: [S-08]
+acceptance:
+  - quarantine key intake/{transactionId}/{evidenceId} (ADR-055) in docs/01, docs/02, docs/03 and the specs
+  - service PUT evidence result returns 200 {evidenceId, status, s3Key?}; s3Key = evidence/{disputeId}/{evidenceId}, set by disputes only; STORED facts that differ from the declared ones are recorded REJECTED (TYPE_MISMATCH/SIZE/CHECKSUM) and answered 200 status REJECTED; 404 for an evidenceId that is not this dispute's; 409 for EXPIRED/ERASED or a conflicting settled result
+  - service GET /disputes items add version; svc-notifier scopes users/contact.read + disputes/read (docs/05); intake is EventBridge to Lambda with an async DLQ (docs/01)
+  - event payloads (docs/03): EvidenceUploaded becomes EvidenceStored | EvidenceRejected, data.evidence {evidenceId, reason?}, no file name
+  - retention (docs/03): WITHDRAWN terminal time = WITHDRAW history row; erasure does not bump updated_at; erasure also sets evidence file_name to '[erased]'
+  - pnpm lint:api, pnpm gen:contracts and frontend gen/check:api clean
+  - catalog gains @aws-sdk/client-secrets-manager (a version at least 2 weeks old, checked on npm); skeleton package.json (catalog deps only) for @cd/evidence-intake, @cd/dispute-notifier, @cd/retention-sweeper and @cd/lambda-driver; one pnpm install
+  - verify on the compose moto: SQS RedrivePolicy moves to the DLQ after maxReceiveCount; PutObjectTagging; presigned PUT checksum enforcement (V-08 stays open for E-03); Lambda RIE behaviour in public.ecr.aws/lambda/nodejs:24; record results under orchestration/
+  - docs/08 M2 table updated (P-06 folded, new ids); R-11 points at P-05b, V-10 at E-02a
+```
+
+### S-06 · dispute-domain: event schema, evidence rules, retention policy 🔒
+```yaml
+agent: dispute-domain
+owns: [backend/packages/dispute-domain/**]
+depends_on: [M2-00]
+acceptance:
+  - parseDisputeEvent (zod strict, discriminated on eventType) returns a Result; types DisputeCreated, DisputeEdited, DisputeStatusChanged, EvidenceStored, EvidenceRejected; uuid ids, ISO occurredAt, integer version >= 1. Negatives: unknown eventType, missing version, non-uuid id, any extra key (email/to/name) all fail, so events cannot carry PII
+  - isStaleEvent(event, currentVersion) is true only for Created/Edited/StatusChanged with version < current; evidence events are never stale (table)
+  - single sources exported: evidence content types, MAX_EVIDENCE_BYTES, MAX_EVIDENCE_PER_DISPUTE=5, rejection reasons MALWARE/TYPE_MISMATCH/CHECKSUM/SIZE, upload TTL, ERASED_TEXT='[erased]'; the contracts enum drift test covers them
+  - detectEvidenceType(head: Uint8Array) detects PDF/JPEG/PNG by magic bytes; an MZ head, a truncated head and '%PDF-' not at offset 0 return null
+  - slotExpiryCutoff(now) is 24 h; erasureCutoff(now) is 1 UTC calendar year; boundary table: exactly at the cutoff eligible, 1 ms before not, Feb-29 terminal date covered
+  - pure: no Date.now, no node built-ins
+```
+
+### S-07 · Lambda kit in shared + auth-client without fastify 🔒
+```yaml
+agent: implementer
+owns: [backend/packages/shared/**, backend/packages/auth-client/**]
+depends_on: [M2-00]
+acceptance:
+  - @cd/shared/lambda re-exports loadConfig, createLogger and the correlation helpers, and adds emitMetric (EMF, same shape as EventPublishFailed) and createSecretResolver(client) returning a Result (no throw on a missing secret)
+  - auth-client http-client stops importing the @cd/shared root; @cd/auth-client/service-client exports the token provider and HTTP client only (S-05 compare-and-clear retry kept)
+  - a test bundles each subpath with esbuild; the metafile has no fastify or server.ts
+  - existing exports and tests unchanged and green
+```
+
+### D-06 · disputes migration 004: retention erasure 🔒
+```yaml
+agent: data-schema
+owns: [backend/disputes/migrations/004_*.sql, backend/disputes/migrations/test/**]
+depends_on: [M2-00]
+acceptance:
+  - disputes_retention updating description/resolution_note leaves dispute.updated_at unchanged; disputes_app updates still bump it (both tested)
+  - disputes_retention gains UPDATE (file_name) on dispute_evidence (ADR-055); the ERASED guard allows file_name='[erased]' only together with status ERASED; no other new grants (tested)
+  - history guard and evidence ERASED guard stay enabled; existing tests green
+  - plan test: the sweeper's candidate queries (PENDING evidence by age; terminal disputes by age) use an index; add a partial index only if the plan shows a seq scan
+```
+
+### W-06 · web: evidence status updates and edge polish
+```yaml
+agent: frontend
+owns: [frontend/src/screens/dispute-detail/**, frontend/src/screens/disputes/labels.ts, frontend/src/screens/disputes/labels.test.ts, frontend/src/components/evidence/**, frontend/test/evidence/**]
+depends_on: []
+acceptance:
+  - the detail screen polls only while some evidence is PENDING and the tab is visible; it stops when none is PENDING or after a capped window ("still checking, refresh"); fake-timer test: PENDING to STORED shows "Evidence added" without reload
+  - zero extra requests when nothing is PENDING; stops on unmount; a refetch keeps an open edit draft or withdraw dialog; edit uses the refreshed ETag
+  - REJECTED shows a message per reason (MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE); EXPIRED shows a hint linking add-evidence while the dispute is open; ERASED renders neutrally
+  - resolution note shown for RESOLVED_*, absent when null; an erased dispute ('[erased]' description, null note, erased file names) shows "removed under our retention policy"
+  - status changes announced in an aria-live=polite region; check:api clean
+```
+
+### L-06 · local Lambda driver: scan stub, SQS poller, SES sink
+```yaml
+agent: implementer
+owns: [local/lambda-driver/**]
+depends_on: [M2-00]
+acceptance:
+  - scan stub: a quarantine object without the GuardDutyMalwareScanStatus tag gets THREATS_FOUND for EICAR and NO_THREATS_FOUND otherwise; it sets the tag, then POSTs a GuardDuty-shaped EventBridge event to the intake RIE
+  - intake failure mimics Lambda async: 2 retries, then the original event goes to queue evidence-intake-dlq (README: emulation; the real proof is E-03)
+  - SQS poller mimics an event-source mapping: long-poll batches of up to 10, invoke the RIE, delete only records not in batchItemFailures; moto RedrivePolicy moves repeats to the DLQ
+  - SES sink: SESv2 POST /v2/email/outbound-emails, GET and DELETE /sent; with SES_VERIFIED set, an unverified recipient gets a MessageRejected-style 400
+  - CLI invoke <function> [json]; the retention sweeper runs by CLI as a stand-in for the EventBridge schedule
+  - tests (moto + a fake RIE): partial failure deletes only the good records; EICAR gives THREATS_FOUND and a tag; three intake failures give a DLQ message with the original event; sandbox rejection
+  - not referenced by any deployable Dockerfile
+```
+
+### P-05a · POST /dispute/{transactionId}/evidence 🔒
+```yaml
+agent: service-api
+owns: [backend/disputes/src/**, backend/disputes/test/**, backend/disputes/package.json]
+depends_on: [S-06, M2-00]
+acceptance:
+  - public port, user principal; body parsed with the generated schema (declaration schema shared with create)
+  - another user's or an unknown transaction gives 404 and no rows; a terminal dispute gives 409 INVALID_TRANSITION; SUBMITTED and UNDER_REVIEW allowed (use the seeded UNDER_REVIEW dispute)
+  - cap: dispute row FOR UPDATE; PENDING+STORED+new > 5 gives 413 TOO_MANY_FILES and inserts nothing; EXPIRED/REJECTED/ERASED don't count (table); two concurrent 3-file requests on an empty dispute give one 201 and one 413
+  - ADR-050: a declaration equal (sha256+size+type) to a PENDING item gets 201 with the same evidenceId, no new row and a fresh URL; matches against STORED/REJECTED/EXPIRED get a new slot; each row matched at most once per request; a different fileName does not create a slot
+  - signer uses quarantine key intake/{transactionId}/{evidenceId}; create path and moto helper updated; a signed PUT works on moto
+  - signing failure gives 503 UPLOAD_SIGNING_UNAVAILABLE with rows committed; a repeat re-signs the same slots (ADR-054)
+  - writes no history row, no version or updated_at change, no event
+  - evidence types, caps and TTL come from @cd/dispute-domain (grep: no 'application/pdf' or 10485760 literal in src)
+```
+
+### P-05b · PUT …/evidence/{evidenceId} (scan result), evidence events, version in lookup 🔒
+```yaml
+agent: service-api
+owns: [backend/disputes/src/**, backend/disputes/test/**]
+depends_on: [P-05a]
+acceptance:
+  - service port only (8080 gives 404); a user token gives 403; disputes/read instead of disputes/evidence.write gives 403; no token gives 401 (one test each)
+  - generated body (reason required iff REJECTED); an unknown or other dispute's evidenceId gives 404
+  - STORED with differing facts is recorded REJECTED (TYPE_MISMATCH, SIZE or CHECKSUM, one test each) and answered 200 status REJECTED; s3Key is derived by disputes and never read from the body
+  - R-11: one transaction does UPDATE … WHERE status='PENDING' plus a history EVIDENCE_ADDED/EVIDENCE_REJECTED row (from=to=current status, actor SYSTEM_RULE:evidence-intake, after={evidenceId}); GET /dispute/{id} shows EVIDENCE_ADDED with fileName and EVIDENCE_REJECTED with reason
+  - an idempotent repeat gives 200 with no second history row or event; STORED then REJECTED (or the reverse) gives 409; EXPIRED/ERASED gives 409; two concurrent identical PUTs give one history row; a race with the sweeper's PENDING to EXPIRED leaves no half state (two connections)
+  - dispute.version and updated_at unchanged (a customer's If-Match still works)
+  - after commit publishes EvidenceStored/EvidenceRejected with the current version and no file name; a publish failure still gives 200; a no-op repeat publishes nothing
+  - service GET /disputes items include version; transactions' tests stay green
+  - the local DisputeEvent type is replaced by the @cd/dispute-domain schema; created and edited events validate against it
+```
+
+### L-03 · evidence-intake Lambda 🔒
+```yaml
+agent: async-lambda
+owns: [backend/lambdas/evidence-intake/**]
+depends_on: [S-06, S-07, M2-00]
+acceptance:
+  - esbuild bundle in a Dockerfile FROM public.ecr.aws/lambda/nodejs:24; docs/10 layout; calls disputes via @cd/contracts/disputes.service
+  - the event is zod-parsed; bucket must equal QUARANTINE_BUCKET and the key must match intake/{uuid}/{uuid}; otherwise it throws (ends in the DLQ) and calls nothing
+  - the verdict comes from the event, never the bytes: NO_THREATS_FOUND continues; THREATS_FOUND, UNSUPPORTED, ACCESS_DENIED, FAILED and SKIPPED give REJECTED MALWARE
+  - facts from HeadObject (ContentLength, ChecksumSHA256 as hex, ContentType) plus a ranged GET through detectEvidenceType; a renamed exe declared as PDF is TYPE_MISMATCH and never copied; oversize is SIZE; a missing checksum is CHECKSUM
+  - order: PUT the result (svc token disputes/evidence.write, correlation id), then act on the response. STORED: CopyObject to the evidence bucket at the response s3Key, then DeleteObject from quarantine. REJECTED: delete only. disputes answering REJECTED to a claimed STORED copies nothing
+  - retries: copy done but delete failed, retried, completes; a duplicate after the object is gone (HeadObject 404) is a success no-op; disputes 5xx or timeout throws; 409 EXPIRED deletes and succeeds; 404 throws and keeps the object
+  - V-03 fallback EVIDENCE_REQUIRE_SCAN=false accepts the S3 Object Created event, skips the verdict and emits EvidenceNotScanned (metric + warn); default true rejects Object Created (the flag cannot be bypassed by event shape)
+  - logs contain no file names or PII; integration test on moto + an HTTP stub of disputes
+```
+
+### L-04 · dispute-notifier Lambda 🔒
+```yaml
+agent: async-lambda
+owns: [backend/lambdas/dispute-notifier/**]
+depends_on: [S-06, S-07, M2-00]
+acceptance:
+  - SQS envelope zod-parsed; record body goes through parseDisputeEvent; garbage, a bad schema or an extra email/to key gives a batchItemFailure and no email
+  - the recipient comes only from users/{event.userId}/contact (svc-notifier, @cd/contracts/users.service); contact 404 or 5xx gives a failure and no email; SES To equals the contact email
+  - staleness via the GET :8081/disputes version (disputes/read): a stale Created/Edited/StatusChanged is skipped (success); evidence events never skipped; a lookup failure gives a failure (no send-on-doubt); a dispute absent for that user gives a failure
+  - pure templates: subject and body per event type and status with the status text, date, a dispute reference and first name; the name is HTML-escaped (<script> test); rejection reason in plain words; no file name
+  - SESv2 SendEmailCommand; sender from config (SES_SENDER); SES_ENDPOINT override; MessageRejected or throttling gives a failure
+  - a batch of ok/poison/ok gives exactly the poison's messageId in batchItemFailures; a duplicate delivery sends again (accepted)
+  - with moto, a poison record received 5 times lands in dispute-notifications-dlq
+  - log PII redaction test; SES mocked at the SDK boundary
+```
+
+### L-05 · retention-sweeper Lambda 🔒
+```yaml
+agent: async-lambda
+owns: [backend/lambdas/retention-sweeper/**]
+depends_on: [S-06, S-07, D-06, M2-00]
+acceptance:
+  - connects as disputes_retention (DATABASE_URL locally, secret in AWS, SSL flag); fails fast if current_user differs; disputes.-qualified names; the schedule event content is ignored ({now:"2099-…"} changes nothing; the clock is injected)
+  - slot expiry: PENDING evidence at or beyond 24 h goes to EXPIRED (status only); younger PENDING and STORED rows untouched; a second run changes 0
+  - candidates: RESOLVED_* by resolved_at, WITHDRAWN by the WITHDRAW history row; SUBMITTED and UNDER_REVIEW never erased (negative)
+  - clock proof (testcontainers, real migrations): a dispute terminal at T is untouched at T+1y−1ms and erased at T+1y
+  - erase effect: description '[erased]'; resolution_note null; history note/before/after null with rows kept; evidence ERASED with s3_key and rejection_reason null and file_name '[erased]'; status, version, user_id, transaction_id and reason_code intact; updated_at unchanged
+  - one transaction per dispute (a forced failure leaves it wholly unerased); a second run changes 0; batch cap env (cap+1 eligible gives cap, then 1 on the next run)
+  - EMF counts EvidenceExpired and RetentionErased; logs disputeId only; does not touch S3 (365-day lifecycle; README says so)
+```
+
+### L-07 · local compose wiring for the Lambdas
+```yaml
+agent: implementer
+owns: [docker-compose.lambdas.yml, local/moto/init.py, local/.env.example, local/README.md, local/mock-issuer/src/config.ts, local/mock-issuer/test/**]
+depends_on: [L-03, L-04, L-05, L-06]
+acceptance:
+  - the override builds the three Lambda images and runs lambda-driver; RIE ports bound to 127.0.0.1 only; no 8081 published; env uses svc-evidence-intake, svc-notifier and the disputes_retention URL
+  - moto-init adds evidence-intake-dlq and a short local visibility timeout on the notifications queue (MaxReceive stays 5)
+  - mock-issuer grants svc-notifier disputes/read; README updated; its tests green
+  - compose config valid; up --build --wait brings everything healthy; the M1 e2e and Playwright smoke still pass (evidence now reaches STORED)
+  - the orchestrator then adds -f docker-compose.lambdas.yml to compose:local and a local:invoke script
+```
+
+### E-02a · async-flow e2e plus V-10 🔒 (gate by test-engineer)
+```yaml
+agent: test-engineer
+owns: [tests/e2e/**]
+depends_on: [P-05b, L-07]
+acceptance:
+  - clean PDF via the presigned PUT: within a bounded wait the detail shows STORED and the timeline EVIDENCE_ADDED with fileName; the object is at evidence/{disputeId}/{evidenceId} and gone from quarantine
+  - EICAR gives EVIDENCE_REJECTED MALWARE with nothing promoted; a renamed exe declared as PDF gives TYPE_MISMATCH; re-POST of the same declaration returns the same evidenceId
+  - ses-sink holds mail for submitted, edit, evidence added, evidence rejected and withdrawn; every recipient is A's address
+  - retention via the RIE with rows backdated by the admin URL: a 2-day PENDING slot becomes EXPIRED; RESOLVED 366 d is erased (incl. file names); RESOLVED 364 d and an old SUBMITTED stay untouched
+  - DLQs: garbage and a well-formed event with an unknown userId end in dispute-notifications-dlq; garbage to the intake RIE ends in evidence-intake-dlq
+  - V-10 inside the compose network: a user token on disputes:8081 and on the users:8081 contact route gives 403; no token gives 401; svc-notifier on PUT evidence gives 403; svc-evidence-intake on contact gives 403; svc-notifier contact gives 200 for A and 404 for an unknown uuid
+  - no per-endpoint auth repetition (ADR-040); pnpm test:e2e output attached
+```
+
+### E-02b · Playwright for evidence status
+```yaml
+agent: test-engineer
+owns: [tests/ui/**]
+depends_on: [W-06, L-07, P-05b]
+acceptance:
+  - a clean PDF shows Scanning, then Stored with "Evidence added" on the timeline, without reload; an EICAR file shows Rejected with the malware message
+  - a seeded RESOLVED dispute shows its resolution note; the add-evidence screen adds a file to an open dispute
+  - the existing M1 smoke still passes
+```
+
+### M2 risks
+- moto fidelity (redrive, tagging, presigned checksum, bucket-policy denies) is checked in M2-00; the real proof is E-03 (V-08 open).
+- The local intake DLQ and async retries are emulated by the driver; AWS behaviour is proven in M3.
+- Record-then-copy order: a persistently failing copy leaves a STORED row with no object after the 1-day quarantine lifecycle; mitigated by the DLQ alarm in M3 (I-09/I-13).
+- The production bucket policy denies GetObject without NO_THREATS_FOUND, which also blocks the unscanned fallback; an M3 Terraform concern.
+- SES sandbox: only verified recipients get mail; the sink emulates it locally; real delivery is verified in E-03; DMARC for icloud.com is open (R-6).
+- Evidence now reaches STORED in the M1 e2e and UI tests; L-07 and E-02 re-run them.
+- Evidence promoted late in an open dispute could hit the 365-day lifecycle early; accepted edge.
+
 ## Deliberately deferred to M2/M3
 - SQS consumers (Lambdas), SES, add-evidence-later endpoint, review/resolution endpoints → M2 (M1: create returns upload URLs, evidence stays PENDING; intake in M2) (event path needs the M1 write path first).
 - Terraform, CD deploy stages with manual approval (CI-02), real Cognito → M3 (local mock issuer is enough to prove the API contract).

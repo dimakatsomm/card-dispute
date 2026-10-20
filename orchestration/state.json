@@ -215,6 +215,114 @@
       "agent": "multiple",
       "blockedBy": [],
       "notes": "Backend HTTP boundary on generated zod (@cd/contracts). Specs carry all wire rules; code-point string lengths with cost guard; escaped regexes; per-service contract allow-lists; generic unknown-field detail; disputes bodyLimit 48 KiB + 413 in spec; create reason/description 400. Security gate PASS. Tests: 742 unit/integration, e2e 23/23, UI smoke pass."
+    },
+    "M2-00": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": []
+    },
+    "S-06": {
+      "status": "todo",
+      "agent": "dispute-domain",
+      "blockedBy": [
+        "M2-00"
+      ]
+    },
+    "S-07": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "M2-00"
+      ]
+    },
+    "D-06": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "M2-00"
+      ]
+    },
+    "W-06": {
+      "status": "todo",
+      "agent": "frontend",
+      "blockedBy": []
+    },
+    "L-06": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "M2-00"
+      ]
+    },
+    "P-05a": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "S-06",
+        "M2-00"
+      ]
+    },
+    "P-05b": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "P-05a"
+      ]
+    },
+    "L-03": {
+      "status": "todo",
+      "agent": "async-lambda",
+      "blockedBy": [
+        "S-06",
+        "S-07",
+        "M2-00"
+      ]
+    },
+    "L-04": {
+      "status": "todo",
+      "agent": "async-lambda",
+      "blockedBy": [
+        "S-06",
+        "S-07",
+        "M2-00"
+      ]
+    },
+    "L-05": {
+      "status": "todo",
+      "agent": "async-lambda",
+      "blockedBy": [
+        "S-06",
+        "S-07",
+        "D-06",
+        "M2-00"
+      ]
+    },
+    "L-07": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "L-03",
+        "L-04",
+        "L-05",
+        "L-06"
+      ]
+    },
+    "E-02a": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "P-05b",
+        "L-07"
+      ]
+    },
+    "E-02b": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "W-06",
+        "L-07",
+        "P-05b"
+      ]
     }
   },
   "decisions": [
