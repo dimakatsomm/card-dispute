@@ -65,6 +65,7 @@ export const rejectionReasonLabel: Readonly<Record<RejectionReason, string>> = {
   TYPE_MISMATCH: 'the file contents do not match its type',
   CHECKSUM: 'the file does not match what was declared',
   SIZE: 'the file size does not match what was declared',
+  SCAN_FAILED: 'we could not complete the security scan, please upload it again',
 };
 
 const isRejectionReason = (value: string): value is RejectionReason => value in rejectionReasonLabel;

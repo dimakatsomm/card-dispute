@@ -1,0 +1,26 @@
+{
+  "name": "@cd/dispute-notifier",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "catalog:",
+    "@aws-sdk/client-sesv2": "catalog:",
+    "@cd/auth-client": "workspace:*",
+    "@cd/contracts": "workspace:*",
+    "@cd/dispute-domain": "workspace:*",
+    "@cd/shared": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-sqs": "catalog:",
+    "aws-sdk-client-mock": "catalog:",
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

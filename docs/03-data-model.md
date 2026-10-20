@@ -143,13 +143,13 @@ Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` pagin
 | id | bigint PK | |
 | evidence_id | uuid UQ | also the object name in both buckets |
 | dispute_id | bigint FK → dispute.id ON DELETE RESTRICT | indexed |
-| file_name | text not null | client-declared, display only: control characters rejected, ≤ 255 chars; never used in an S3 key |
+| file_name | text not null | client-declared, display only: control characters rejected, ≤ 255 chars; never used in an S3 key; replaced with `'[erased]'` by retention |
 | declared_content_type | text not null | CHECK `application/pdf | image/jpeg | image/png` |
 | declared_size_bytes | int not null | CHECK 1–10 485 760 |
 | declared_sha256 | char(64) not null | signed into the upload URL; S3 verifies it |
-| s3_key | text null | `evidence/{disputeId}/{evidenceId}` in the evidence bucket; set only when STORED |
+| s3_key | text null | `evidence/{disputeId}/{evidenceId}` in the evidence bucket; set only when STORED, derived by disputes (never taken from a caller). The quarantine key is `intake/{transactionId}/{evidenceId}` (ADR-055) |
 | status | text not null | CHECK `PENDING | STORED | REJECTED | EXPIRED | ERASED` |
-| rejection_reason | text null | CHECK `MALWARE | TYPE_MISMATCH | CHECKSUM | SIZE`; set only when REJECTED |
+| rejection_reason | text null | CHECK `MALWARE | TYPE_MISMATCH | CHECKSUM | SIZE | SCAN_FAILED`; set only when REJECTED (SCAN_FAILED = the malware scan could not complete; MALWARE = threats found) |
 | stored_at | timestamptz null | |
 | created_at, updated_at | timestamptz | |
 
@@ -165,11 +165,11 @@ Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` pagin
 
 ## Event payloads (SQS)
 ```json
-{ "eventId": "uuid", "eventType": "DisputeCreated|DisputeEdited|DisputeStatusChanged|EvidenceUploaded",
+{ "eventId": "uuid", "eventType": "DisputeCreated|DisputeEdited|DisputeStatusChanged|EvidenceStored|EvidenceRejected",
   "occurredAt": "…", "disputeId": "uuid", "transactionId": "uuid", "userId": "uuid", "version": 3,
   "data": { "fromStatus": "…", "toStatus": "…", "reasonCode": "…" } }
 ```
-No PII (no name, email, phone, PAN) in any event.
+Evidence events carry `data.evidence = { "evidenceId": "uuid", "reason"?: "MALWARE|TYPE_MISMATCH|CHECKSUM|SIZE|SCAN_FAILED" }` (`reason` only on `EvidenceRejected`) instead of the status fields. `version` is the dispute's current version; evidence results do not change it. No file name, and no PII (no name, email, phone, PAN) in any event; the schema is strict, so an extra key fails parsing.
 
 ## Customer provisioning (PR-01 F7)
 `auth_identity.user_id` and `app_user.auth_id` reference each other logically. No FK spans the
@@ -193,7 +193,9 @@ D-04 rulings (orchestrator, 2026-10-19):
 - `declared_sha256` is lowercase hex; the upload signer converts it to base64 for `x-amz-checksum-sha256`.
 
 ## Retention (POPIA — interim policy, owner decision 2026-10-09, ADR-017)
-1 year after a dispute reaches a terminal state:
-- `dispute.description`, `resolution_note` and history `note`/`before`/`after` → replaced with `'[erased]'` / `null` (the row stays — financial record).
-- `dispute_evidence` S3 objects deleted (S3 lifecycle 365 days on `evidence/`), rows marked `ERASED`.
-Run by a scheduled `retention-sweeper` job (M2; note: its UPDATE bumps `dispute.updated_at` via the trigger, which reorders the customer list — L-05 decides whether that is acceptable), connecting as `disputes_retention` (column-scoped UPDATE on dispute text fields, history `note/before/after`, evidence `status`). This is an interim policy; revisit with compliance before production.
+1 year after a dispute reaches a terminal state. The terminal time is `resolved_at` for `RESOLVED_*` and the `WITHDRAW` history row's `created_at` for `WITHDRAWN`; the cutoff is one UTC calendar year.
+- `dispute.description` → `'[erased]'`; `resolution_note` and history `note`/`before`/`after` → `null` (the rows stay — financial record).
+- `dispute_evidence` rows marked `ERASED` (`s3_key` and `rejection_reason` nulled by the guard trigger) and `file_name` set to `'[erased]'`; the S3 objects go with the 365-day lifecycle on `evidence/` (the sweeper does not touch S3).
+- Erasure does not bump `dispute.updated_at` (so the customer list order is unchanged); `status`, `version`, `user_id`, `transaction_id` and `reason_code` are untouched.
+Responses carry the tombstone as is: `description` is `'[erased]'` (the 10-char minimum applies to requests only), `resolutionNote` and timeline `note` are `null`/absent, evidence `fileName` is `'[erased]'` and its `status` is `ERASED`; the UI shows "removed under our retention policy".
+Run by a scheduled `retention-sweeper` job (M2), connecting as `disputes_retention` (column-scoped UPDATE on dispute text fields, history `note/before/after`, evidence `status` and `file_name`). The same job moves `PENDING` evidence older than 24 hours to `EXPIRED`. This is an interim policy; revisit with compliance before production.

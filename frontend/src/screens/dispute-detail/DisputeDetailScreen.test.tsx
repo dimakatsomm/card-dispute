@@ -140,6 +140,7 @@ describe('DisputeDetailScreen', () => {
     ['TYPE_MISMATCH', 'Rejected: the file contents do not match its type'],
     ['CHECKSUM', 'Rejected: the file does not match what was declared'],
     ['SIZE', 'Rejected: the file size does not match what was declared'],
+    ['SCAN_FAILED', 'Rejected: we could not complete the security scan, please upload it again'],
   ])('a file rejected for %s explains why', async (rejectionReason, message) => {
     renderDetail(() => getResponse(detail({ evidence: [evidenceItem({ status: 'REJECTED', rejectionReason })] })));
 

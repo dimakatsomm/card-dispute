@@ -446,7 +446,7 @@ depends_on: [M2-00]
 acceptance:
   - parseDisputeEvent (zod strict, discriminated on eventType) returns a Result; types DisputeCreated, DisputeEdited, DisputeStatusChanged, EvidenceStored, EvidenceRejected; uuid ids, ISO occurredAt, integer version >= 1. Negatives: unknown eventType, missing version, non-uuid id, any extra key (email/to/name) all fail, so events cannot carry PII
   - isStaleEvent(event, currentVersion) is true only for Created/Edited/StatusChanged with version < current; evidence events are never stale (table)
-  - single sources exported: evidence content types, MAX_EVIDENCE_BYTES, MAX_EVIDENCE_PER_DISPUTE=5, rejection reasons MALWARE/TYPE_MISMATCH/CHECKSUM/SIZE, upload TTL, ERASED_TEXT='[erased]'; the contracts enum drift test covers them
+  - single sources exported: evidence content types, MAX_EVIDENCE_BYTES, MAX_EVIDENCE_PER_DISPUTE=5, rejection reasons MALWARE/TYPE_MISMATCH/CHECKSUM/SIZE/SCAN_FAILED, upload TTL, ERASED_TEXT='[erased]'; the contracts enum drift test covers them
   - detectEvidenceType(head: Uint8Array) detects PDF/JPEG/PNG by magic bytes; an MZ head, a truncated head and '%PDF-' not at offset 0 return null
   - slotExpiryCutoff(now) is 24 h; erasureCutoff(now) is 1 UTC calendar year; boundary table: exactly at the cutoff eligible, 1 ms before not, Feb-29 terminal date covered
   - pure: no Date.now, no node built-ins
@@ -501,6 +501,8 @@ acceptance:
   - SES sink: SESv2 POST /v2/email/outbound-emails, GET and DELETE /sent; with SES_VERIFIED set, an unverified recipient gets a MessageRejected-style 400
   - CLI invoke <function> [json]; the retention sweeper runs by CLI as a stand-in for the EventBridge schedule
   - tests (moto + a fake RIE): partial failure deletes only the good records; EICAR gives THREATS_FOUND and a tag; three intake failures give a DLQ message with the original event; sandbox rejection
+  - moto stores no SHA-256 checksum on PUT (verify-m2-00.md): before posting the event, the scan stub self-copies the object with ChecksumAlgorithm SHA256 so HeadObject returns one; README states local checksums cannot detect tampering
+  - RIE returns 200 even on handler error or timeout: detect failure from the body (errorType JSON or the non-JSON timeout text), not the status; emulate async retries fully
   - not referenced by any deployable Dockerfile
 ```
 
@@ -545,12 +547,13 @@ depends_on: [S-06, S-07, M2-00]
 acceptance:
   - esbuild bundle in a Dockerfile FROM public.ecr.aws/lambda/nodejs:24; docs/10 layout; calls disputes via @cd/contracts/disputes.service
   - the event is zod-parsed; bucket must equal QUARANTINE_BUCKET and the key must match intake/{uuid}/{uuid}; otherwise it throws (ends in the DLQ) and calls nothing
-  - the verdict comes from the event, never the bytes: NO_THREATS_FOUND continues; THREATS_FOUND, UNSUPPORTED, ACCESS_DENIED, FAILED and SKIPPED give REJECTED MALWARE
+  - the verdict comes from the event, never the bytes: NO_THREATS_FOUND continues; THREATS_FOUND gives REJECTED MALWARE; UNSUPPORTED, ACCESS_DENIED, FAILED and scanStatus SKIPPED/FAILED give REJECTED SCAN_FAILED (facts optional)
   - facts from HeadObject (ContentLength, ChecksumSHA256 as hex, ContentType) plus a ranged GET through detectEvidenceType; a renamed exe declared as PDF is TYPE_MISMATCH and never copied; oversize is SIZE; a missing checksum is CHECKSUM
   - order: PUT the result (svc token disputes/evidence.write, correlation id), then act on the response. STORED: CopyObject to the evidence bucket at the response s3Key, then DeleteObject from quarantine. REJECTED: delete only. disputes answering REJECTED to a claimed STORED copies nothing
   - retries: copy done but delete failed, retried, completes; a duplicate after the object is gone (HeadObject 404) is a success no-op; disputes 5xx or timeout throws; 409 EXPIRED deletes and succeeds; 404 throws and keeps the object
   - V-03 fallback EVIDENCE_REQUIRE_SCAN=false accepts the S3 Object Created event, skips the verdict and emits EvidenceNotScanned (metric + warn); default true rejects Object Created (the flag cannot be bypassed by event shape)
-  - logs contain no file names or PII; integration test on moto + an HTTP stub of disputes
+  - logs contain no file names or PII; integration test on moto + an HTTP stub of disputes; the moto test self-copies uploads with ChecksumAlgorithm SHA256 first (moto stores none on PUT); never apply the tag-based bucket policy on moto (it denies everything)
+  - REJECTED results for ACCESS_DENIED/FAILED/SKIPPED or a failed HeadObject omit the facts (optional on REJECTED per M2-00b)
 ```
 
 ### L-04 · dispute-notifier Lambda 🔒

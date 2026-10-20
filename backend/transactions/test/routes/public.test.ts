@@ -100,7 +100,7 @@ const withCard =
 const disputesOk: Upstream = (call) => {
   const ids = (call.url.searchParams.get('transactionIds') ?? '').split(',');
   return json(200, {
-    items: ids.includes(T5) ? [{ transactionId: T5, disputeId: DISPUTE_T5, status: 'WITHDRAWN' }] : [],
+    items: ids.includes(T5) ? [{ transactionId: T5, disputeId: DISPUTE_T5, status: 'WITHDRAWN', version: 2 }] : [],
   });
 };
 

@@ -1,0 +1,26 @@
+{
+  "name": "@cd/retention-sweeper",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "catalog:",
+    "@cd/dispute-domain": "workspace:*",
+    "@cd/shared": "workspace:*",
+    "pg": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cd/db": "workspace:*",
+    "@testcontainers/postgresql": "catalog:",
+    "@types/pg": "catalog:",
+    "testcontainers": "catalog:",
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

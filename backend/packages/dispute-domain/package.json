@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cd/shared": "workspace:*"
+    "@cd/shared": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:",

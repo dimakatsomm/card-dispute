@@ -4,7 +4,8 @@
   "type": "module",
   "name": "@cd/auth-client",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./service-client": "./src/service-client.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "esbuild": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

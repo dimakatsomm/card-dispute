@@ -1,14 +1,25 @@
-import { DISPUTE_STATUSES, REASON_CODES, TRANSACTION_STATUSES } from '@cd/dispute-domain';
+import {
+  DISPUTE_STATUSES,
+  EVIDENCE_CONTENT_TYPES,
+  EVIDENCE_REJECTION_REASONS,
+  EVIDENCE_STATUSES,
+  MAX_EVIDENCE_BYTES,
+  REASON_CODES,
+  TRANSACTION_STATUSES,
+} from '@cd/dispute-domain';
 import { describe, expect, it } from 'vitest';
 import {
   zCreateDisputeRequest,
   zDisputeStatus,
+  zEvidence,
+  zEvidenceDeclaration,
   zListMyDisputesResponse,
   zReasonCode,
   zTimestamp,
   zUpdateDisputeBody,
   zUuid,
 } from '../src/disputes.public/zod.ts';
+import { zEvidenceRejected, zEvidenceStored } from '../src/disputes.service/zod.ts';
 import { zTransactionStatus } from '../src/transactions.public/zod.ts';
 
 describe('generator rules', () => {
@@ -96,6 +107,22 @@ describe('evidence declaration bounds', () => {
 });
 
 describe('enums match dispute-domain (single source of truth)', () => {
+  it('evidence content types', () => {
+    expect([...zEvidenceDeclaration.shape.contentType.options]).toEqual([...EVIDENCE_CONTENT_TYPES]);
+    expect([...zEvidence.shape.contentType.options]).toEqual([...EVIDENCE_CONTENT_TYPES]);
+    expect([...zEvidenceStored.shape.contentType.options]).toEqual([...EVIDENCE_CONTENT_TYPES]);
+  });
+  it('evidence statuses', () => {
+    expect([...zEvidence.shape.status.options]).toEqual([...EVIDENCE_STATUSES]);
+  });
+  it('evidence rejection reasons', () => {
+    expect([...zEvidence.shape.rejectionReason.unwrap().options]).toEqual([...EVIDENCE_REJECTION_REASONS]);
+    expect([...zEvidenceRejected.shape.reason.options]).toEqual([...EVIDENCE_REJECTION_REASONS]);
+  });
+  it('evidence size limit', () => {
+    expect(zEvidenceDeclaration.shape.sizeBytes.safeParse(MAX_EVIDENCE_BYTES).success).toBe(true);
+    expect(zEvidenceDeclaration.shape.sizeBytes.safeParse(MAX_EVIDENCE_BYTES + 1).success).toBe(false);
+  });
   it('reason codes', () => {
     expect([...zReasonCode.options]).toEqual([...REASON_CODES]);
   });

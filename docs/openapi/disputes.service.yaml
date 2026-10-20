@@ -14,7 +14,9 @@ paths:
     get:
       operationId: lookupDisputes
       summary: Dispute state for a user's transactions (batch)
-      description: Caller — transactions, once per page, for the `dispute`/`disputable` fields. Makes no outbound calls.
+      description: |
+        Callers — transactions, once per page, for the `dispute`/`disputable` fields; dispute-notifier, for the current
+        `version` of one dispute (staleness check, ADR-055). Both use scope `disputes/read`. Makes no outbound calls.
       security:
         - serviceToken: [disputes/read]
       parameters:
@@ -35,11 +37,12 @@ paths:
                     maxItems: 100
                     items:
                       type: object
-                      required: [transactionId, disputeId, status]
+                      required: [transactionId, disputeId, status, version]
                       properties:
                         transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
                         disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
                         status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+                        version: { type: integer, minimum: 1, description: Current dispute version; the notifier compares it with the event version to skip stale status emails. }
         '400': { $ref: './common.yaml#/components/responses/BadRequest' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
@@ -143,9 +146,14 @@ paths:
       operationId: recordEvidenceResult
       summary: Record scan/validation result for an uploaded file
       description: |
-        Caller — evidence-intake Lambda after malware scan + magic-byte/size/checksum checks.
+        Caller — evidence-intake Lambda after the malware scan and the magic-byte/size/checksum checks.
         STORED → timeline EVIDENCE_ADDED; REJECTED → EVIDENCE_REJECTED. Same result again → 200 no-op.
-        Result for an EXPIRED/ERASED item → 409.
+        disputes compares the reported facts (sha256, sizeBytes, contentType) with the declared ones. A STORED result whose
+        facts differ is recorded REJECTED (TYPE_MISMATCH, SIZE or CHECKSUM) and answered 200 with `status` REJECTED, so the
+        caller must act on the response, not on what it sent. `s3Key` (`evidence/{disputeId}/{evidenceId}`) is set by
+        disputes only, is present when `status` is STORED, and is where the caller copies the object to; the body never
+        carries it. An `evidenceId` that is not this dispute's → 404. A result for an EXPIRED/ERASED item, or one that
+        conflicts with the already settled result (STORED vs REJECTED) → 409.
       security:
         - serviceToken: [disputes/evidence.write]
       parameters:
@@ -176,6 +184,7 @@ paths:
                 properties:
                   evidenceId: { $ref: './common.yaml#/components/schemas/Uuid' }
                   status: { type: string, enum: [STORED, REJECTED] }
+                  s3Key: { type: string, minLength: 1, description: 'Evidence-bucket key `evidence/{disputeId}/{evidenceId}`; present when status is STORED.' }
         '400': { $ref: './common.yaml#/components/responses/BadRequest' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
@@ -222,10 +231,11 @@ components:
     EvidenceRejected:
       type: object
       additionalProperties: false
-      required: [result, reason, sha256, sizeBytes, contentType]
+      required: [result, reason]
+      description: The facts are optional because intake cannot observe them when the scan verdict is ACCESS_DENIED, FAILED or SKIPPED, or HeadObject fails.
       properties:
         result: { const: REJECTED }
-        reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE] }
+        reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE, SCAN_FAILED] }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         sizeBytes: { type: integer, minimum: 1 }
         contentType: { type: string, minLength: 1, description: Detected from magic bytes; may be a type we do not accept. }

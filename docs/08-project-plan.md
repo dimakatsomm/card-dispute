@@ -341,7 +341,7 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | 4 | P-01 create + upload URLs 🔒 → P-02 edit/withdraw 🔒 + P-03 list/detail/batch 🔒 · L-02 containers in compose |
 | 5 | E-01 API e2e · W-05 Playwright UI smoke |
 
-### M2 — Evidence pipeline, back-office, notifications, retention
+### M2 — Evidence pipeline, notifications, retention
 **Outcome:**
 - An uploaded file is scanned and shows as added or rejected on the timeline.
 - The customer gets an email at every step.
@@ -350,13 +350,18 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 
 | Task | Agent |
 |---|---|
-| P-05 `POST …/evidence` (more uploads) + `PUT …/evidence/{evidenceId}` (scan result) 🔒 | service-api |
-| P-06 publish-after-commit to the notifications queue + `EventPublishFailed` metric | service-api |
+| M2-00 contract, catalog and scaffold prep (specs, docs, Lambda skeletons, moto/RIE checks) | implementer |
+| S-06 dispute-domain: event schema, evidence rules, retention policy 🔒 | dispute-domain |
+| S-07 Lambda kit in shared + auth-client without fastify 🔒 | implementer |
+| D-06 disputes migration 004: retention erasure 🔒 | data-schema |
+| P-05a `POST …/evidence` (more uploads, quarantine key `intake/{transactionId}/{evidenceId}`) 🔒 | service-api |
+| P-05b `PUT …/evidence/{evidenceId}` (scan result), evidence events, `version` in the service lookup 🔒 (P-06 folded into P-01/P-05b: publish-after-commit and `EventPublishFailed` already shipped) | service-api |
 | L-03 evidence-intake Lambda (scan verdict, magic bytes, checksum, promote/delete, report) 🔒 | async-lambda |
-| L-04 dispute-notifier Lambda (contact lookup, SES templates, DLQ) | async-lambda |
+| L-04 dispute-notifier Lambda (contact lookup, staleness check, SES templates, DLQ) 🔒 | async-lambda |
 | L-05 retention-sweeper Lambda (EXPIRED slots, POPIA erasure via `disputes_retention`) 🔒 | async-lambda |
+| L-06 local Lambda driver (scan stub, SQS poller, SES sink) · L-07 compose wiring for the Lambdas | implementer |
 | W-06 web: evidence status updates, resolution note display, error/edge polish | frontend |
-| E-02 e2e for the async flows (Lambda RIE + moto) | test-engineer |
+| E-02a async-flow e2e via RIE + moto, plus V-10 (service-port 401/403 inside the compose network) 🔒 · E-02b Playwright for evidence status | test-engineer |
 | Fallback if GuardDuty S3 is unavailable (V-03): intake runs without the scan and flags "not scanned"; owner decides | — |
 
 ### M3 — Infrastructure & delivery (af-south-1)

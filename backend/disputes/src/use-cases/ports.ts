@@ -114,6 +114,7 @@ export type DisputeRef = {
   readonly transactionId: string;
   readonly disputeId: string;
   readonly status: DisputeStatus;
+  readonly version: number;
 };
 
 export type ListDisputeTransactionIds = (
@@ -138,8 +139,10 @@ export type DisputeRepo = {
 
 export type SigningError = 'UPLOAD_SIGNING_UNAVAILABLE';
 
+export type UploadTarget = { readonly disputeId: string; readonly transactionId: string };
+
 export type SignUploads = (
-  disputeId: string,
+  target: UploadTarget,
   evidence: ReadonlyArray<EvidenceRecord>,
 ) => Promise<Result<ReadonlyArray<UploadInstruction>, SigningError>>;
 

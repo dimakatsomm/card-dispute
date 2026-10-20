@@ -1,4 +1,4 @@
-// Pure dispute rules from docs/04: reason codes, eligibility, input validation and the state machine.
+// Pure dispute rules from docs/04 and docs/03: reason codes, eligibility, input, state machine, events, evidence, retention.
 export { REASON_CODES, isReasonCode, type ReasonCode } from './reason-codes.ts';
 export {
   DESCRIPTION_MAX_CHARS,
@@ -44,3 +44,39 @@ export {
   type TransitionRow,
   type TransitionError,
 } from './state-machine.ts';
+export {
+  EVENT_TYPES,
+  disputeEventSchema,
+  isStaleEvent,
+  parseDisputeEvent,
+  type DisputeCreated,
+  type DisputeEdited,
+  type DisputeEvent,
+  type DisputeStatusChanged,
+  type EventParseError,
+  type EventType,
+  type EvidenceRejected,
+  type EvidenceStored,
+} from './events.ts';
+export {
+  ERASED_TEXT,
+  EVIDENCE_CONTENT_TYPES,
+  EVIDENCE_REJECTION_REASONS,
+  EVIDENCE_SNIFF_BYTES,
+  EVIDENCE_STATUSES,
+  MAX_EVIDENCE_BYTES,
+  MAX_EVIDENCE_PER_DISPUTE,
+  UPLOAD_URL_TTL_SECONDS,
+  detectEvidenceType,
+  type EvidenceContentType,
+  type EvidenceRejectionReason,
+  type EvidenceStatus,
+} from './evidence.ts';
+export {
+  PENDING_EVIDENCE_MAX_AGE_HOURS,
+  RETENTION_YEARS,
+  erasureCutoff,
+  isErasable,
+  isSlotExpired,
+  slotExpiryCutoff,
+} from './retention.ts';

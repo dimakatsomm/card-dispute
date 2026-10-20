@@ -217,30 +217,34 @@
       "notes": "Backend HTTP boundary on generated zod (@cd/contracts). Specs carry all wire rules; code-point string lengths with cost guard; escaped regexes; per-service contract allow-lists; generic unknown-field detail; disputes bodyLimit 48 KiB + 413 in spec; create reason/description 400. Security gate PASS. Tests: 742 unit/integration, e2e 23/23, UI smoke pass."
     },
     "M2-00": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "Specs/docs for quarantine key, evidence result s3Key, version in lookup, EvidenceStored/Rejected, retention incl. file_name, erased tombstones in responses; SCAN_FAILED reason; catalog secrets-manager; Lambda + driver skeletons; moto/RIE verified (verify-m2-00.md). M2-00b: lookup version + REJECTED facts optional."
     },
     "S-06": {
-      "status": "todo",
+      "status": "done",
       "agent": "dispute-domain",
       "blockedBy": [
         "M2-00"
-      ]
+      ],
+      "notes": "Security gate PASS. Event schema, staleness, evidence rules + magic bytes, retention cutoffs; SCAN_FAILED. 229 tests."
     },
     "S-07": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "M2-00"
-      ]
+      ],
+      "notes": "Security gate PASS. @cd/shared/lambda (emitMetric, secret resolver), @cd/shared/correlation, fastify-free @cd/auth-client/service-client. Bundle tests need ESBUILD_BINARY_PATH on long Windows paths."
     },
     "D-06": {
-      "status": "todo",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [
         "M2-00"
-      ]
+      ],
+      "notes": "Security gate PASS. Migration 004: retention skips updated_at, file_name erase grant + guard, SCAN_FAILED CHECK, partial indexes proven by plan test."
     },
     "W-06": {
       "status": "todo",
@@ -248,11 +252,12 @@
       "blockedBy": []
     },
     "L-06": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "M2-00"
-      ]
+      ],
+      "notes": "Scan stub (self-copy for checksum), SQS poller, SES sink, invoke CLI; 7 tests on moto."
     },
     "P-05a": {
       "status": "todo",
@@ -623,9 +628,10 @@
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
     "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
-    "R-11: whoever writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (evidence-intake, P-05 path) must set after={evidenceId}; P-03 timeline depends on it (docs/03).",
-    "V-10: user token on a service port (8081) → 403 is proven in unit/integration tests only; add a compose-network check in M2 e2e.",
-    "M2-00: disputes.service lookup response must add version (ADR-055); LOOKUP_MAX_IDS=100 in disputes transactions-client duplicates the transactions.service limit."
+    "R-11: P-05b writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (in the same transaction as the evidence status change) and must set after={evidenceId}; P-03 timeline depends on it (docs/03).",
+    "V-10: user token on a service port (8081) → 403 is proven in unit/integration tests only; E-02a adds the compose-network check.",
+    "M2-00: disputes.service lookup response adds version (done in the spec; P-05b implements it); LOOKUP_MAX_IDS=100 in disputes transactions-client duplicates the transactions.service limit.",
+    "R-12 (D-06 gate, low): the [erased] tombstones are only unforgeable via API validation (description min 10); an app-side write of [erased] would make the sweeper skip a row. Consider an erased_at column in a later migration. Index builds run inside the migration transaction (no CONCURRENTLY) — fine for dev; plan out-of-band builds before large tables."
   ],
   "peerReviews": [
     {

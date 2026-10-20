@@ -115,16 +115,20 @@ export const zEvidenceStored = z.strictObject({
     ])
 });
 
+/**
+ * The facts are optional because intake cannot observe them when the scan verdict is ACCESS_DENIED, FAILED or SKIPPED, or HeadObject fails.
+ */
 export const zEvidenceRejected = z.strictObject({
     result: z.literal('REJECTED'),
     reason: z.enum([
         'MALWARE',
         'TYPE_MISMATCH',
         'CHECKSUM',
-        'SIZE'
+        'SIZE',
+        'SCAN_FAILED'
     ]),
-    sha256: z.string().regex(/^[a-f0-9]{64}$/),
-    sizeBytes: z.int().gte(1),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    sizeBytes: z.int().gte(1).optional(),
     contentType: z.string().check(ctx => {
         const length = [...ctx.value].length;
         if (length < 1) {
@@ -136,7 +140,7 @@ export const zEvidenceRejected = z.strictObject({
                 input: ctx.value
             });
         }
-    })
+    }).optional()
 });
 
 /**
@@ -259,7 +263,8 @@ export const zLookupDisputesResponse = z.object({
     items: z.array(z.object({
         transactionId: zUuid,
         disputeId: zUuid,
-        status: zDisputeStatus
+        status: zDisputeStatus,
+        version: z.int().gte(1)
     })).max(100)
 });
 
@@ -348,5 +353,17 @@ export const zRecordEvidenceResultPath = z.object({
  */
 export const zRecordEvidenceResultResponse = z.object({
     evidenceId: zUuid,
-    status: z.enum(['STORED', 'REJECTED'])
+    status: z.enum(['STORED', 'REJECTED']),
+    s3Key: z.string().check(ctx => {
+        const length = [...ctx.value].length;
+        if (length < 1) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 1,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }).optional()
 });

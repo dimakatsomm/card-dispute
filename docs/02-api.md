@@ -153,7 +153,7 @@ An `accountId`/`cardId` the caller doesn't own → empty list.
 "timeline": [
   { "type": "SUBMITTED",      "at": "…", "by": "CUSTOMER" },
   { "type": "EVIDENCE_ADDED", "at": "…", "by": "CUSTOMER", "detail": { "fileName": "receipt.pdf" } },   // when the file passed scanning
-  { "type": "EVIDENCE_REJECTED", "at": "…", "by": "BANK", "detail": { "fileName": "x.pdf", "reason": "MALWARE|TYPE_MISMATCH|CHECKSUM" } },
+  { "type": "EVIDENCE_REJECTED", "at": "…", "by": "BANK", "detail": { "fileName": "x.pdf", "reason": "MALWARE|TYPE_MISMATCH|CHECKSUM|SIZE|SCAN_FAILED" } },
   { "type": "EDITED",         "at": "…", "by": "CUSTOMER", "detail": { "fields": ["description"] } },
   { "type": "UNDER_REVIEW",   "at": "…", "by": "BANK" },
   { "type": "RESOLVED_ACCEPTED", "at": "…", "by": "BANK", "detail": { "note": "…" } }
@@ -176,12 +176,12 @@ An `accountId`/`cardId` the caller doesn't own → empty list.
 
 201: dispute resource + `ETag` + upload instructions:
 ```json
-"uploads": [ { "evidenceId": "uuid", "method": "PUT", "url": "https://…quarantine…", "headers": {
+"uploads": [ { "evidenceId": "uuid", "method": "PUT", "url": "https://…quarantine…/intake/{transactionId}/{evidenceId}…", "headers": {
     "Content-Type": "application/pdf", "Content-Length": "183422", "x-amz-checksum-sha256": "<base64>" },
   "expiresAt": "…(+10 min)" } ]
 ```
 - The client `PUT`s each file to its URL with exactly those headers. S3 rejects a different type, length or checksum (signed headers).
-- Files land in the **quarantine bucket**. They are scanned and checked by `evidence-intake` and then move to the evidence bucket (see 01-architecture). Until then the evidence item has `status: "PENDING"`.
+- Files land in the **quarantine bucket** at `intake/{transactionId}/{evidenceId}` (ADR-055; the key is not derived from the file name). They are scanned and checked by `evidence-intake` and then move to the evidence bucket (see 01-architecture). Until then the evidence item has `status: "PENDING"`.
 - The dispute is created even if the client never uploads. Unused upload slots expire (`EXPIRED`) and don't count toward the 5-file cap.
 
 Errors:
@@ -215,9 +215,9 @@ Retry-safe (ADR-050): a declaration matching an existing `PENDING` item of the d
 201: `{ "uploads": [ …same shape as create… ] }`.
 
 ## Service-port endpoints
-- `PUT /dispute/{transactionId}/evidence/{evidenceId}` (scope `disputes/evidence.write`, caller: evidence-intake Lambda) → `{ "result": "STORED" | "REJECTED", "reason"?: "MALWARE|TYPE_MISMATCH|CHECKSUM|SIZE", "sha256", "sizeBytes", "contentType" }`. Sets the evidence status and writes `EVIDENCE_ADDED` or `EVIDENCE_REJECTED` to the history. Idempotent: the same result again → 200 no-op. A result for an `EXPIRED`/`ERASED` item → 409.
+- `PUT /dispute/{transactionId}/evidence/{evidenceId}` (scope `disputes/evidence.write`, caller: evidence-intake Lambda) → body `{ "result": "STORED" | "REJECTED", "reason"?: "MALWARE|TYPE_MISMATCH|CHECKSUM|SIZE|SCAN_FAILED", "sha256", "sizeBytes", "contentType" }` (the facts evidence-intake observed; required with `STORED`, optional with `REJECTED` because intake cannot observe them when the scan verdict is `ACCESS_DENIED`, `FAILED` or `SKIPPED` or `HeadObject` fails; `reason` is required with `REJECTED`), response 200 `{ "evidenceId", "status": "STORED" | "REJECTED", "s3Key"? }`. disputes compares the reported facts with the declared ones: a `STORED` result whose facts differ is recorded `REJECTED` (`TYPE_MISMATCH`, `SIZE` or `CHECKSUM`) and answered 200 with `status: "REJECTED"`, so the caller acts on the response. `s3Key` = `evidence/{disputeId}/{evidenceId}`, set by disputes only when `STORED` and never read from the body; the caller copies the object there. Writes `EVIDENCE_ADDED` or `EVIDENCE_REJECTED` to the history. Idempotent: the same result again → 200 no-op. An `evidenceId` that is not this dispute's → 404. A result for an `EXPIRED`/`ERASED` item, or one conflicting with the settled result → 409.
 - `GET :8081/transactions?userId=&transactionIds=&accountId?&cardId?` (≤ 100 ids; transactions, scope `transactions/read`) → `{ items: [raw txn] }`, only that user's rows that also match the optional account/card filter (non-matching or missing ids simply absent). Makes no s2s calls.
-- `GET :8081/disputes?userId=&transactionIds=` (≤ 100 ids) → `{ "items": [ { "transactionId", "disputeId", "status" } ] }`. Used by transactions for the `dispute` / `disputable` fields.
+- `GET :8081/disputes?userId=&transactionIds=` (≤ 100 ids) → `{ "items": [ { "transactionId", "disputeId", "status", "version" } ] }`. Used by transactions for the `dispute` / `disputable` fields and by the notifier (scope `disputes/read`) to read the current `version` and skip stale status emails (ADR-055).
 - `PUT /dispute/{transactionId}/review` → SUBMITTED → UNDER_REVIEW. Body `{ "actor": {"type":"AGENT","id"}, "expectedVersion", "note"? }` — AGENT only (ADR-033)
 - `GET :8081/review-queue?status=SUBMITTED|UNDER_REVIEW&limit&cursor` (scope `disputes/review`) → disputes across all customers, oldest `createdAt` first, for the back-office
 - `PUT /dispute/{transactionId}/resolution` → `{ "outcome": "ACCEPTED|REJECTED", "note", "actor": {"type":"AGENT","id"}, "expectedVersion" }` — AGENT only.

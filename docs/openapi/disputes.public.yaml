@@ -75,7 +75,8 @@ paths:
         503 `UPLOAD_SIGNING_UNAVAILABLE`: the dispute was created but upload URLs could not be signed; the client
         re-declares the files via `POST /dispute/{transactionId}/evidence` (retry-safe, ADR-050).
 
-        For each declared file the response carries a presigned **PUT** URL for the quarantine bucket. The client must
+        For each declared file the response carries a presigned **PUT** URL for the quarantine bucket (object key
+        `intake/{transactionId}/{evidenceId}`, opaque to clients). The client must
         send exactly the returned headers (Content-Type, Content-Length, x-amz-checksum-sha256); S3 rejects anything else.
         Evidence stays `PENDING` until scanned; unused slots become `EXPIRED` after 1 day.
       requestBody:
@@ -285,7 +286,7 @@ components:
       properties:
         evidenceId: { $ref: './common.yaml#/components/schemas/Uuid' }
         method: { const: PUT }
-        url: { type: string, format: uri, description: Presigned URL for the quarantine bucket. }
+        url: { type: string, format: uri, description: 'Presigned URL for the quarantine bucket object `intake/{transactionId}/{evidenceId}`; treat it as opaque.' }
         headers:
           type: object
           description: Send exactly these headers; they are signed.
@@ -327,6 +328,11 @@ components:
           oneOf:
             - { $ref: './common.yaml#/components/schemas/Timestamp' }
             - { type: 'null' }
+    ResponseDescription:
+      description: 'Responses only; requests keep 10..2000. Retention replaces an erased dispute''s description with the tombstone (ADR-017).'
+      oneOf:
+        - { type: string, minLength: 10, maxLength: 2000 }
+        - { const: '[erased]' }
     TransactionRef:
       description: Read live from transactions; null if transactions is unavailable.
       oneOf:
@@ -342,7 +348,7 @@ components:
         contentType: { type: string, enum: [application/pdf, image/jpeg, image/png] }
         sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
         status: { type: string, enum: [PENDING, STORED, REJECTED, EXPIRED, ERASED] }
-        rejectionReason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE] }
+        rejectionReason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE, SCAN_FAILED] }
     Dispute:
       type: object
       additionalProperties: false
@@ -352,7 +358,7 @@ components:
         transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
         status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
         reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
-        description: { type: string, minLength: 10, maxLength: 2000 }
+        description: { $ref: '#/components/schemas/ResponseDescription' }
         transaction: { $ref: '#/components/schemas/TransactionRef' }
         evidence:
           type: array
@@ -376,7 +382,7 @@ components:
         transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
         status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
         reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
-        description: { type: string, minLength: 10, maxLength: 2000 }
+        description: { $ref: '#/components/schemas/ResponseDescription' }
         transaction: { $ref: '#/components/schemas/TransactionRef' }
         evidence:
           type: array
@@ -404,7 +410,7 @@ components:
         transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
         status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
         reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
-        description: { type: string, minLength: 10, maxLength: 2000 }
+        description: { $ref: '#/components/schemas/ResponseDescription' }
         transaction: { $ref: '#/components/schemas/TransactionRef' }
         evidence:
           type: array
@@ -462,5 +468,5 @@ components:
           properties:
             fields: { type: array, minItems: 1, maxItems: 2, items: { type: string, enum: [description, reasonCode] } }
             fileName: { type: string, minLength: 1, maxLength: 255 }
-            reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE] }
+            reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE, SCAN_FAILED] }
             note: { type: string, minLength: 1, maxLength: 2000 }

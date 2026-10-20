@@ -29,10 +29,10 @@ const lookup = (token: string, query: Readonly<Record<string, string>>) =>
     headers: { authorization: `Bearer ${token}` },
   });
 
-const seed = async (userId: string, status: 'SUBMITTED' | 'WITHDRAWN' = 'SUBMITTED') => {
+const seed = async (userId: string, status: 'SUBMITTED' | 'WITHDRAWN' = 'SUBMITTED', version = 1) => {
   const transactionId = randomUUID();
-  const { disputeId } = await seedDispute(db, { userId, transactionId, status });
-  return { transactionId, disputeId };
+  const { disputeId } = await seedDispute(db, { userId, transactionId, status, version });
+  return { transactionId, disputeId, version };
 };
 
 beforeAll(async () => {
@@ -61,7 +61,7 @@ afterAll(async () => {
 describe('GET :8081/disputes', () => {
   it("returns only that user's disputes for the given ids, in the shape transactions parses, with no s2s calls", async () => {
     const submitted = await seed(USER_A.userId);
-    const withdrawn = await seed(USER_A.userId, 'WITHDRAWN');
+    const withdrawn = await seed(USER_A.userId, 'WITHDRAWN', 3);
     const othersDispute = await seed(USER_B.userId);
 
     const res = await lookup(SERVICE_CALLER.token, {

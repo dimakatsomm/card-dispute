@@ -1,13 +1,14 @@
-import { ACTOR_TYPES, DISPUTE_STATUSES, REASON_CODES } from '@cd/dispute-domain';
+import {
+  ACTOR_TYPES,
+  DISPUTE_STATUSES,
+  EVIDENCE_CONTENT_TYPES,
+  EVIDENCE_STATUSES,
+  REASON_CODES,
+} from '@cd/dispute-domain';
 import { err, ok } from '@cd/shared/fp';
 import type pg from 'pg';
 import { z } from 'zod';
-import {
-  EVIDENCE_CONTENT_TYPES,
-  type DisputeRecord,
-  type EvidenceRecord,
-  type HistoryRecord,
-} from '../core/types.ts';
+import type { DisputeRecord, EvidenceRecord, HistoryRecord } from '../core/types.ts';
 import { REJECTION_REASONS, type EvidenceDetail } from '../core/timeline.ts';
 import type {
   DisputeChanges,
@@ -65,7 +66,7 @@ const evidenceRow = z
     declared_content_type: z.enum(EVIDENCE_CONTENT_TYPES),
     declared_size_bytes: z.number().int(),
     declared_sha256: z.string(),
-    status: z.enum(['PENDING', 'STORED', 'REJECTED', 'EXPIRED', 'ERASED']),
+    status: z.enum(EVIDENCE_STATUSES),
   })
   .transform((r): EvidenceRecord => ({
     evidenceId: r.evidence_id,
@@ -146,6 +147,7 @@ const refRow = z.object({
   transaction_id: z.string(),
   dispute_id: z.string(),
   status: z.enum(DISPUTE_STATUSES),
+  version: z.number().int(),
 });
 
 // Microsecond text, because a millisecond Date would skip or repeat rows that tie within the same millisecond.
@@ -374,13 +376,18 @@ export const createDisputeRepo = (pool: Connectable & Pick<pg.Pool, 'query'>): D
 
   lookupRefs: async (userId, transactionIds) => {
     const res = await pool.query(
-      `select transaction_id::text as transaction_id, dispute_id::text as dispute_id, status
+      `select transaction_id::text as transaction_id, dispute_id::text as dispute_id, status, version
        from dispute where user_id = $1 and transaction_id = any($2::uuid[])`,
       [userId, transactionIds],
     );
     return res.rows.map((r) => {
       const row = refRow.parse(r);
-      return { transactionId: row.transaction_id, disputeId: row.dispute_id, status: row.status };
+      return {
+        transactionId: row.transaction_id,
+        disputeId: row.dispute_id,
+        status: row.status,
+        version: row.version,
+      };
     });
   },
 });

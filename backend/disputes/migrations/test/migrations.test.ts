@@ -103,7 +103,14 @@ beforeAll(async () => {
   expect(await bootstrap({ adminConnectionString: adminUrl, passwords })).toMatchObject({ ok: true });
   expect(await migrateAsMigrator()).toEqual({
     ok: true,
-    value: { applied: ['001_dispute.sql', '002_dispute_status_history.sql', '003_dispute_evidence.sql'] },
+    value: {
+      applied: [
+        '001_dispute.sql',
+        '002_dispute_status_history.sql',
+        '003_dispute_evidence.sql',
+        '004_retention_erasure.sql',
+      ],
+    },
   });
 });
 
@@ -246,6 +253,10 @@ describe('disputes migrations', () => {
     ['UPDATE history.actor_id', `update disputes.dispute_status_history set actor_id = 'x'`],
     ['UPDATE dispute.status', `update disputes.dispute set status = 'WITHDRAWN'`],
     ['UPDATE evidence.s3_key', 'update disputes.dispute_evidence set s3_key = null'],
+    ['UPDATE evidence.declared_content_type', `update disputes.dispute_evidence set declared_content_type = 'image/png'`],
+    ['UPDATE evidence.stored_at', 'update disputes.dispute_evidence set stored_at = null'],
+    ['UPDATE evidence.updated_at', 'update disputes.dispute_evidence set updated_at = now()'],
+    ['UPDATE dispute.updated_at', 'update disputes.dispute set updated_at = now()'],
     ['DELETE dispute', 'delete from disputes.dispute'],
     ['DELETE dispute_status_history', 'delete from disputes.dispute_status_history'],
     ['DELETE dispute_evidence', 'delete from disputes.dispute_evidence'],
@@ -303,5 +314,225 @@ describe('disputes migrations', () => {
           and (p.prosecdef or p.proacl is null or exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0))`,
     );
     expect(r.rows).toEqual([]);
+  });
+});
+
+describe('retention erasure (004)', () => {
+  const updatedAtOf = async (id: string): Promise<string> =>
+    (await asRole('disputes_migrator', 'select updated_at::text as t from dispute where id = $1', [id])).rows[0].t as string;
+
+  it('disputes_retention erasing description/resolution_note leaves dispute.updated_at unchanged', async () => {
+    const { id } = await freshDispute();
+    const before = await updatedAtOf(id);
+    const r = await asRole(
+      'disputes_retention',
+      `update disputes.dispute set description = '[erased]', resolution_note = null where id = $1`,
+      [id],
+    );
+    expect(r.rowCount).toBe(1);
+    expect(await updatedAtOf(id)).toBe(before);
+  });
+
+  it('disputes_app updating description/resolution_note still bumps dispute.updated_at', async () => {
+    const { id } = await freshDispute();
+    const before = await updatedAtOf(id);
+    await asRole(
+      'disputes_app',
+      `update dispute set description = 'Charged twice at the till', resolution_note = 'noted' where id = $1`,
+      [id],
+    );
+    expect(await updatedAtOf(id)).not.toBe(before);
+  });
+
+  it('disputes_retention can erase evidence and its file_name in one statement', async () => {
+    const { evidenceId } = await freshDispute();
+    const r = await asRole(
+      'disputes_retention',
+      `update disputes.dispute_evidence set status = 'ERASED', file_name = '[erased]' where id = $1
+       returning status, file_name, s3_key`,
+      [evidenceId],
+    );
+    expect(r.rows).toEqual([{ status: 'ERASED', file_name: '[erased]', s3_key: null }]);
+  });
+
+  it('disputes_retention can tombstone the file_name of already ERASED evidence', async () => {
+    const { evidenceId } = await freshDispute();
+    await eraseEvidence(evidenceId);
+    const r = await asRole(
+      'disputes_retention',
+      `update disputes.dispute_evidence set file_name = '[erased]' where id = $1 returning file_name`,
+      [evidenceId],
+    );
+    expect(r.rows).toEqual([{ file_name: '[erased]' }]);
+  });
+
+  it.each<[string, string, boolean]>([
+    ['[erased] without status ERASED', `set file_name = '[erased]'`, false],
+    ['another name together with status ERASED', `set status = 'ERASED', file_name = 'other.pdf'`, false],
+    ['another name on already ERASED evidence', `set file_name = 'other.pdf'`, true],
+  ])('disputes_retention cannot set file_name to %s', async (_name, set, preErase) => {
+    const { evidenceId } = await freshDispute();
+    if (preErase) await eraseEvidence(evidenceId);
+    await expect(
+      asRole('disputes_retention', `update disputes.dispute_evidence ${set} where id = $1`, [evidenceId]),
+    ).rejects.toMatchObject({ code: PERMISSION_DENIED });
+    const row = await asRole('disputes_migrator', 'select file_name from dispute_evidence where id = $1', [evidenceId]);
+    expect(row.rows).toEqual([{ file_name: 'receipt.pdf' }]);
+  });
+
+  it('rejection_reason accepts SCAN_FAILED and still rejects an unknown value', async () => {
+    const { id } = await insertDispute();
+    const insert = (reason: string) =>
+      asRole(
+        'disputes_app',
+        `insert into dispute_evidence
+           (dispute_id, file_name, declared_content_type, declared_size_bytes, declared_sha256, status, rejection_reason)
+         values ($1, 'a.pdf', 'application/pdf', 1, $2, 'REJECTED', $3) returning rejection_reason`,
+        [id, SHA, reason],
+      );
+    expect((await insert('SCAN_FAILED')).rows).toEqual([{ rejection_reason: 'SCAN_FAILED' }]);
+    await expect(insert('TIMEOUT')).rejects.toMatchObject({ code: CHECK_VIOLATION });
+  });
+
+  it('disputes_app cannot change file_name', async () => {
+    const { evidenceId } = await freshDispute();
+    await expect(
+      asRole('disputes_app', `update dispute_evidence set file_name = '[erased]' where id = $1`, [evidenceId]),
+    ).rejects.toMatchObject({ code: PERMISSION_DENIED });
+  });
+
+  it('disputes_retention holds exactly SELECT on the three tables plus its column UPDATEs', async () => {
+    const tables = await query(
+      adminUrl,
+      `select c.relname, a.privilege_type from pg_class c cross join aclexplode(c.relacl) a
+        where c.relnamespace = 'disputes'::regnamespace and a.grantee = 'disputes_retention'::regrole
+        order by 1, 2`,
+    );
+    expect(tables.rows).toEqual([
+      { relname: 'dispute', privilege_type: 'SELECT' },
+      { relname: 'dispute_evidence', privilege_type: 'SELECT' },
+      { relname: 'dispute_status_history', privilege_type: 'SELECT' },
+    ]);
+    const columns = await query(
+      adminUrl,
+      `select c.relname, t.attname, a.privilege_type
+         from pg_attribute t join pg_class c on c.oid = t.attrelid cross join aclexplode(t.attacl) a
+        where c.relnamespace = 'disputes'::regnamespace and a.grantee = 'disputes_retention'::regrole
+        order by 1, 2, 3`,
+    );
+    expect(columns.rows).toEqual([
+      { relname: 'dispute', attname: 'description', privilege_type: 'UPDATE' },
+      { relname: 'dispute', attname: 'resolution_note', privilege_type: 'UPDATE' },
+      { relname: 'dispute_evidence', attname: 'file_name', privilege_type: 'UPDATE' },
+      { relname: 'dispute_evidence', attname: 'status', privilege_type: 'UPDATE' },
+      { relname: 'dispute_status_history', attname: 'after', privilege_type: 'UPDATE' },
+      { relname: 'dispute_status_history', attname: 'before', privilege_type: 'UPDATE' },
+      { relname: 'dispute_status_history', attname: 'note', privilege_type: 'UPDATE' },
+    ]);
+  });
+
+  it('dispute and evidence triggers exist and are enabled', async () => {
+    const r = await asRole(
+      'disputes_migrator',
+      `select tgrelid::regclass::text as rel, tgname, tgenabled from pg_trigger
+        where tgrelid in ('disputes.dispute'::regclass, 'disputes.dispute_evidence'::regclass) and not tgisinternal
+        order by 1, 2`,
+    );
+    expect(r.rows).toEqual([
+      { rel: 'dispute', tgname: 'dispute_set_updated_at', tgenabled: 'O' },
+      { rel: 'dispute_evidence', tgname: 'dispute_evidence_set_updated_at', tgenabled: 'O' },
+      { rel: 'dispute_evidence', tgname: 'dispute_evidence_status_guard', tgenabled: 'O' },
+    ]);
+  });
+
+  describe('sweeper candidate query plans', () => {
+    type PlanNode = {
+      readonly 'Node Type': string;
+      readonly 'Relation Name'?: string;
+      readonly 'Index Name'?: string;
+      readonly Plans?: PlanNode[];
+    };
+
+    const nodesOf = (n: PlanNode): PlanNode[] => [n, ...(n.Plans ?? []).flatMap(nodesOf)];
+
+    const scansOf = async (sql: string): Promise<string[]> => {
+      const r = await asRole('disputes_retention', `explain (format json) ${sql}`);
+      return nodesOf(r.rows[0]['QUERY PLAN'][0].Plan as PlanNode)
+        .filter((n) => n['Relation Name'] !== undefined || n['Index Name'] !== undefined)
+        .map((n) => `${n['Node Type']} ${n['Index Name'] ?? n['Relation Name']}`);
+    };
+
+    beforeAll(async () => {
+      // ~3.4 years of hourly disputes; terminal ones over 1 year + 30 days ago are already erased, leaving a backlog of candidates.
+      await asRole(
+        'disputes_migrator',
+        `with s as (
+           select g, now() - g * interval '1 hour' as ts,
+                  case when g % 10 = 0 then 'SUBMITTED' when g % 10 = 1 then 'UNDER_REVIEW'
+                       when g % 10 in (2, 3) then 'WITHDRAWN' when g % 10 in (4, 5, 6) then 'RESOLVED_REJECTED'
+                       else 'RESOLVED_ACCEPTED' end as status
+             from generate_series(1, 30000) g)
+         insert into dispute (transaction_id, user_id, reason_code, description, status, resolved_at,
+                              created_by, updated_by, created_at, updated_at)
+         select gen_random_uuid(), gen_random_uuid(), 'OTHER',
+                case when status not in ('SUBMITTED', 'UNDER_REVIEW') and ts + interval '7 days' < now() - interval '1 year 30 days'
+                     then '[erased]' else 'Seeded plan-test dispute' end,
+                status, case when status like 'RESOLVED_%' then ts + interval '7 days' end,
+                'USER:u', 'USER:u', ts, ts
+           from s`,
+      );
+      await asRole(
+        'disputes_migrator',
+        `insert into dispute_status_history (dispute_id, action, from_status, to_status, actor_type, actor_id, created_at)
+         select id, 'CREATE', null, 'SUBMITTED', 'USER', 'u', created_at from dispute
+         union all
+         select id, 'WITHDRAW', 'SUBMITTED', 'WITHDRAWN', 'USER', 'u', created_at + interval '7 days'
+           from dispute where status = 'WITHDRAWN'
+         union all
+         select id, 'RESOLVE', 'UNDER_REVIEW', status, 'AGENT', 'a', resolved_at from dispute where resolved_at is not null`,
+      );
+      await asRole(
+        'disputes_migrator',
+        `insert into dispute_evidence (dispute_id, file_name, declared_content_type, declared_size_bytes, declared_sha256,
+                                       status, s3_key, created_at, updated_at)
+         select d.id, case when d.description = '[erased]' then '[erased]' else 'receipt.pdf' end,
+                'application/pdf', 100, '${SHA}', e.status,
+                case when e.status = 'STORED' then 'evidence/' || d.dispute_id || '/' || n end, d.created_at, d.created_at
+           from dispute d cross join generate_series(1, 2) n
+           cross join lateral (select case when d.description = '[erased]' then 'ERASED'
+                                           when d.created_at > now() - interval '48 hours' then 'PENDING'
+                                           else 'STORED' end as status) e`,
+      );
+      await asRole('disputes_migrator', 'analyze dispute; analyze dispute_status_history; analyze dispute_evidence');
+    });
+
+    it.each<[string, string, string]>([
+      [
+        'PENDING evidence by age',
+        `select id from disputes.dispute_evidence
+          where status = 'PENDING' and created_at <= now() - interval '24 hours' order by created_at limit 100`,
+        'dispute_evidence_pending_age_idx',
+      ],
+      [
+        'RESOLVED_* disputes by resolved_at',
+        `select id from disputes.dispute
+          where status in ('RESOLVED_ACCEPTED', 'RESOLVED_REJECTED') and resolved_at <= now() - interval '1 year'
+            and description <> '[erased]'
+          order by resolved_at limit 100`,
+        'dispute_resolved_unerased_idx',
+      ],
+      [
+        'WITHDRAWN disputes by the WITHDRAW history row',
+        `select d.id from disputes.dispute d join disputes.dispute_status_history h on h.dispute_id = d.id
+          where d.status = 'WITHDRAWN' and h.action = 'WITHDRAW' and h.created_at <= now() - interval '1 year'
+            and d.description <> '[erased]'
+          order by h.created_at limit 100`,
+        'dispute_status_history_withdraw_idx',
+      ],
+    ])('%s uses an index, never a seq scan', async (_name, sql, index) => {
+      const scans = await scansOf(sql);
+      expect(scans.filter((s) => s.startsWith('Seq Scan'))).toEqual([]);
+      expect(scans.some((s) => s.endsWith(` ${index}`))).toBe(true);
+    });
   });
 });

@@ -52,7 +52,8 @@ export type paths = {
          *     503 `UPLOAD_SIGNING_UNAVAILABLE`: the dispute was created but upload URLs could not be signed; the client
          *     re-declares the files via `POST /dispute/{transactionId}/evidence` (retry-safe, ADR-050).
          *
-         *     For each declared file the response carries a presigned **PUT** URL for the quarantine bucket. The client must
+         *     For each declared file the response carries a presigned **PUT** URL for the quarantine bucket (object key
+         *     `intake/{transactionId}/{evidenceId}`, opaque to clients). The client must
          *     send exactly the returned headers (Content-Type, Content-Length, x-amz-checksum-sha256); S3 rejects anything else.
          *     Evidence stays `PENDING` until scanned; unused slots become `EXPIRED` after 1 day.
          */
@@ -114,7 +115,7 @@ export type components = {
             method: "PUT";
             /**
              * Format: uri
-             * @description Presigned URL for the quarantine bucket.
+             * @description Presigned URL for the quarantine bucket object `intake/{transactionId}/{evidenceId}`; treat it as opaque.
              */
             url: string;
             /** @description Send exactly these headers; they are signed. */
@@ -153,6 +154,8 @@ export type components = {
             transactionAt: components["schemas"]["Timestamp"];
             postedAt: components["schemas"]["Timestamp"] | null;
         };
+        /** @description Responses only; requests keep 10..2000. Retention replaces an erased dispute's description with the tombstone (ADR-017). */
+        ResponseDescription: string | "[erased]";
         /** @description Read live from transactions; null if transactions is unavailable. */
         TransactionRef: components["schemas"]["TransactionSnapshot"] | null;
         Evidence: {
@@ -164,14 +167,14 @@ export type components = {
             /** @enum {string} */
             status: "PENDING" | "STORED" | "REJECTED" | "EXPIRED" | "ERASED";
             /** @enum {string} */
-            rejectionReason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE";
+            rejectionReason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE" | "SCAN_FAILED";
         };
         Dispute: {
             disputeId: components["schemas"]["Uuid"];
             transactionId: components["schemas"]["Uuid"];
             status: components["schemas"]["DisputeStatus"];
             reasonCode: components["schemas"]["ReasonCode"];
-            description: string;
+            description: components["schemas"]["ResponseDescription"];
             transaction: components["schemas"]["TransactionRef"];
             evidence: components["schemas"]["Evidence"][];
             version: number;
@@ -186,7 +189,7 @@ export type components = {
             transactionId: components["schemas"]["Uuid"];
             status: components["schemas"]["DisputeStatus"];
             reasonCode: components["schemas"]["ReasonCode"];
-            description: string;
+            description: components["schemas"]["ResponseDescription"];
             transaction: components["schemas"]["TransactionRef"];
             evidence: components["schemas"]["Evidence"][];
             version: number;
@@ -202,7 +205,7 @@ export type components = {
             transactionId: components["schemas"]["Uuid"];
             status: components["schemas"]["DisputeStatus"];
             reasonCode: components["schemas"]["ReasonCode"];
-            description: string;
+            description: components["schemas"]["ResponseDescription"];
             transaction: components["schemas"]["TransactionRef"];
             evidence: components["schemas"]["Evidence"][];
             version: number;
@@ -241,7 +244,7 @@ export type components = {
                 fields?: ("description" | "reasonCode")[];
                 fileName?: string;
                 /** @enum {string} */
-                reason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE";
+                reason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE" | "SCAN_FAILED";
                 note?: string;
             };
         };

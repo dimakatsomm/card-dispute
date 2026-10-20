@@ -5,19 +5,23 @@
   "name": "@cd/shared",
   "exports": {
     ".": "./src/index.ts",
-    "./fp": "./src/fp.ts"
+    "./fp": "./src/fp.ts",
+    "./lambda": "./src/lambda.ts",
+    "./correlation": "./src/correlation.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "catalog:",
     "fastify": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "esbuild": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

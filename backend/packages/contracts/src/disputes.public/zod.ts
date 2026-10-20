@@ -72,6 +72,44 @@ export const zWithdrawDispute = z.strictObject({
     }).optional()
 });
 
+/**
+ * Responses only; requests keep 10..2000. Retention replaces an erased dispute's description with the tombstone (ADR-017).
+ */
+export const zResponseDescription = z.union([
+    z.string().check(ctx => {
+        if (ctx.value.length > 4000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length < 10) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 10,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+        if (length > 2000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }),
+    z.literal('[erased]')
+]);
+
 export const zTimelineType = z.enum([
     'SUBMITTED',
     'EDITED',
@@ -277,7 +315,8 @@ export const zTimelineEvent = z.strictObject({
             'MALWARE',
             'TYPE_MISMATCH',
             'CHECKSUM',
-            'SIZE'
+            'SIZE',
+            'SCAN_FAILED'
         ]).optional(),
         note: z.string().check(ctx => {
             if (ctx.value.length > 4000) {
@@ -366,7 +405,8 @@ export const zEvidence = z.strictObject({
         'MALWARE',
         'TYPE_MISMATCH',
         'CHECKSUM',
-        'SIZE'
+        'SIZE',
+        'SCAN_FAILED'
     ]).optional()
 });
 
@@ -375,37 +415,7 @@ export const zDispute = z.strictObject({
     transactionId: zUuid,
     status: zDisputeStatus,
     reasonCode: zReasonCode,
-    description: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 10) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 10,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }),
+    description: zResponseDescription,
     transaction: zTransactionRef,
     evidence: z.array(zEvidence).max(5),
     version: z.int().gte(1),
@@ -447,37 +457,7 @@ export const zDisputeCreated = z.strictObject({
     transactionId: zUuid,
     status: zDisputeStatus,
     reasonCode: zReasonCode,
-    description: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 10) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 10,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }),
+    description: zResponseDescription,
     transaction: zTransactionRef,
     evidence: z.array(zEvidence).max(5),
     version: z.int().gte(1),
@@ -520,37 +500,7 @@ export const zDisputeDetail = z.strictObject({
     transactionId: zUuid,
     status: zDisputeStatus,
     reasonCode: zReasonCode,
-    description: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 10) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 10,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }),
+    description: zResponseDescription,
     transaction: zTransactionRef,
     evidence: z.array(zEvidence).max(5),
     version: z.int().gte(1),

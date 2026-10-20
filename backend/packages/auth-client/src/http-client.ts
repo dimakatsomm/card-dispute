@@ -1,4 +1,4 @@
-import { CORRELATION_HEADER } from '@cd/shared';
+import { CORRELATION_HEADER } from '@cd/shared/correlation';
 import { err, ok, type Result } from '@cd/shared/fp';
 
 export type Fetch = typeof globalThis.fetch;

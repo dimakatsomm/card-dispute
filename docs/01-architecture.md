@@ -16,16 +16,21 @@ Aurora PostgreSQL Serverless v2 — one cluster; schemas auth, users, transactio
   one DB role per service with grants on its own schema only
 
 disputes ─(after commit, best-effort)─► SQS dispute-notifications (+DLQ) ─► dispute-notifier Lambda
+                                              ─► disputes GET :8081/disputes (current version; skips stale status emails)
                                               ─► users GET /users/{userId}/contact (service token) ─► SES
 
 Evidence (ADR-028, presigned — disputes never touches file bytes):
-  client ─PUT (presigned, signed type/length/sha256)─► S3 quarantine bucket (private, SSE-KMS, 1-day lifecycle)
+  client ─PUT (presigned, signed type/length/sha256)─► S3 quarantine bucket, key intake/{transactionId}/{evidenceId}
+                                                       (private, SSE-KMS, 1-day lifecycle)
      ─► malware scan (GuardDuty Malware Protection for S3 — ⚠ af-south-1 availability unverified)
-     ─► EventBridge scan-result event ─► evidence-intake Lambda
-           checks magic bytes (ranged GET), size, checksum, scan verdict
-           clean  → copy to S3 evidence bucket (private, SSE-KMS, versioned) + delete from quarantine
-           bad    → delete from quarantine
+     ─► EventBridge scan-result event ─► evidence-intake Lambda (EventBridge async invoke: 2 retries, then an async DLQ)
+           reads the verdict from the event; facts from HeadObject + a ranged GET (magic bytes), never from the file name
          ─► disputes PUT /dispute/{transactionId}/evidence/{evidenceId} (service port, via internal ALB)
+              disputes compares declared vs reported facts, records STORED or REJECTED and answers
+              { evidenceId, status, s3Key? } — s3Key = evidence/{disputeId}/{evidenceId}, chosen by disputes only
+           then acts on the response:
+           STORED   → copy to S3 evidence bucket at s3Key (private, SSE-KMS, versioned) + delete from quarantine
+           REJECTED → delete from quarantine (also when the intake claimed STORED but disputes found a mismatch)
 
 Supporting: Cognito, Secrets Manager (DB creds), KMS (data + S3 keys), ECR, CloudWatch Logs/Alarms, X-Ray
 ```
@@ -78,7 +83,7 @@ Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (o
 3. Calls users `GET /cards?userId=&cardId=<txn.cardId>` (service token) → card expiry.
 4. `evaluateTransactionEligibility(txn, card, existingDispute, dbNow)` + `validateDisputeInput(input)`.
 5. One DB transaction: insert `dispute` + one `dispute_evidence` row per declared file (`PENDING`) + history (CREATE).
-6. Generate presigned PUT URLs for the quarantine bucket (10 min; signed Content-Type, Content-Length,
+6. Generate presigned PUT URLs for the quarantine bucket, object key `intake/{transactionId}/{evidenceId}` (10 min; signed Content-Type, Content-Length,
    x-amz-checksum-sha256). No network call; signing is local.
    `unique (transaction_id)` makes a duplicate or retried POST fail with 409 `ALREADY_DISPUTED`.
    This is the idempotency mechanism (ADR-023).
