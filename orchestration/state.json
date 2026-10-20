@@ -113,7 +113,7 @@
       "notes": "Security gate: B1/S1/S2/S3/N3 fixed. 94 tests."
     },
     "E-01": {
-      "status": "todo",
+      "status": "done",
       "agent": "test-engineer",
       "blockedBy": [
         "A-01",
@@ -125,7 +125,7 @@
         "L-02",
         "P-03"
       ],
-      "notes": ""
+      "notes": "22 passed, 1 skipped (expired token needs MOCK_ISSUER_TEST_HOOKS). Found S-05 defects and stale-token lockout."
     },
     "P-02": {
       "status": "done",
@@ -181,7 +181,7 @@
       "notes": "gate CHANGES REQUIRED: BLOCKER add-evidence link targets create form (need files-only add-evidence mode at /disputes/:transactionId/evidence + non-vacuous test); should-fix reuse useMe instead of loadAccounts; move test harness out of src; uncommitted"
     },
     "W-05": {
-      "status": "todo",
+      "status": "done",
       "agent": "test-engineer",
       "blockedBy": [
         "W-02",
@@ -190,7 +190,7 @@
         "L-02",
         "D-05"
       ],
-      "notes": ""
+      "notes": "Playwright headless Chromium, 1 passed against compose stack with no shims after mock-issuer CORS + S3_PRESIGN_ENDPOINT fixes. Wired into e2e.yml."
     },
     "CI-01": {
       "status": "done",
