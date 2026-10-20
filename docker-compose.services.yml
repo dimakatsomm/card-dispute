@@ -1,0 +1,200 @@
+# Override on top of docker-compose.yml: services, migration jobs and the frontend. Run via `pnpm dev`.
+# Prerequisite on a fresh database: `pnpm seed:local` (creates the per-service DB roles the jobs log in as).
+x-service-env: &service-env
+  PUBLIC_PORT: 8080
+  SERVICE_PORT: 8081
+  LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+
+x-service-client: &service-client
+  AUTH_URL: http://auth:8081
+  TOKEN_URL: http://mock-issuer:55900/oauth2/token
+  SERVICE_CLIENT_SECRET: ${MOCK_ISSUER_CLIENT_SECRET:?set in local/.env.example}
+
+x-healthcheck: &healthcheck
+  test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/ready']
+  interval: 5s
+  timeout: 3s
+  retries: 20
+  start_period: 10s
+
+services:
+  auth-migrate:
+    build:
+      context: .
+      dockerfile: backend/auth/Dockerfile
+    image: cd-auth:local
+    command: ['migrate']
+    environment:
+      LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+      MIGRATOR_DATABASE_URL: postgres://auth_migrator:${DB_PASSWORD_AUTH_MIGRATOR:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    networks: [local]
+
+  users-migrate:
+    build:
+      context: .
+      dockerfile: backend/users/Dockerfile
+    image: cd-users:local
+    command: ['migrate']
+    environment:
+      LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+      MIGRATOR_DATABASE_URL: postgres://users_migrator:${DB_PASSWORD_USERS_MIGRATOR:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    networks: [local]
+
+  transactions-migrate:
+    build:
+      context: .
+      dockerfile: backend/transactions/Dockerfile
+    image: cd-transactions:local
+    command: ['migrate']
+    environment:
+      LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+      MIGRATOR_DATABASE_URL: postgres://transactions_migrator:${DB_PASSWORD_TRANSACTIONS_MIGRATOR:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    networks: [local]
+
+  disputes-migrate:
+    build:
+      context: .
+      dockerfile: backend/disputes/Dockerfile
+    image: cd-disputes:local
+    command: ['migrate']
+    environment:
+      MIGRATOR_DATABASE_URL: postgres://disputes_migrator:${DB_PASSWORD_DISPUTES_MIGRATOR:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    networks: [local]
+
+  auth:
+    build:
+      context: .
+      dockerfile: backend/auth/Dockerfile
+    image: cd-auth:local
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgres://auth_app:${DB_PASSWORD_AUTH_APP:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+      AUTH_ISSUER_URL: ${MOCK_ISSUER_URL:?set in local/.env.example}
+      AUTH_JWKS_URI: http://mock-issuer:55900/.well-known/jwks.json
+      AUTH_ALLOW_INSECURE_JWKS: 'true'
+      AUTH_USER_CLIENT_IDS: ${AUTH_USER_CLIENT_IDS:?set in local/.env.example}
+      AUTH_SERVICE_CLIENT_IDS: ${AUTH_SERVICE_CLIENT_IDS:?set in local/.env.example}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+      mock-issuer:
+        condition: service_healthy
+    healthcheck: *healthcheck
+    networks: [local]
+
+  users:
+    build:
+      context: .
+      dockerfile: backend/users/Dockerfile
+    image: cd-users:local
+    environment:
+      <<: [*service-env, *service-client]
+      DATABASE_URL: postgres://users_app:${DB_PASSWORD_USERS_APP:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+      SERVICE_CLIENT_ID: svc-users
+    ports:
+      - '${USERS_HOST_PORT:-58081}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      users-migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+    healthcheck: *healthcheck
+    networks: [local]
+
+  transactions:
+    build:
+      context: .
+      dockerfile: backend/transactions/Dockerfile
+    image: cd-transactions:local
+    environment:
+      <<: [*service-env, *service-client]
+      DATABASE_URL: postgres://transactions_app:${DB_PASSWORD_TRANSACTIONS_APP:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+      SERVICE_CLIENT_ID: svc-transactions
+      USERS_SERVICE_URL: http://users:8081
+      DISPUTES_SERVICE_URL: http://disputes:8081
+    ports:
+      - '${TRANSACTIONS_HOST_PORT:-58082}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      transactions-migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+    healthcheck: *healthcheck
+    networks: [local]
+
+  disputes:
+    build:
+      context: .
+      dockerfile: backend/disputes/Dockerfile
+    image: cd-disputes:local
+    environment:
+      <<: [*service-env, *service-client]
+      DATABASE_URL: postgres://disputes_app:${DB_PASSWORD_DISPUTES_APP:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+      SERVICE_CLIENT_ID: svc-disputes
+      USERS_SERVICE_URL: http://users:8081
+      TRANSACTIONS_SERVICE_URL: http://transactions:8081
+      AWS_REGION: ${AWS_REGION:-af-south-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?set in local/.env.example}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?set in local/.env.example}
+      S3_ENDPOINT: http://moto:5000
+      S3_FORCE_PATH_STYLE: 'true'
+      SQS_ENDPOINT: http://moto:5000
+      QUARANTINE_BUCKET: ${QUARANTINE_BUCKET:?set in local/.env.example}
+      NOTIFICATIONS_QUEUE_URL: ${NOTIFICATIONS_QUEUE_URL:?set in local/.env.example}
+    ports:
+      - '${DISPUTES_HOST_PORT:-58083}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      disputes-migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
+      moto-init:
+        condition: service_completed_successfully
+    healthcheck: *healthcheck
+    networks: [local]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: cd-web:local
+    environment:
+      API_BASE: /api
+      OIDC_ISSUER: ${MOCK_ISSUER_URL:?set in local/.env.example}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set in local/.env.example}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?set in local/.env.example}
+      OIDC_LOGOUT_URL: ${MOCK_ISSUER_URL:?set in local/.env.example}/logout
+      OIDC_POST_LOGOUT_URI: ${OIDC_POST_LOGOUT_URI:?set in local/.env.example}
+      UPLOAD_ORIGIN: ${UPLOAD_ORIGIN:?set in local/.env.example}
+    volumes:
+      - ./local/nginx.local.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - '5173:8080'
+    depends_on:
+      mock-issuer:
+        condition: service_healthy
+    networks: [local]
