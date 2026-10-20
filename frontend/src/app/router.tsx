@@ -1,15 +1,14 @@
 import { createBrowserRouter } from 'react-router';
 import { AuthCallback, RequireAuth } from '../auth/AuthProvider';
+import { AccountScreen } from '../screens/account';
+import { AddEvidenceScreen } from '../screens/add-evidence';
+import { CardScreen } from '../screens/card';
+import { DisputeDetailScreen } from '../screens/dispute-detail';
+import { DisputeFormScreen } from '../screens/dispute-form';
+import { DisputesScreen } from '../screens/disputes';
+import { HomeScreen } from '../screens/home';
 import { AppShell } from './AppShell';
-import {
-  AccountPage,
-  CardPage,
-  DisputeDetailPage,
-  DisputeFormPage,
-  DisputesListPage,
-  HomePage,
-  NotFoundPage,
-} from './pages';
+import { NotFoundPage } from './pages';
 
 export const createAppRouter = (callbackPath: string) =>
   createBrowserRouter([
@@ -21,12 +20,13 @@ export const createAppRouter = (callbackPath: string) =>
         </RequireAuth>
       ),
       children: [
-        { index: true, element: <HomePage /> },
-        { path: 'accounts/:accountId', element: <AccountPage /> },
-        { path: 'cards/:cardId', element: <CardPage /> },
-        { path: 'transactions/:transactionId/dispute', element: <DisputeFormPage /> },
-        { path: 'disputes', element: <DisputesListPage /> },
-        { path: 'disputes/:transactionId', element: <DisputeDetailPage /> },
+        { index: true, element: <HomeScreen /> },
+        { path: 'accounts/:accountId', element: <AccountScreen /> },
+        { path: 'cards/:cardId', element: <CardScreen /> },
+        { path: 'transactions/:transactionId/dispute', element: <DisputeFormScreen /> },
+        { path: 'disputes', element: <DisputesScreen /> },
+        { path: 'disputes/:transactionId', element: <DisputeDetailScreen /> },
+        { path: 'disputes/:transactionId/evidence', element: <AddEvidenceScreen /> },
         { path: '*', element: <NotFoundPage /> },
       ],
     },

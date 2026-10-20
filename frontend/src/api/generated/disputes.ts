@@ -4,12 +4,12 @@
  */
 
 export type paths = {
-    readonly "/disputes": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: never;
-            readonly path?: never;
-            readonly cookie?: never;
+    "/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /**
          * Caller's disputes (disputes view)
@@ -17,31 +17,31 @@ export type paths = {
          *     (the dispute stores only `transactionId`). If transactions is unavailable: with an account/card filter → 503;
          *     without → items returned with `transaction: null`. An unowned `accountId`/`cardId` → empty list.
          */
-        readonly get: operations["listMyDisputes"];
-        readonly put?: never;
-        readonly post?: never;
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
+        get: operations["listMyDisputes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    readonly "/dispute/{transactionId}": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+    "/dispute/{transactionId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path: {
+            path: {
                 /** @description One dispute per transaction, ever, so this also identifies the dispute. */
-                readonly transactionId: components["parameters"]["TransactionIdPath"];
+                transactionId: components["parameters"]["TransactionIdPath"];
             };
-            readonly cookie?: never;
+            cookie?: never;
         };
         /** Dispute detail with timeline */
-        readonly get: operations["getDispute"];
+        get: operations["getDispute"];
         /** Edit (SUBMITTED only) or withdraw (SUBMITTED / UNDER_REVIEW — final) */
-        readonly put: operations["updateDispute"];
+        put: operations["updateDispute"];
         /**
          * Dispute a transaction (optionally declaring evidence files)
          * @description Eligibility (first failure wins): ALREADY_DISPUTED → CARD_EXPIRED → TXN_NOT_POSTED → TXN_TYPE_NOT_DISPUTABLE → OUTSIDE_WINDOW.
@@ -52,395 +52,397 @@ export type paths = {
          *     send exactly the returned headers (Content-Type, Content-Length, x-amz-checksum-sha256); S3 rejects anything else.
          *     Evidence stays `PENDING` until scanned; unused slots become `EXPIRED` after 1 day.
          */
-        readonly post: operations["createDispute"];
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
+        post: operations["createDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    readonly "/dispute/{transactionId}/evidence": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+    "/dispute/{transactionId}/evidence": {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path: {
+            path: {
                 /** @description One dispute per transaction, ever, so this also identifies the dispute. */
-                readonly transactionId: components["parameters"]["TransactionIdPath"];
+                transactionId: components["parameters"]["TransactionIdPath"];
             };
-            readonly cookie?: never;
+            cookie?: never;
         };
-        readonly get?: never;
-        readonly put?: never;
+        get?: never;
+        put?: never;
         /**
          * Declare more evidence files → presigned upload URLs
          * @description Allowed while SUBMITTED or UNDER_REVIEW. At most 5 items per dispute in PENDING or STORED.
+         *     Retry-safe: a declaration whose sha256 + sizeBytes + contentType match an existing PENDING item of this
+         *     dispute re-signs a fresh URL for that evidenceId instead of creating a new item (no extra slot used).
          */
-        readonly post: operations["addEvidence"];
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
+        post: operations["addEvidence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
 };
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
-        readonly CreateDisputeRequest: {
-            readonly reasonCode: components["schemas"]["ReasonCode"];
-            readonly description: string;
-            readonly evidence?: readonly components["schemas"]["EvidenceDeclaration"][];
+        CreateDisputeRequest: {
+            reasonCode: components["schemas"]["ReasonCode"];
+            description: string;
+            evidence?: components["schemas"]["EvidenceDeclaration"][];
         };
-        readonly EvidenceDeclaration: {
-            readonly fileName: string;
+        EvidenceDeclaration: {
+            fileName: string;
             /** @enum {string} */
-            readonly contentType: "application/pdf" | "image/jpeg" | "image/png";
-            readonly sizeBytes: number;
+            contentType: "application/pdf" | "image/jpeg" | "image/png";
+            sizeBytes: number;
             /** @description Lower-case hex of the file's SHA-256. */
-            readonly sha256: string;
+            sha256: string;
         };
-        readonly UploadInstruction: {
-            readonly evidenceId: components["schemas"]["Uuid"];
+        UploadInstruction: {
+            evidenceId: components["schemas"]["Uuid"];
             /** @constant */
-            readonly method: "PUT";
+            method: "PUT";
             /**
              * Format: uri
              * @description Presigned URL for the quarantine bucket.
              */
-            readonly url: string;
+            url: string;
             /** @description Send exactly these headers; they are signed. */
-            readonly headers: {
-                readonly "Content-Type": string;
-                readonly "Content-Length": string;
+            headers: {
+                "Content-Type": string;
+                "Content-Length": string;
                 /** @description Base64 of the SHA-256 digest. */
-                readonly "x-amz-checksum-sha256": string;
+                "x-amz-checksum-sha256": string;
             };
-            readonly expiresAt: components["schemas"]["Timestamp"];
+            expiresAt: components["schemas"]["Timestamp"];
         };
-        readonly EditDispute: {
+        EditDispute: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            readonly action: "EditDispute";
-            readonly description?: string;
-            readonly reasonCode?: components["schemas"]["ReasonCode"];
+            action: "EDIT";
+            description?: string;
+            reasonCode?: components["schemas"]["ReasonCode"];
         };
-        readonly WithdrawDispute: {
+        WithdrawDispute: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            readonly action: "WithdrawDispute";
-            readonly note?: string;
+            action: "WITHDRAW";
+            note?: string;
         };
         /** @description Read live from transactions; null if transactions is unavailable. */
-        readonly TransactionRef: {
-            readonly accountId: components["schemas"]["Uuid"];
-            readonly cardId: components["schemas"]["Uuid"];
-            readonly amount: components["schemas"]["Money"];
-            readonly currency: components["schemas"]["Currency"];
-            readonly merchantName: string;
-            readonly transactionAt: components["schemas"]["Timestamp"];
-            readonly postedAt: components["schemas"]["Timestamp"] | null;
+        TransactionRef: {
+            accountId: components["schemas"]["Uuid"];
+            cardId: components["schemas"]["Uuid"];
+            amount: components["schemas"]["Money"];
+            currency: components["schemas"]["Currency"];
+            merchantName: string;
+            transactionAt: components["schemas"]["Timestamp"];
+            postedAt: components["schemas"]["Timestamp"] | null;
         } | null;
-        readonly Evidence: {
-            readonly evidenceId: components["schemas"]["Uuid"];
-            readonly fileName: string;
+        Evidence: {
+            evidenceId: components["schemas"]["Uuid"];
+            fileName: string;
             /** @enum {string} */
-            readonly contentType: "application/pdf" | "image/jpeg" | "image/png";
-            readonly sizeBytes: number;
+            contentType: "application/pdf" | "image/jpeg" | "image/png";
+            sizeBytes: number;
             /** @enum {string} */
-            readonly status: "PENDING" | "STORED" | "REJECTED" | "EXPIRED" | "ERASED";
+            status: "PENDING" | "STORED" | "REJECTED" | "EXPIRED" | "ERASED";
             /** @enum {string} */
-            readonly rejectionReason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE";
+            rejectionReason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE";
         };
-        readonly Dispute: {
-            readonly disputeId: components["schemas"]["Uuid"];
-            readonly transactionId: components["schemas"]["Uuid"];
-            readonly status: components["schemas"]["DisputeStatus"];
-            readonly reasonCode: components["schemas"]["ReasonCode"];
-            readonly description: string;
-            readonly transaction: components["schemas"]["TransactionRef"];
-            readonly evidence: readonly components["schemas"]["Evidence"][];
-            readonly version: number;
-            readonly createdAt: components["schemas"]["Timestamp"];
-            readonly updatedAt: components["schemas"]["Timestamp"];
-            readonly resolvedAt: components["schemas"]["Timestamp"] | null;
-            readonly resolutionNote: string | null;
+        Dispute: {
+            disputeId: components["schemas"]["Uuid"];
+            transactionId: components["schemas"]["Uuid"];
+            status: components["schemas"]["DisputeStatus"];
+            reasonCode: components["schemas"]["ReasonCode"];
+            description: string;
+            transaction: components["schemas"]["TransactionRef"];
+            evidence: components["schemas"]["Evidence"][];
+            version: number;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            resolvedAt: components["schemas"]["Timestamp"] | null;
+            resolutionNote: string | null;
         };
-        readonly DisputeSummary: {
-            readonly disputeId: components["schemas"]["Uuid"];
-            readonly transactionId: components["schemas"]["Uuid"];
-            readonly status: components["schemas"]["DisputeStatus"];
-            readonly reasonCode: components["schemas"]["ReasonCode"];
-            readonly transaction: components["schemas"]["TransactionRef"];
-            readonly lastEvent: {
-                readonly type: components["schemas"]["TimelineType"];
-                readonly at: components["schemas"]["Timestamp"];
+        DisputeSummary: {
+            disputeId: components["schemas"]["Uuid"];
+            transactionId: components["schemas"]["Uuid"];
+            status: components["schemas"]["DisputeStatus"];
+            reasonCode: components["schemas"]["ReasonCode"];
+            transaction: components["schemas"]["TransactionRef"];
+            lastEvent: {
+                type: components["schemas"]["TimelineType"];
+                at: components["schemas"]["Timestamp"];
             };
-            readonly createdAt: components["schemas"]["Timestamp"];
-            readonly updatedAt: components["schemas"]["Timestamp"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
         };
         /** @enum {string} */
-        readonly TimelineType: "SUBMITTED" | "EDITED" | "EVIDENCE_ADDED" | "EVIDENCE_REJECTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
-        readonly TimelineEvent: {
-            readonly type: components["schemas"]["TimelineType"];
-            readonly at: components["schemas"]["Timestamp"];
+        TimelineType: "SUBMITTED" | "EDITED" | "EVIDENCE_ADDED" | "EVIDENCE_REJECTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
+        TimelineEvent: {
+            type: components["schemas"]["TimelineType"];
+            at: components["schemas"]["Timestamp"];
             /**
              * @description Agent identities are never exposed.
              * @enum {string}
              */
-            readonly by: "CUSTOMER" | "BANK";
+            by: "CUSTOMER" | "BANK";
             /** @description EDITED → {fields}; EVIDENCE_* → {fileName, reason?}; RESOLVED_* / WITHDRAWN → {note?} */
-            readonly detail?: {
-                readonly fields?: readonly ("description" | "reasonCode")[];
-                readonly fileName?: string;
-                readonly reason?: string;
-                readonly note?: string;
+            detail?: {
+                fields?: ("description" | "reasonCode")[];
+                fileName?: string;
+                reason?: string;
+                note?: string;
             };
         };
         /** @enum {string} */
-        readonly DisputeStatus: "SUBMITTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
+        DisputeStatus: "SUBMITTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
         /** Format: uuid */
-        readonly Uuid: string;
+        Uuid: string;
         /** @enum {string} */
-        readonly ReasonCode: "FRAUD" | "NOT_RECEIVED" | "DUPLICATE" | "INCORRECT_AMOUNT" | "CANCELLED_SUBSCRIPTION" | "DEFECTIVE_GOODS" | "OTHER";
+        ReasonCode: "FRAUD" | "NOT_RECEIVED" | "DUPLICATE" | "INCORRECT_AMOUNT" | "CANCELLED_SUBSCRIPTION" | "DEFECTIVE_GOODS" | "OTHER";
         /**
          * @description Decimal string, 2 places, never a float.
          * @example 125.50
          */
-        readonly Money: string;
+        Money: string;
         /** @example ZAR */
-        readonly Currency: string;
+        Currency: string;
         /** Format: date-time */
-        readonly Timestamp: string;
+        Timestamp: string;
         /** @description RFC 9457 problem details. */
-        readonly Problem: {
+        Problem: {
             /**
              * Format: uri-reference
              * @example https://errors.cd.example/not-eligible
              */
-            readonly type: string;
-            readonly title: string;
-            readonly status: number;
-            readonly detail?: string;
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
             /** @description Stable machine-readable code. */
-            readonly code: string;
-            readonly correlationId: string;
+            code: string;
+            correlationId: string;
         };
     };
     responses: {
         /** @description Validation failed. */
-        readonly BadRequest: {
+        BadRequest: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Missing, malformed, expired or invalid token. */
-        readonly Unauthorized: {
+        Unauthorized: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Wrong principal type for this port, or missing scope. */
-        readonly Forbidden: {
+        Forbidden: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description A dependency needed to answer (auth or another service) is unavailable. Never fail-open. */
-        readonly ServiceUnavailable: {
+        ServiceUnavailable: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Not found, or not owned by the caller (existence is never revealed). */
-        readonly NotFound: {
+        NotFound: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
     parameters: {
-        readonly CorrelationIdHeader: string;
-        readonly Limit: number;
+        CorrelationIdHeader: string;
+        Limit: number;
         /** @description Opaque cursor from a previous page's `nextCursor`. */
-        readonly Cursor: string;
+        Cursor: string;
         /** @description One dispute per transaction, ever, so this also identifies the dispute. */
-        readonly TransactionIdPath: components["schemas"]["Uuid"];
+        TransactionIdPath: components["schemas"]["Uuid"];
     };
     requestBodies: never;
     headers: {
         /** @description Current dispute `version`, quoted (e.g. `"3"`). Send back in `If-Match`. */
-        readonly ETag: string;
+        ETag: string;
     };
     pathItems: never;
 };
 export type $defs = Record<string, never>;
 export interface operations {
-    readonly listMyDisputes: {
-        readonly parameters: {
-            readonly query?: {
-                readonly status?: readonly components["schemas"]["DisputeStatus"][];
-                readonly accountId?: components["schemas"]["Uuid"];
-                readonly cardId?: components["schemas"]["Uuid"];
-                readonly limit?: components["parameters"]["Limit"];
+    listMyDisputes: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["DisputeStatus"][];
+                accountId?: components["schemas"]["Uuid"];
+                cardId?: components["schemas"]["Uuid"];
+                limit?: components["parameters"]["Limit"];
                 /** @description Opaque cursor from a previous page's `nextCursor`. */
-                readonly cursor?: components["parameters"]["Cursor"];
+                cursor?: components["parameters"]["Cursor"];
             };
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path?: never;
-            readonly cookie?: never;
+            path?: never;
+            cookie?: never;
         };
-        readonly requestBody?: never;
-        readonly responses: {
+        requestBody?: never;
+        responses: {
             /** @description One page */
-            readonly 200: {
+            200: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": {
-                        readonly items: readonly components["schemas"]["DisputeSummary"][];
-                        readonly nextCursor: string | null;
+                    "application/json": {
+                        items: components["schemas"]["DisputeSummary"][];
+                        nextCursor: string | null;
                     };
                 };
             };
-            readonly 400: components["responses"]["BadRequest"];
-            readonly 401: components["responses"]["Unauthorized"];
-            readonly 403: components["responses"]["Forbidden"];
-            readonly 503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
-    readonly getDispute: {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+    getDispute: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path: {
+            path: {
                 /** @description One dispute per transaction, ever, so this also identifies the dispute. */
-                readonly transactionId: components["parameters"]["TransactionIdPath"];
+                transactionId: components["parameters"]["TransactionIdPath"];
             };
-            readonly cookie?: never;
+            cookie?: never;
         };
-        readonly requestBody?: never;
-        readonly responses: {
+        requestBody?: never;
+        responses: {
             /** @description Dispute */
-            readonly 200: {
+            200: {
                 headers: {
-                    readonly ETag: components["headers"]["ETag"];
-                    readonly [name: string]: unknown;
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": components["schemas"]["Dispute"] & {
+                    "application/json": components["schemas"]["Dispute"] & {
                         /** @description Ascending by `at`. */
-                        readonly timeline: readonly components["schemas"]["TimelineEvent"][];
+                        timeline: components["schemas"]["TimelineEvent"][];
                     };
                 };
             };
-            readonly 401: components["responses"]["Unauthorized"];
-            readonly 403: components["responses"]["Forbidden"];
-            readonly 404: components["responses"]["NotFound"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
-    readonly updateDispute: {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+    updateDispute: {
+        parameters: {
+            query?: never;
+            header: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
                 /** @description Current ETag (`"<version>"`). */
-                readonly "If-Match": string;
+                "If-Match": string;
             };
-            readonly path: {
+            path: {
                 /** @description One dispute per transaction, ever, so this also identifies the dispute. */
-                readonly transactionId: components["parameters"]["TransactionIdPath"];
+                transactionId: components["parameters"]["TransactionIdPath"];
             };
-            readonly cookie?: never;
+            cookie?: never;
         };
-        readonly requestBody: {
-            readonly content: {
-                readonly "application/json": components["schemas"]["EditDispute"] | components["schemas"]["WithdrawDispute"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditDispute"] | components["schemas"]["WithdrawDispute"];
             };
         };
-        readonly responses: {
+        responses: {
             /** @description Updated */
-            readonly 200: {
+            200: {
                 headers: {
-                    readonly ETag: components["headers"]["ETag"];
-                    readonly [name: string]: unknown;
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": components["schemas"]["Dispute"];
+                    "application/json": components["schemas"]["Dispute"];
                 };
             };
-            readonly 400: components["responses"]["BadRequest"];
-            readonly 401: components["responses"]["Unauthorized"];
-            readonly 403: components["responses"]["Forbidden"];
-            readonly 404: components["responses"]["NotFound"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             /** @description `INVALID_TRANSITION` (e.g. edit while UNDER_REVIEW, any change after a terminal status). */
-            readonly 409: {
+            409: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Stale `If-Match`. */
-            readonly 412: {
+            412: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Missing `If-Match`. */
-            readonly 428: {
+            428: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
     };
-    readonly createDispute: {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+    createDispute: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path: {
+            path: {
                 /** @description One dispute per transaction, ever, so this also identifies the dispute. */
-                readonly transactionId: components["parameters"]["TransactionIdPath"];
+                transactionId: components["parameters"]["TransactionIdPath"];
             };
-            readonly cookie?: never;
+            cookie?: never;
         };
-        readonly requestBody: {
-            readonly content: {
+        requestBody: {
+            content: {
                 /**
                  * @example {
                  *       "reasonCode": "FRAUD",
@@ -455,103 +457,103 @@ export interface operations {
                  *       ]
                  *     }
                  */
-                readonly "application/json": components["schemas"]["CreateDisputeRequest"];
+                "application/json": components["schemas"]["CreateDisputeRequest"];
             };
         };
-        readonly responses: {
+        responses: {
             /** @description Dispute created */
-            readonly 201: {
+            201: {
                 headers: {
-                    readonly ETag: components["headers"]["ETag"];
+                    ETag: components["headers"]["ETag"];
                     /** @description `/dispute/{transactionId}` */
-                    readonly Location?: string;
-                    readonly [name: string]: unknown;
+                    Location?: string;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": components["schemas"]["Dispute"] & {
-                        readonly uploads: readonly components["schemas"]["UploadInstruction"][];
+                    "application/json": components["schemas"]["Dispute"] & {
+                        uploads: components["schemas"]["UploadInstruction"][];
                     };
                 };
             };
-            readonly 400: components["responses"]["BadRequest"];
-            readonly 401: components["responses"]["Unauthorized"];
-            readonly 403: components["responses"]["Forbidden"];
-            readonly 404: components["responses"]["NotFound"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             /** @description `ALREADY_DISPUTED` — a dispute exists for this transaction in any status. */
-            readonly 409: {
+            409: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /**
              * @description `NOT_ELIGIBLE`; `code` is one of INVALID_REASON, INVALID_DESCRIPTION, CARD_EXPIRED, TXN_NOT_POSTED,
              *     TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW.
              */
-            readonly 422: {
+            422: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            readonly 503: components["responses"]["ServiceUnavailable"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
-    readonly addEvidence: {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+    addEvidence: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path: {
+            path: {
                 /** @description One dispute per transaction, ever, so this also identifies the dispute. */
-                readonly transactionId: components["parameters"]["TransactionIdPath"];
+                transactionId: components["parameters"]["TransactionIdPath"];
             };
-            readonly cookie?: never;
+            cookie?: never;
         };
-        readonly requestBody: {
-            readonly content: {
-                readonly "application/json": {
-                    readonly evidence: readonly components["schemas"]["EvidenceDeclaration"][];
+        requestBody: {
+            content: {
+                "application/json": {
+                    evidence: components["schemas"]["EvidenceDeclaration"][];
                 };
             };
         };
-        readonly responses: {
+        responses: {
             /** @description Upload instructions */
-            readonly 201: {
+            201: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": {
-                        readonly uploads: readonly components["schemas"]["UploadInstruction"][];
+                    "application/json": {
+                        uploads: components["schemas"]["UploadInstruction"][];
                     };
                 };
             };
-            readonly 400: components["responses"]["BadRequest"];
-            readonly 401: components["responses"]["Unauthorized"];
-            readonly 403: components["responses"]["Forbidden"];
-            readonly 404: components["responses"]["NotFound"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             /** @description `INVALID_TRANSITION` — dispute is in a terminal status. */
-            readonly 409: {
+            409: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description `TOO_MANY_FILES` — would exceed 5 PENDING/STORED items. */
-            readonly 413: {
+            413: {
                 headers: {
-                    readonly [name: string]: unknown;
+                    [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

@@ -4,147 +4,156 @@
  */
 
 export type paths = {
-    readonly "/me": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: never;
-            readonly path?: never;
-            readonly cookie?: never;
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /**
          * Caller's profile, accounts and masked cards
          * @description Home screen data (UI step 2–3). Cards are grouped by account; selecting an account in the UI needs no extra call.
          *     Never returns the card token, PAN or CVV. Email/phone are returned unmasked to their owner (redacted in logs).
          */
-        readonly get: operations["getMe"];
-        readonly put?: never;
-        readonly post?: never;
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
 };
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
-        readonly Me: {
-            readonly userId: components["schemas"]["Uuid"];
-            readonly name: string;
-            readonly surname: string;
+        Me: {
+            userId: components["schemas"]["Uuid"];
+            name: string;
+            surname: string;
             /** Format: email */
-            readonly email: string;
-            readonly cellphoneNumber?: string | null;
-            readonly accounts: readonly components["schemas"]["Account"][];
+            email: string;
+            cellphoneNumber?: string | null;
+            accounts: components["schemas"]["Account"][];
         };
-        readonly Account: {
-            readonly accountId: components["schemas"]["Uuid"];
+        Account: {
+            accountId: components["schemas"]["Uuid"];
             /** @enum {string} */
-            readonly accountType: "CHEQUE" | "SAVINGS" | "CREDIT";
-            readonly accountNumberMasked: string;
-            readonly currency: components["schemas"]["Currency"];
+            accountType: "CHEQUE" | "SAVINGS" | "CREDIT";
+            accountNumberMasked: string;
+            currency: components["schemas"]["Currency"];
             /** @enum {string} */
-            readonly status: "ACTIVE" | "FROZEN" | "CLOSED";
-            readonly cards: readonly components["schemas"]["Card"][];
+            status: "ACTIVE" | "FROZEN" | "CLOSED";
+            cards: components["schemas"]["Card"][];
         };
         /** Format: uuid */
-        readonly Uuid: string;
+        Uuid: string;
         /** @example ZAR */
-        readonly Currency: string;
+        Currency: string;
         /** @enum {string} */
-        readonly CardBrand: "VISA" | "MASTERCARD" | "AMEX";
+        CardBrand: "VISA" | "MASTERCARD" | "AMEX";
         /** @enum {string} */
-        readonly CardType: "DEBIT" | "CREDIT";
+        CardType: "DEBIT" | "CREDIT";
         /**
          * @description Expiry is NOT a status; see `expired`.
          * @enum {string}
          */
-        readonly CardStatus: "ACTIVE" | "BLOCKED" | "CANCELLED";
-        readonly Card: {
-            readonly cardId: components["schemas"]["Uuid"];
-            readonly accountId: components["schemas"]["Uuid"];
-            readonly brand: components["schemas"]["CardBrand"];
-            readonly cardType: components["schemas"]["CardType"];
-            readonly last4: string;
-            readonly expiryMonth: number;
-            readonly expiryYear: number;
+        CardStatus: "ACTIVE" | "BLOCKED" | "CANCELLED";
+        Card: {
+            cardId: components["schemas"]["Uuid"];
+            accountId: components["schemas"]["Uuid"];
+            brand: components["schemas"]["CardBrand"];
+            cardType: components["schemas"]["CardType"];
+            last4: string;
+            expiryMonth: number;
+            expiryYear: number;
             /** @description Computed server-side by isCardExpired() — valid through the last day of the expiry month (UTC). */
-            readonly expired: boolean;
-            readonly status: components["schemas"]["CardStatus"];
+            expired: boolean;
+            status: components["schemas"]["CardStatus"];
         };
         /** @description RFC 9457 problem details. */
-        readonly Problem: {
+        Problem: {
             /**
              * Format: uri-reference
              * @example https://errors.cd.example/not-eligible
              */
-            readonly type: string;
-            readonly title: string;
-            readonly status: number;
-            readonly detail?: string;
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
             /** @description Stable machine-readable code. */
-            readonly code: string;
-            readonly correlationId: string;
+            code: string;
+            correlationId: string;
         };
     };
     responses: {
         /** @description Missing, malformed, expired or invalid token. */
-        readonly Unauthorized: {
+        Unauthorized: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Wrong principal type for this port, or missing scope. */
-        readonly Forbidden: {
+        Forbidden: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Not found, or not owned by the caller (existence is never revealed). */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description A dependency needed to answer (auth or another service) is unavailable. Never fail-open. */
-        readonly ServiceUnavailable: {
+        ServiceUnavailable: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
     parameters: {
-        readonly CorrelationIdHeader: string;
+        CorrelationIdHeader: string;
     };
     requestBodies: never;
     headers: {
         /** @description Echoed from the request if valid (`^[A-Za-z0-9-]{8,64}$`), otherwise generated. */
-        readonly CorrelationId: string;
+        CorrelationId: string;
     };
     pathItems: never;
 };
 export type $defs = Record<string, never>;
 export interface operations {
-    readonly getMe: {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path?: never;
-            readonly cookie?: never;
+            path?: never;
+            cookie?: never;
         };
-        readonly requestBody?: never;
-        readonly responses: {
+        requestBody?: never;
+        responses: {
             /** @description Profile */
-            readonly 200: {
+            200: {
                 headers: {
-                    readonly "x-correlation-id": components["headers"]["CorrelationId"];
-                    readonly [name: string]: unknown;
+                    "x-correlation-id": components["headers"]["CorrelationId"];
+                    [name: string]: unknown;
                 };
                 content: {
                     /**
@@ -178,12 +187,13 @@ export interface operations {
                      *       ]
                      *     }
                      */
-                    readonly "application/json": components["schemas"]["Me"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
-            readonly 401: components["responses"]["Unauthorized"];
-            readonly 403: components["responses"]["Forbidden"];
-            readonly 503: components["responses"]["ServiceUnavailable"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
 }

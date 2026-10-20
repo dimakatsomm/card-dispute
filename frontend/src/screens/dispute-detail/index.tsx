@@ -1,0 +1,1 @@
+export { DisputeDetailScreen } from './DisputeDetailScreen';

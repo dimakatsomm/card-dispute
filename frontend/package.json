@@ -11,9 +11,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "gen:api": "pnpm run gen:api:users && pnpm run gen:api:transactions && pnpm run gen:api:disputes",
-    "gen:api:users": "openapi-typescript ../docs/openapi/users.public.yaml --export-type --immutable -o src/api/generated/users.ts",
-    "gen:api:transactions": "openapi-typescript ../docs/openapi/transactions.public.yaml --export-type --immutable -o src/api/generated/transactions.ts",
-    "gen:api:disputes": "openapi-typescript ../docs/openapi/disputes.public.yaml --export-type --immutable -o src/api/generated/disputes.ts",
+    "gen:api:users": "openapi-typescript ../docs/openapi/users.public.yaml --export-type -o src/api/generated/users.ts",
+    "gen:api:transactions": "openapi-typescript ../docs/openapi/transactions.public.yaml --export-type -o src/api/generated/transactions.ts",
+    "gen:api:disputes": "openapi-typescript ../docs/openapi/disputes.public.yaml --export-type -o src/api/generated/disputes.ts",
     "check:api": "pnpm run gen:api:users --check && pnpm run gen:api:transactions --check && pnpm run gen:api:disputes --check"
   },
   "dependencies": {

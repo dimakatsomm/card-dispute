@@ -4,12 +4,12 @@
  */
 
 export type paths = {
-    readonly "/transactions": {
-        readonly parameters: {
-            readonly query?: never;
-            readonly header?: never;
-            readonly path?: never;
-            readonly cookie?: never;
+    "/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /**
          * Caller's transactions, with dispute state and disputable flag
@@ -22,164 +22,164 @@ export type paths = {
          *     Card expiry comes from users and dispute state from disputes. If either doesn't answer within 2 s, the
          *     page is still returned with `dispute: null` and `disputable: {allowed:false, reason:UNAVAILABLE}` on every row.
          */
-        readonly get: operations["listMyTransactions"];
-        readonly put?: never;
-        readonly post?: never;
-        readonly delete?: never;
-        readonly options?: never;
-        readonly head?: never;
-        readonly patch?: never;
-        readonly trace?: never;
+        get: operations["listMyTransactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
 };
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
-        readonly TransactionRow: components["schemas"]["RawTransaction"] & {
-            readonly dispute: {
-                readonly disputeId: components["schemas"]["Uuid"];
-                readonly status: components["schemas"]["DisputeStatus"];
+        TransactionRow: components["schemas"]["RawTransaction"] & {
+            dispute: {
+                disputeId: components["schemas"]["Uuid"];
+                status: components["schemas"]["DisputeStatus"];
             } | null;
-            readonly disputable: {
-                readonly allowed: boolean;
+            disputable: {
+                allowed: boolean;
                 /** @description Present only when `allowed` is false. */
-                readonly reason?: components["schemas"]["EligibilityReason"];
+                reason?: components["schemas"]["EligibilityReason"];
             };
         };
         /** Format: uuid */
-        readonly Uuid: string;
+        Uuid: string;
         /** Format: date-time */
-        readonly Timestamp: string;
+        Timestamp: string;
         /** @enum {string} */
-        readonly TransactionStatus: "PENDING" | "POSTED" | "DECLINED" | "REVERSED";
+        TransactionStatus: "PENDING" | "POSTED" | "DECLINED" | "REVERSED";
         /**
          * @description Decimal string, 2 places, never a float.
          * @example 125.50
          */
-        readonly Money: string;
+        Money: string;
         /** @example ZAR */
-        readonly Currency: string;
+        Currency: string;
         /** @enum {string} */
-        readonly TransactionType: "PURCHASE" | "REFUND" | "ATM_WITHDRAWAL" | "FEE";
-        readonly RawTransaction: {
-            readonly transactionId: components["schemas"]["Uuid"];
-            readonly accountId: components["schemas"]["Uuid"];
-            readonly cardId: components["schemas"]["Uuid"];
-            readonly amount: components["schemas"]["Money"];
-            readonly currency: components["schemas"]["Currency"];
-            readonly merchantName: string;
-            readonly mcc?: string | null;
-            readonly type: components["schemas"]["TransactionType"];
-            readonly status: components["schemas"]["TransactionStatus"];
-            readonly transactionAt: components["schemas"]["Timestamp"];
-            readonly postedAt: components["schemas"]["Timestamp"] | null;
+        TransactionType: "PURCHASE" | "REFUND" | "ATM_WITHDRAWAL" | "FEE";
+        RawTransaction: {
+            transactionId: components["schemas"]["Uuid"];
+            accountId: components["schemas"]["Uuid"];
+            cardId: components["schemas"]["Uuid"];
+            amount: components["schemas"]["Money"];
+            currency: components["schemas"]["Currency"];
+            merchantName: string;
+            mcc?: string | null;
+            type: components["schemas"]["TransactionType"];
+            status: components["schemas"]["TransactionStatus"];
+            transactionAt: components["schemas"]["Timestamp"];
+            postedAt: components["schemas"]["Timestamp"] | null;
         };
         /** @enum {string} */
-        readonly DisputeStatus: "SUBMITTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
+        DisputeStatus: "SUBMITTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
         /**
          * @description First failing rule in docs/04 order, or UNAVAILABLE when a dependency did not answer.
          * @enum {string}
          */
-        readonly EligibilityReason: "ALREADY_DISPUTED" | "CARD_EXPIRED" | "TXN_NOT_POSTED" | "TXN_TYPE_NOT_DISPUTABLE" | "OUTSIDE_WINDOW" | "UNAVAILABLE";
+        EligibilityReason: "ALREADY_DISPUTED" | "CARD_EXPIRED" | "TXN_NOT_POSTED" | "TXN_TYPE_NOT_DISPUTABLE" | "OUTSIDE_WINDOW" | "UNAVAILABLE";
         /** @description RFC 9457 problem details. */
-        readonly Problem: {
+        Problem: {
             /**
              * Format: uri-reference
              * @example https://errors.cd.example/not-eligible
              */
-            readonly type: string;
-            readonly title: string;
-            readonly status: number;
-            readonly detail?: string;
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
             /** @description Stable machine-readable code. */
-            readonly code: string;
-            readonly correlationId: string;
+            code: string;
+            correlationId: string;
         };
     };
     responses: {
         /** @description Validation failed. */
-        readonly BadRequest: {
+        BadRequest: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Missing, malformed, expired or invalid token. */
-        readonly Unauthorized: {
+        Unauthorized: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description Wrong principal type for this port, or missing scope. */
-        readonly Forbidden: {
+        Forbidden: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
         /** @description A dependency needed to answer (auth or another service) is unavailable. Never fail-open. */
-        readonly ServiceUnavailable: {
+        ServiceUnavailable: {
             headers: {
-                readonly [name: string]: unknown;
+                [name: string]: unknown;
             };
             content: {
-                readonly "application/problem+json": components["schemas"]["Problem"];
+                "application/problem+json": components["schemas"]["Problem"];
             };
         };
     };
     parameters: {
-        readonly CorrelationIdHeader: string;
-        readonly Limit: number;
+        CorrelationIdHeader: string;
+        Limit: number;
         /** @description Opaque cursor from a previous page's `nextCursor`. */
-        readonly Cursor: string;
+        Cursor: string;
     };
     requestBodies: never;
     headers: {
         /** @description Echoed from the request if valid (`^[A-Za-z0-9-]{8,64}$`), otherwise generated. */
-        readonly CorrelationId: string;
+        CorrelationId: string;
     };
     pathItems: never;
 };
 export type $defs = Record<string, never>;
 export interface operations {
-    readonly listMyTransactions: {
-        readonly parameters: {
-            readonly query?: {
-                readonly accountId?: components["schemas"]["Uuid"];
-                readonly cardId?: components["schemas"]["Uuid"];
-                readonly transactionId?: components["schemas"]["Uuid"];
+    listMyTransactions: {
+        parameters: {
+            query?: {
+                accountId?: components["schemas"]["Uuid"];
+                cardId?: components["schemas"]["Uuid"];
+                transactionId?: components["schemas"]["Uuid"];
                 /** @description Inclusive, on transactionAt */
-                readonly from?: components["schemas"]["Timestamp"];
+                from?: components["schemas"]["Timestamp"];
                 /** @description Exclusive, on transactionAt; must be > from */
-                readonly to?: components["schemas"]["Timestamp"];
-                readonly status?: readonly components["schemas"]["TransactionStatus"][];
-                readonly minAmount?: components["schemas"]["Money"];
+                to?: components["schemas"]["Timestamp"];
+                status?: components["schemas"]["TransactionStatus"][];
+                minAmount?: components["schemas"]["Money"];
                 /** @description Must be ≥ minAmount */
-                readonly maxAmount?: components["schemas"]["Money"];
-                readonly limit?: components["parameters"]["Limit"];
+                maxAmount?: components["schemas"]["Money"];
+                limit?: components["parameters"]["Limit"];
                 /** @description Opaque cursor from a previous page's `nextCursor`. */
-                readonly cursor?: components["parameters"]["Cursor"];
+                cursor?: components["parameters"]["Cursor"];
             };
-            readonly header?: {
-                readonly "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
             };
-            readonly path?: never;
-            readonly cookie?: never;
+            path?: never;
+            cookie?: never;
         };
-        readonly requestBody?: never;
-        readonly responses: {
+        requestBody?: never;
+        responses: {
             /** @description One page */
-            readonly 200: {
+            200: {
                 headers: {
-                    readonly "x-correlation-id": components["headers"]["CorrelationId"];
-                    readonly [name: string]: unknown;
+                    "x-correlation-id": components["headers"]["CorrelationId"];
+                    [name: string]: unknown;
                 };
                 content: {
                     /**
@@ -206,16 +206,16 @@ export interface operations {
                      *       "nextCursor": null
                      *     }
                      */
-                    readonly "application/json": {
-                        readonly items: readonly components["schemas"]["TransactionRow"][];
-                        readonly nextCursor: string | null;
+                    "application/json": {
+                        items: components["schemas"]["TransactionRow"][];
+                        nextCursor: string | null;
                     };
                 };
             };
-            readonly 400: components["responses"]["BadRequest"];
-            readonly 401: components["responses"]["Unauthorized"];
-            readonly 403: components["responses"]["Forbidden"];
-            readonly 503: components["responses"]["ServiceUnavailable"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
 }

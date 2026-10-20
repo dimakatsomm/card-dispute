@@ -5,4 +5,5 @@ export const routes = {
   disputeForm: (transactionId: string) => `/transactions/${encodeURIComponent(transactionId)}/dispute`,
   disputes: () => '/disputes',
   disputeDetail: (transactionId: string) => `/disputes/${encodeURIComponent(transactionId)}`,
+  addEvidence: (transactionId: string) => `/disputes/${encodeURIComponent(transactionId)}/evidence`,
 } as const;
