@@ -1,7 +1,7 @@
 import { createGuardedServers, type AuthClient } from '@cd/auth-client';
 import type { Servers } from '@cd/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import { registerPublic, registerService, type UseCases } from './routes/index.ts';
+import { registerPublic, registerServicePort, type UseCases } from './routes/index.ts';
 
 export type AppDeps = {
   readonly authClient: AuthClient;
@@ -14,7 +14,7 @@ export type AppDeps = {
 export const createApp = (deps: AppDeps): Servers =>
   createGuardedServers({
     public: registerPublic(deps.authClient, deps.useCases),
-    service: registerService(deps.authClient),
+    service: registerServicePort(deps.authClient, deps.useCases),
     ports: deps.ports,
     logger: deps.logger,
     ready: deps.ready,

@@ -11,6 +11,7 @@ export const URLS = {
 export const USER_A = { token: 'user-a-token', userId: randomUUID() };
 export const USER_B = { token: 'user-b-token', userId: randomUUID() };
 export const SERVICE_CALLER = { token: 'service-caller-token', scopes: ['disputes/read'] };
+export const WRONG_SCOPE_CALLER = { token: 'wrong-scope-caller-token', scopes: ['disputes/review'] };
 
 export type FakeTransaction = {
   readonly transactionId: string;
@@ -57,6 +58,14 @@ export const createFakeUpstreams = () => {
   const transactions = new Map<string, { readonly userId: string; readonly txn: FakeTransaction }>();
   const cards = new Map<string, FakeCard>();
   const calls: RecordedCall[] = [];
+  const extraUsers = new Map<string, string>();
+
+  const addUser = (): { readonly token: string; readonly userId: string } => {
+    const userId = randomUUID();
+    const token = `user-${userId}-token`;
+    extraUsers.set(token, userId);
+    return { token, userId };
+  };
 
   const addTransaction = (
     userId: string,
@@ -108,12 +117,23 @@ export const createFakeUpstreams = () => {
         exp,
       };
     }
-    if (token === SERVICE_CALLER.token) {
+    const extraUserId = extraUsers.get(token);
+    if (extraUserId !== undefined) {
+      return {
+        valid: true,
+        principalType: 'user',
+        authId: `auth-${extraUserId}`,
+        userId: extraUserId,
+        scopes: [],
+        exp,
+      };
+    }
+    if (token === SERVICE_CALLER.token || token === WRONG_SCOPE_CALLER.token) {
       return {
         valid: true,
         principalType: 'service',
         clientId: 'svc-transactions',
-        scopes: SERVICE_CALLER.scopes,
+        scopes: token === SERVICE_CALLER.token ? SERVICE_CALLER.scopes : WRONG_SCOPE_CALLER.scopes,
         exp,
       };
     }
@@ -138,9 +158,17 @@ export const createFakeUpstreams = () => {
       if (authorization !== 'Bearer svc:transactions/read') return json(403, {});
       const userId = url.searchParams.get('userId');
       const ids = (url.searchParams.get('transactionIds') ?? '').split(',');
+      if (ids.length > 100) return json(400, {});
+      const accountId = url.searchParams.get('accountId');
+      const cardId = url.searchParams.get('cardId');
       const items = ids.flatMap((id) => {
         const row = transactions.get(id);
-        return row && row.userId === userId ? [row.txn] : [];
+        return row &&
+          row.userId === userId &&
+          (accountId === null || row.txn.accountId === accountId) &&
+          (cardId === null || row.txn.cardId === cardId)
+          ? [row.txn]
+          : [];
       });
       return json(200, { items });
     }
@@ -158,7 +186,7 @@ export const createFakeUpstreams = () => {
 
   const cardOf = (cardId: string): FakeCard | undefined => cards.get(cardId);
 
-  return { fetch, calls, addTransaction, cardOf };
+  return { fetch, calls, addTransaction, addUser, cardOf };
 };
 
 // Never answers; settles only when the caller's own timeout aborts it.

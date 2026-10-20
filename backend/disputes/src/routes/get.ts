@@ -1,9 +1,27 @@
+import { userPrincipalOf } from '@cd/auth-client';
+import { commonProblem, parseRequest, sendProblem, validationProblem } from '@cd/shared';
+import type { Result } from '@cd/shared/fp';
 import type { RouteOptions } from 'fastify';
-import { notImplemented } from '../errors.ts';
+import { z } from 'zod';
+import type { DisputeDetail, GetDisputeError, GetDisputeInput } from '../use-cases/get-dispute.ts';
 
-// Placeholder until P-03.
-export const getDisputeRoute = (): RouteOptions => ({
+const params = z.object({ transactionId: z.uuid() });
+
+export type GetDisputeUseCase = (input: GetDisputeInput) => Promise<Result<DisputeDetail, GetDisputeError>>;
+
+export const getDisputeRoute = (getDispute: GetDisputeUseCase): RouteOptions => ({
   method: 'GET',
   url: '/dispute/:transactionId',
-  handler: notImplemented,
+  handler: async (request, reply) => {
+    const path = parseRequest(params, request.params);
+    if (!path.ok) return sendProblem(reply, validationProblem(path.error, request.id));
+
+    const result = await getDispute({
+      userId: userPrincipalOf(request).userId,
+      transactionId: path.value.transactionId,
+      correlationId: request.id,
+    });
+    if (!result.ok) return sendProblem(reply, commonProblem('NOT_FOUND', 'Dispute not found', request.id));
+    return reply.code(200).header('etag', `"${result.value.version}"`).send(result.value);
+  },
 });

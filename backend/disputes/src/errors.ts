@@ -1,6 +1,5 @@
-import { commonProblem, problemBody, sendProblem, type ProblemBody } from '@cd/shared';
+import { commonProblem, problemBody, type ProblemBody } from '@cd/shared';
 import { assertNever } from '@cd/shared/fp';
-import type { RouteHandlerMethod } from 'fastify';
 import type { CreateDisputeError } from './use-cases/create-dispute.ts';
 
 const notEligible = (code: string, correlationId: string): ProblemBody => ({
@@ -13,18 +12,6 @@ const notEligible = (code: string, correlationId: string): ProblemBody => ({
   }),
   type: 'urn:cd:problem:NOT_ELIGIBLE',
 });
-
-export const notImplemented: RouteHandlerMethod = async (request, reply) =>
-  sendProblem(
-    reply,
-    problemBody({
-      status: 501,
-      title: 'Not Implemented',
-      code: 'NOT_IMPLEMENTED',
-      detail: 'Not implemented yet',
-      correlationId: request.id,
-    }),
-  );
 
 export const createDisputeProblem = (error: CreateDisputeError, correlationId: string): ProblemBody => {
   switch (error) {

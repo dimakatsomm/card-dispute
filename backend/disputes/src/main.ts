@@ -16,6 +16,9 @@ import { createUsersClient } from './adapters/users-client.ts';
 import { createApp } from './app.ts';
 import { loadDisputesConfig, migrateConfigSchema, type Config } from './config.ts';
 import { createDispute } from './use-cases/create-dispute.ts';
+import { getDispute } from './use-cases/get-dispute.ts';
+import { listDisputes } from './use-cases/list-disputes.ts';
+import { lookupDisputes } from './use-cases/lookup-disputes.ts';
 import { updateDispute } from './use-cases/update-dispute.ts';
 
 export type Infra = {
@@ -92,6 +95,16 @@ export const composeServers = (infra: Infra): Servers => {
       publish,
       newId: infra.newId,
     }),
+    getDispute: getDispute({
+      findLatestWithHistory: repo.findLatestWithHistory,
+      findTransaction: transactions.findTransaction,
+    }),
+    listDisputes: listDisputes({
+      listTransactionIds: repo.listTransactionIds,
+      listPage: repo.listPage,
+      findTransactions: transactions.findTransactions,
+    }),
+    lookupDisputes: lookupDisputes({ lookupRefs: repo.lookupRefs }),
   };
 
   return createApp({

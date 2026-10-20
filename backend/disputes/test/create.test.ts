@@ -638,24 +638,20 @@ describe('presigned upload URLs', () => {
   });
 });
 
-describe('ports and placeholders', () => {
-  it('public port: user token reaches the P-03 placeholders (501), a service token is 403', async () => {
-    const id = randomUUID();
+describe('ports', () => {
+  it('public port: a service token is 403', async () => {
     const inject = (method: 'GET', url: string, token: string) =>
       svc.servers.public.inject({ method, url, headers: { authorization: `Bearer ${token}` } });
-    expect((await inject('GET', '/disputes', USER_A.token)).statusCode).toBe(501);
-    expect((await inject('GET', `/dispute/${id}`, USER_A.token)).statusCode).toBe(501);
     expect((await inject('GET', '/disputes', SERVICE_CALLER.token)).statusCode).toBe(403);
   });
 
-  it('service port: GET /disputes needs a service token with disputes/read (501 placeholder); a user token is 403', async () => {
+  it('service port: a user token is 403 and customer routes do not exist', async () => {
     const inject = (token: string) =>
       svc.servers.service.inject({
         method: 'GET',
         url: '/disputes',
         headers: { authorization: `Bearer ${token}` },
       });
-    expect((await inject(SERVICE_CALLER.token)).statusCode).toBe(501);
     expect((await inject(USER_A.token)).statusCode).toBe(403);
     expect(
       (await svc.servers.service.inject({ method: 'POST', url: `/dispute/${randomUUID()}` })).statusCode,

@@ -132,7 +132,7 @@ Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` pagin
 | actor_type | text not null | CHECK `USER | SYSTEM_RULE | AGENT` |
 | actor_id | text not null | never exposed to the customer |
 | note | text null | |
-| before, after | jsonb null | changed fields on EDIT |
+| before, after | jsonb null | changed fields on EDIT; on EVIDENCE_ADDED / EVIDENCE_REJECTED `after = { "evidenceId": "<uuid>" }` (the timeline uses it to show the file name and rejection reason) |
 | created_at | timestamptz | no `updated_at` (insert-only) |
 
 `disputes_app`: INSERT, SELECT only. `disputes_retention`: `UPDATE (note, before, after)` only.

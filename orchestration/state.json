@@ -149,12 +149,12 @@
       "notes": "Built and run with owner approval 2026-10-20: all 4 services + frontend healthy; /ready 200 on 58081-58083; /api via local nginx proxy returns service 401s; unrouted /api 404; no 8081 published (host connect refused); real service JWT validated by auth on Node 24.22.0 (aws-jwt-verify OK in image). pnpm dev = infra up, bootstrap:local, compose up --build."
     },
     "P-03": {
-      "status": "todo",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [
         "P-01"
       ],
-      "notes": "security gate"
+      "notes": "Security gate PASS (5 optional nits). Detail read in one repeatable-read snapshot; timeline by derived from event type; service port no outbound calls. 141 tests."
     },
     "W-01": {
       "status": "done",
@@ -483,7 +483,8 @@
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
     "O-02: Repo is public — owner email dimakatsomm@icloud.com stays in docs (SES sender). Confirm OK before first push.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
-    "R-10: shared auth-client http-client allows 2 s per attempt + GET retry (~4 s); services cap with a local overall deadline. Fold one deadline into @cd/auth-client (follow-up task)."
+    "R-10: shared auth-client http-client allows 2 s per attempt + GET retry (~4 s); services cap with a local overall deadline. Fold one deadline into @cd/auth-client (follow-up task).",
+    "R-11: whoever writes EVIDENCE_ADDED/EVIDENCE_REJECTED history (evidence-intake, P-05 path) must set after={evidenceId}; P-03 timeline depends on it (docs/03)."
   ],
   "peerReviews": [
     {

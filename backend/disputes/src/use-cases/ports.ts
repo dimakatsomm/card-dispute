@@ -11,6 +11,8 @@ import type {
   Transaction,
   UploadInstruction,
 } from '../core/types.ts';
+import type { CursorPosition } from '../core/cursor.ts';
+import type { EvidenceDetail, LatestHistory } from '../core/timeline.ts';
 
 export type UpstreamError = 'UPSTREAM_UNAVAILABLE';
 
@@ -21,6 +23,15 @@ export type FindTransaction = (
   transactionId: string,
   correlationId: string,
 ) => Lookup<Transaction>;
+
+export type TransactionFilter = { readonly accountId?: string; readonly cardId?: string };
+
+export type FindTransactions = (
+  userId: string,
+  transactionIds: ReadonlyArray<string>,
+  filter: TransactionFilter,
+  correlationId: string,
+) => Promise<Result<ReadonlyArray<Transaction>, UpstreamError>>;
 
 export type FindCard = (userId: string, cardId: string, correlationId: string) => Lookup<Card>;
 
@@ -82,12 +93,47 @@ export type Transact = <T, E>(work: (tx: DisputeTx) => Promise<Result<T, E>>) =>
 export type DisputeWithHistory = {
   readonly dispute: DisputeRecord;
   readonly history: ReadonlyArray<HistoryRecord>;
-  readonly evidence: ReadonlyArray<EvidenceRecord>;
+  readonly evidence: ReadonlyArray<EvidenceDetail>;
 };
+
+export type DisputePageQuery = {
+  readonly userId: string;
+  readonly statuses: ReadonlyArray<DisputeStatus>;
+  readonly transactionIds: ReadonlyArray<string> | null;
+  readonly after: CursorPosition | null;
+  readonly limit: number;
+};
+
+export type DisputeSummaryRecord = {
+  readonly dispute: DisputeRecord;
+  readonly latest: LatestHistory | null;
+  readonly position: CursorPosition;
+};
+
+export type DisputeRef = {
+  readonly transactionId: string;
+  readonly disputeId: string;
+  readonly status: DisputeStatus;
+};
+
+export type ListDisputeTransactionIds = (
+  userId: string,
+  statuses: ReadonlyArray<DisputeStatus>,
+) => Promise<ReadonlyArray<string>>;
+
+export type ListDisputePage = (query: DisputePageQuery) => Promise<ReadonlyArray<DisputeSummaryRecord>>;
+
+export type LookupDisputeRefs = (
+  userId: string,
+  transactionIds: ReadonlyArray<string>,
+) => Promise<ReadonlyArray<DisputeRef>>;
 
 export type DisputeRepo = {
   readonly transact: Transact;
   readonly findLatestWithHistory: (key: DisputeKey) => Promise<DisputeWithHistory | null>;
+  readonly listTransactionIds: ListDisputeTransactionIds;
+  readonly listPage: ListDisputePage;
+  readonly lookupRefs: LookupDisputeRefs;
 };
 
 export type SigningError = 'UPLOAD_SIGNING_UNAVAILABLE';
