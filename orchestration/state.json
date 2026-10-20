@@ -339,9 +339,10 @@
       "notes": "evidence-status.spec: clean PDF Scanning->Stored+Evidence added without reload; EICAR Rejected malware; seeded resolution note; add-evidence reaches Stored. M1 smoke finds a disputable card via helper. 5/5 twice on fresh stack."
     },
     "M3-00": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "Catalog AWS SDK clients 3.1146.0 (cognito-idp, ec2, ecs, cloudwatch, sts); @cd/e2e-aws skeleton (test:aws, excluded from root test); seed gains cognito + secrets-manager."
     },
     "V-M3": {
       "status": "todo",

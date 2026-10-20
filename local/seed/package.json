@@ -9,6 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "catalog:",
+    "@aws-sdk/client-secrets-manager": "catalog:",
     "pg": "catalog:",
     "@cd/db": "workspace:*",
     "@cd/shared": "workspace:*"
