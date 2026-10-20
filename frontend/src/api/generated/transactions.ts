@@ -35,20 +35,42 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
-        TransactionRow: components["schemas"]["RawTransaction"] & {
-            dispute: {
-                disputeId: components["schemas"]["Uuid"];
-                status: components["schemas"]["DisputeStatus"];
-            } | null;
-            disputable: {
-                allowed: boolean;
-                /** @description Present only when `allowed` is false. */
-                reason?: components["schemas"]["EligibilityReason"];
-            };
+        TransactionRow: {
+            transactionId: components["schemas"]["Uuid"];
+            accountId: components["schemas"]["Uuid"];
+            cardId: components["schemas"]["Uuid"];
+            amount: components["schemas"]["Money"];
+            currency: components["schemas"]["Currency"];
+            merchantName: string;
+            mcc: string | null;
+            type: components["schemas"]["TransactionType"];
+            status: components["schemas"]["TransactionStatus"];
+            transactionAt: components["schemas"]["Timestamp"];
+            postedAt: components["schemas"]["Timestamp"] | null;
+            dispute: components["schemas"]["DisputeRef"] | null;
+            disputable: components["schemas"]["DisputableYes"] | components["schemas"]["DisputableNo"];
+        };
+        DisputeRef: {
+            disputeId: components["schemas"]["Uuid"];
+            status: components["schemas"]["DisputeStatus"];
+        };
+        DisputableYes: {
+            /** @constant */
+            allowed: true;
+        };
+        DisputableNo: {
+            /** @constant */
+            allowed: false;
+            reason: components["schemas"]["EligibilityReason"];
         };
         /** Format: uuid */
         Uuid: string;
-        /** Format: date-time */
+        /**
+         * Format: date-time
+         * @description RFC 3339 with seconds, optional fraction, and `Z` or an offset up to ±14:00; year 0000 is rejected.
+         *     Calendar validity (e.g. 30 February) is not expressible as a pattern; `format: date-time` covers it.
+         * @example 2026-09-28T10:15:00Z
+         */
         Timestamp: string;
         /** @enum {string} */
         TransactionStatus: "PENDING" | "POSTED" | "DECLINED" | "REVERSED";
@@ -57,23 +79,15 @@ export type components = {
          * @example 125.50
          */
         Money: string;
+        /**
+         * @description Opaque. Issued as base64url (no padding) of a JSON pair `[timestamp, uuid]` (microsecond UTC timestamp, id).
+         *     The decoded content is checked by the service; a mismatch is 400 `INVALID_CURSOR`.
+         */
+        Cursor: string;
         /** @example ZAR */
         Currency: string;
         /** @enum {string} */
         TransactionType: "PURCHASE" | "REFUND" | "ATM_WITHDRAWAL" | "FEE";
-        RawTransaction: {
-            transactionId: components["schemas"]["Uuid"];
-            accountId: components["schemas"]["Uuid"];
-            cardId: components["schemas"]["Uuid"];
-            amount: components["schemas"]["Money"];
-            currency: components["schemas"]["Currency"];
-            merchantName: string;
-            mcc?: string | null;
-            type: components["schemas"]["TransactionType"];
-            status: components["schemas"]["TransactionStatus"];
-            transactionAt: components["schemas"]["Timestamp"];
-            postedAt: components["schemas"]["Timestamp"] | null;
-        };
         /** @enum {string} */
         DisputeStatus: "SUBMITTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
         /**
@@ -138,7 +152,7 @@ export type components = {
         CorrelationIdHeader: string;
         Limit: number;
         /** @description Opaque cursor from a previous page's `nextCursor`. */
-        Cursor: string;
+        Cursor: components["schemas"]["Cursor"];
     };
     requestBodies: never;
     headers: {
@@ -155,13 +169,14 @@ export interface operations {
                 accountId?: components["schemas"]["Uuid"];
                 cardId?: components["schemas"]["Uuid"];
                 transactionId?: components["schemas"]["Uuid"];
-                /** @description Inclusive, on transactionAt */
+                /** @description Inclusive, on transactionAt. Offset at most ±14:00, year ≥ 0001. */
                 from?: components["schemas"]["Timestamp"];
-                /** @description Exclusive, on transactionAt; must be > from */
+                /** @description Exclusive, on transactionAt. Offset at most ±14:00, year ≥ 0001. Must be later than `from` (cross-field, not expressible in OpenAPI). */
                 to?: components["schemas"]["Timestamp"];
+                /** @description Repeat the parameter to filter by several statuses (`status=POSTED&status=PENDING`). */
                 status?: components["schemas"]["TransactionStatus"][];
                 minAmount?: components["schemas"]["Money"];
-                /** @description Must be ≥ minAmount */
+                /** @description Must be ≥ minAmount (cross-field, not expressible in OpenAPI) */
                 maxAmount?: components["schemas"]["Money"];
                 limit?: components["parameters"]["Limit"];
                 /** @description Opaque cursor from a previous page's `nextCursor`. */
@@ -208,7 +223,7 @@ export interface operations {
                      */
                     "application/json": {
                         items: components["schemas"]["TransactionRow"][];
-                        nextCursor: string | null;
+                        nextCursor: components["schemas"]["Cursor"] | null;
                     };
                 };
             };

@@ -32,7 +32,6 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
                 required: [items]
                 properties:
                   items:

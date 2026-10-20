@@ -46,6 +46,10 @@ paths:
                   - $ref: '#/components/schemas/Invalid'
                 discriminator:
                   propertyName: principalType
+                  mapping:
+                    user: '#/components/schemas/ValidUser'
+                    service: '#/components/schemas/ValidService'
+                    none: '#/components/schemas/Invalid'
               examples:
                 user:
                   value: { valid: true, principalType: user, authId: 0192f0c1-0000-7000-8000-000000000001, userId: 0192f0c1-0000-7000-8000-000000000002, scopes: [], exp: 1760000000 }
@@ -62,7 +66,6 @@ components:
   schemas:
     ValidUser:
       type: object
-      additionalProperties: false
       required: [valid, principalType, authId, userId, scopes, exp]
       properties:
         valid: { const: true }
@@ -73,17 +76,15 @@ components:
         exp: { type: integer, description: 'Token expiry, epoch seconds' }
     ValidService:
       type: object
-      additionalProperties: false
       required: [valid, principalType, clientId, scopes, exp]
       properties:
         valid: { const: true }
         principalType: { const: service }
-        clientId: { type: string }
+        clientId: { type: string, minLength: 1 }
         scopes: { type: array, items: { type: string } }
         exp: { type: integer }
     Invalid:
       type: object
-      additionalProperties: false
       required: [valid, principalType, reason]
       properties:
         valid: { const: false }

@@ -26,17 +26,27 @@ export const checkDescription = (value: string): DescriptionProblem | null => {
   return null;
 };
 
+const INVALID_MESSAGES = {
+  INVALID_REASON: 'Choose a valid reason for the dispute.',
+  INVALID_DESCRIPTION: `The description must be between ${DESCRIPTION_MIN} and ${DESCRIPTION_MAX} characters.`,
+} as const;
+
+export type InvalidCode = keyof typeof INVALID_MESSAGES;
+
+const isInvalidCode = (code: string): code is InvalidCode => Object.hasOwn(INVALID_MESSAGES, code);
+
+export const toInvalidCode = (code: string | null): InvalidCode | null =>
+  code !== null && isInvalidCode(code) ? code : null;
+
 export type CreateFailure =
   | { readonly kind: 'ALREADY_DISPUTED' }
   | { readonly kind: 'NOT_ELIGIBLE'; readonly code: string | null }
   | { readonly kind: 'NOT_FOUND' }
-  | { readonly kind: 'INVALID' }
+  | { readonly kind: 'INVALID'; readonly code: InvalidCode | null }
   | { readonly kind: 'UNAVAILABLE' }
   | { readonly kind: 'UNEXPECTED' };
 
 const NOT_ELIGIBLE_MESSAGES: Readonly<Record<string, string>> = {
-  INVALID_REASON: 'Choose a valid reason for the dispute.',
-  INVALID_DESCRIPTION: `The description must be between ${DESCRIPTION_MIN} and ${DESCRIPTION_MAX} characters.`,
   CARD_EXPIRED: 'The card used for this transaction has expired, so it can no longer be disputed.',
   TXN_NOT_POSTED: "This transaction hasn't posted yet. You can dispute it once it has posted.",
   TXN_TYPE_NOT_DISPUTABLE: "This type of transaction can't be disputed.",
@@ -52,7 +62,7 @@ export const createFailureMessage = (failure: Exclude<CreateFailure, { kind: 'AL
     case 'NOT_FOUND':
       return "We couldn't find this transaction.";
     case 'INVALID':
-      return "Some details weren't accepted. Check the form and try again.";
+      return failure.code !== null ? INVALID_MESSAGES[failure.code] : "Some details weren't accepted. Check the form and try again.";
     case 'UNAVAILABLE':
       return 'The service is temporarily unavailable. Try again in a moment.';
     case 'UNEXPECTED':

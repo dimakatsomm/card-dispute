@@ -42,7 +42,7 @@ components:
       schema: { type: string, pattern: '^[A-Za-z0-9-]{8,64}$' }
     ETag:
       description: Current dispute `version`, quoted (e.g. `"3"`). Send back in `If-Match`.
-      schema: { type: string, example: '"1"' }
+      schema: { type: string, pattern: '^"[1-9][0-9]{0,8}"$', example: '"1"' }
 
   parameters:
     CorrelationIdHeader:
@@ -60,7 +60,7 @@ components:
       in: query
       required: false
       description: Opaque cursor from a previous page's `nextCursor`.
-      schema: { type: string, maxLength: 512 }
+      schema: { $ref: '#/components/schemas/Cursor' }
     TransactionIdPath:
       name: transactionId
       in: path
@@ -76,7 +76,7 @@ components:
       name: transactionIds
       in: query
       required: true
-      description: Comma-separated, 1–100 ids.
+      description: 'Comma-separated (`form`, `explode: false`), 1–100 ids.'
       style: form
       explode: false
       schema:
@@ -101,6 +101,19 @@ components:
     Timestamp:
       type: string
       format: date-time
+      description: |
+        RFC 3339 with seconds, optional fraction, and `Z` or an offset up to ±14:00; year 0000 is rejected.
+        Calendar validity (e.g. 30 February) is not expressible as a pattern; `format: date-time` covers it.
+      pattern: '^(?!0000)[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](.[0-9]+)?(Z|[+-](0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)$'
+      example: '2026-09-28T10:15:00Z'
+    Cursor:
+      type: string
+      description: |
+        Opaque. Issued as base64url (no padding) of a JSON pair `[timestamp, uuid]` (microsecond UTC timestamp, id).
+        The decoded content is checked by the service; a mismatch is 400 `INVALID_CURSOR`.
+      minLength: 1
+      maxLength: 512
+      pattern: '^[A-Za-z0-9_-]+$'
     Problem:
       type: object
       description: RFC 9457 problem details.
@@ -108,7 +121,7 @@ components:
       properties:
         type: { type: string, format: uri-reference, example: 'https://errors.cd.example/not-eligible' }
         title: { type: string }
-        status: { type: integer }
+        status: { type: integer, minimum: 400, maximum: 599 }
         detail: { type: string }
         code: { type: string, description: Stable machine-readable code. }
         correlationId: { type: string }
@@ -140,6 +153,7 @@ components:
       enum: [ACTIVE, BLOCKED, CANCELLED]
     Card:
       type: object
+      additionalProperties: false
       required: [cardId, accountId, brand, cardType, last4, expiryMonth, expiryYear, expired, status]
       properties:
         cardId: { $ref: '#/components/schemas/Uuid' }
@@ -155,7 +169,7 @@ components:
         status: { $ref: '#/components/schemas/CardStatus' }
     RawTransaction:
       type: object
-      required: [transactionId, accountId, cardId, amount, currency, merchantName, type, status, transactionAt, postedAt]
+      required: [transactionId, accountId, cardId, amount, currency, merchantName, mcc, type, status, transactionAt, postedAt]
       properties:
         transactionId: { $ref: '#/components/schemas/Uuid' }
         accountId: { $ref: '#/components/schemas/Uuid' }

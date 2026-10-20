@@ -187,8 +187,8 @@ An `accountId`/`cardId` the caller doesn't own → empty list.
 Errors:
 - 404 transaction not found / not owned
 - 409 `ALREADY_DISPUTED` — any dispute exists for this transaction, in any status (ADR-020)
-- 422 `NOT_ELIGIBLE` with `code`: `INVALID_REASON | INVALID_DESCRIPTION | TXN_NOT_POSTED | TXN_TYPE_NOT_DISPUTABLE | OUTSIDE_WINDOW | CARD_EXPIRED`
-- 400 validation (unknown fields, >5 declarations, bad size/type/sha256)
+- 422 `NOT_ELIGIBLE` with `code`: `TXN_NOT_POSTED | TXN_TYPE_NOT_DISPUTABLE | OUTSIDE_WINDOW | CARD_EXPIRED` (eligibility only)
+- 400 validation (unknown fields, >5 declarations, bad size/type/sha256); `code` is `VALIDATION_FAILED`, `INVALID_REASON` (unknown reason code) or `INVALID_DESCRIPTION` (not 10–2000 characters), the same as `PUT`
 - 503 upstream unavailable (each upstream call has one 2 s overall deadline)
 - 503 `UPLOAD_SIGNING_UNAVAILABLE` — the dispute **was created** and DisputeCreated published, but URLs could not be signed; re-declare via `POST /dispute/{transactionId}/evidence` (ADR-054)
 

@@ -118,15 +118,18 @@ describe('DisputeFormScreen', () => {
     expect(router.state.location.pathname).toBe(`/disputes/${transactionId}`);
   });
 
-  it('shows the reason message on 422 and keeps the form usable', async () => {
-    const { user } = renderScreen({ [`POST /api/dispute/${transactionId}`]: () => problem(422, 'OUTSIDE_WINDOW') });
+  it.each([
+    [400, 'INVALID_REASON', 'Choose a valid reason for the dispute.'],
+    [400, 'INVALID_DESCRIPTION', 'The description must be between 10 and 2000 characters.'],
+    [422, 'OUTSIDE_WINDOW', 'This transaction is outside the period in which it can be disputed.'],
+    [400, 'VALIDATION_FAILED', "Some details weren't accepted. Check the form and try again."],
+  ])('shows the message for %i %s and keeps the form usable', async (status, code, message) => {
+    const { user } = renderScreen({ [`POST /api/dispute/${transactionId}`]: () => problem(status, code) });
     await fillValidForm(user);
 
     await user.click(screen.getByRole('button', { name: 'Submit dispute' }));
 
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      'This transaction is outside the period in which it can be disputed.',
-    );
+    expect((await screen.findByRole('alert')).textContent).toBe(message);
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Submit dispute' }).disabled).toBe(false);
   });
 

@@ -44,7 +44,8 @@ export type paths = {
         put: operations["updateDispute"];
         /**
          * Dispute a transaction (optionally declaring evidence files)
-         * @description Eligibility (first failure wins): ALREADY_DISPUTED → CARD_EXPIRED → TXN_NOT_POSTED → TXN_TYPE_NOT_DISPUTABLE → OUTSIDE_WINDOW.
+         * @description Input is validated first: an unknown `reasonCode` is 400 `INVALID_REASON` and a `description` outside 10–2000
+         *     characters is 400 `INVALID_DESCRIPTION`. Eligibility (first failure wins): ALREADY_DISPUTED → CARD_EXPIRED → TXN_NOT_POSTED → TXN_TYPE_NOT_DISPUTABLE → OUTSIDE_WINDOW.
          *     No `Idempotency-Key`: a retry hits the unique constraint → 409 `ALREADY_DISPUTED`; the client then calls
          *     `GET /dispute/{transactionId}`.
          *
@@ -99,6 +100,7 @@ export type components = {
             evidence?: components["schemas"]["EvidenceDeclaration"][];
         };
         EvidenceDeclaration: {
+            /** @description No control characters (Unicode Cc). */
             fileName: string;
             /** @enum {string} */
             contentType: "application/pdf" | "image/jpeg" | "image/png";
@@ -117,7 +119,8 @@ export type components = {
             url: string;
             /** @description Send exactly these headers; they are signed. */
             headers: {
-                "Content-Type": string;
+                /** @enum {string} */
+                "Content-Type": "application/pdf" | "image/jpeg" | "image/png";
                 "Content-Length": string;
                 /** @description Base64 of the SHA-256 digest. */
                 "x-amz-checksum-sha256": string;
@@ -141,8 +144,7 @@ export type components = {
             action: "WITHDRAW";
             note?: string;
         };
-        /** @description Read live from transactions; null if transactions is unavailable. */
-        TransactionRef: {
+        TransactionSnapshot: {
             accountId: components["schemas"]["Uuid"];
             cardId: components["schemas"]["Uuid"];
             amount: components["schemas"]["Money"];
@@ -150,7 +152,9 @@ export type components = {
             merchantName: string;
             transactionAt: components["schemas"]["Timestamp"];
             postedAt: components["schemas"]["Timestamp"] | null;
-        } | null;
+        };
+        /** @description Read live from transactions; null if transactions is unavailable. */
+        TransactionRef: components["schemas"]["TransactionSnapshot"] | null;
         Evidence: {
             evidenceId: components["schemas"]["Uuid"];
             fileName: string;
@@ -175,6 +179,39 @@ export type components = {
             updatedAt: components["schemas"]["Timestamp"];
             resolvedAt: components["schemas"]["Timestamp"] | null;
             resolutionNote: string | null;
+        };
+        /** @description A `Dispute` plus the upload instructions; kept flat so `additionalProperties: false` holds. */
+        DisputeCreated: {
+            disputeId: components["schemas"]["Uuid"];
+            transactionId: components["schemas"]["Uuid"];
+            status: components["schemas"]["DisputeStatus"];
+            reasonCode: components["schemas"]["ReasonCode"];
+            description: string;
+            transaction: components["schemas"]["TransactionRef"];
+            evidence: components["schemas"]["Evidence"][];
+            version: number;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            resolvedAt: components["schemas"]["Timestamp"] | null;
+            resolutionNote: string | null;
+            uploads: components["schemas"]["UploadInstruction"][];
+        };
+        /** @description A `Dispute` plus its timeline; kept flat so `additionalProperties: false` holds. */
+        DisputeDetail: {
+            disputeId: components["schemas"]["Uuid"];
+            transactionId: components["schemas"]["Uuid"];
+            status: components["schemas"]["DisputeStatus"];
+            reasonCode: components["schemas"]["ReasonCode"];
+            description: string;
+            transaction: components["schemas"]["TransactionRef"];
+            evidence: components["schemas"]["Evidence"][];
+            version: number;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            resolvedAt: components["schemas"]["Timestamp"] | null;
+            resolutionNote: string | null;
+            /** @description Ascending by `at`. */
+            timeline: components["schemas"]["TimelineEvent"][];
         };
         DisputeSummary: {
             disputeId: components["schemas"]["Uuid"];
@@ -203,7 +240,8 @@ export type components = {
             detail?: {
                 fields?: ("description" | "reasonCode")[];
                 fileName?: string;
-                reason?: string;
+                /** @enum {string} */
+                reason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE";
                 note?: string;
             };
         };
@@ -211,6 +249,11 @@ export type components = {
         DisputeStatus: "SUBMITTED" | "UNDER_REVIEW" | "RESOLVED_ACCEPTED" | "RESOLVED_REJECTED" | "WITHDRAWN";
         /** Format: uuid */
         Uuid: string;
+        /**
+         * @description Opaque. Issued as base64url (no padding) of a JSON pair `[timestamp, uuid]` (microsecond UTC timestamp, id).
+         *     The decoded content is checked by the service; a mismatch is 400 `INVALID_CURSOR`.
+         */
+        Cursor: string;
         /** @enum {string} */
         ReasonCode: "FRAUD" | "NOT_RECEIVED" | "DUPLICATE" | "INCORRECT_AMOUNT" | "CANCELLED_SUBSCRIPTION" | "DEFECTIVE_GOODS" | "OTHER";
         /**
@@ -220,7 +263,12 @@ export type components = {
         Money: string;
         /** @example ZAR */
         Currency: string;
-        /** Format: date-time */
+        /**
+         * Format: date-time
+         * @description RFC 3339 with seconds, optional fraction, and `Z` or an offset up to ±14:00; year 0000 is rejected.
+         *     Calendar validity (e.g. 30 February) is not expressible as a pattern; `format: date-time` covers it.
+         * @example 2026-09-28T10:15:00Z
+         */
         Timestamp: string;
         /** @description RFC 9457 problem details. */
         Problem: {
@@ -288,7 +336,7 @@ export type components = {
         CorrelationIdHeader: string;
         Limit: number;
         /** @description Opaque cursor from a previous page's `nextCursor`. */
-        Cursor: string;
+        Cursor: components["schemas"]["Cursor"];
         /** @description One dispute per transaction, ever, so this also identifies the dispute. */
         TransactionIdPath: components["schemas"]["Uuid"];
     };
@@ -304,6 +352,7 @@ export interface operations {
     listMyDisputes: {
         parameters: {
             query?: {
+                /** @description Repeat the parameter to filter by several statuses (`status=SUBMITTED&status=UNDER_REVIEW`). */
                 status?: components["schemas"]["DisputeStatus"][];
                 accountId?: components["schemas"]["Uuid"];
                 cardId?: components["schemas"]["Uuid"];
@@ -327,7 +376,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: components["schemas"]["DisputeSummary"][];
-                        nextCursor: string | null;
+                        nextCursor: components["schemas"]["Cursor"] | null;
                     };
                 };
             };
@@ -358,10 +407,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Dispute"] & {
-                        /** @description Ascending by `at`. */
-                        timeline: components["schemas"]["TimelineEvent"][];
-                    };
+                    "application/json": components["schemas"]["DisputeDetail"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -374,7 +420,7 @@ export interface operations {
             query?: never;
             header: {
                 "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
-                /** @description Current ETag (`"<version>"`). */
+                /** @description Current ETag (`"<version>"`). Any other form, including `*`, never matches. */
                 "If-Match": string;
             };
             path: {
@@ -399,7 +445,15 @@ export interface operations {
                     "application/json": components["schemas"]["Dispute"];
                 };
             };
-            400: components["responses"]["BadRequest"];
+            /** @description Validation failed. `code` is VALIDATION_FAILED, INVALID_REASON or INVALID_DESCRIPTION (edited values). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -473,12 +527,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Dispute"] & {
-                        uploads: components["schemas"]["UploadInstruction"][];
-                    };
+                    "application/json": components["schemas"]["DisputeCreated"];
                 };
             };
-            400: components["responses"]["BadRequest"];
+            /**
+             * @description Validation failed. `code` is VALIDATION_FAILED, INVALID_REASON (unknown reason code) or INVALID_DESCRIPTION
+             *     (outside 10–2000 characters).
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -491,10 +554,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /**
-             * @description `NOT_ELIGIBLE`; `code` is one of INVALID_REASON, INVALID_DESCRIPTION, CARD_EXPIRED, TXN_NOT_POSTED,
-             *     TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW.
-             */
+            /** @description `NOT_ELIGIBLE`; `code` is one of CARD_EXPIRED, TXN_NOT_POSTED, TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW. */
             422: {
                 headers: {
                     [name: string]: unknown;

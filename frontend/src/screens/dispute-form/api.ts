@@ -1,7 +1,7 @@
 import type { ApiClient } from '../../api/client';
 import { err, ok, type Result } from '../../app/result';
 import { isUploadList, type UploadInstruction } from '../../components/evidence';
-import type { CreateDisputeRequest, CreateFailure } from './core';
+import { toInvalidCode, type CreateDisputeRequest, type CreateFailure } from './core';
 
 export type DisputeApi = {
   readonly createDispute: (
@@ -22,7 +22,7 @@ const toCreateFailure = (status: number, body: unknown): CreateFailure => {
     case 404:
       return { kind: 'NOT_FOUND' };
     case 400:
-      return { kind: 'INVALID' };
+      return { kind: 'INVALID', code: toInvalidCode(problemCode(body)) };
     case 503:
       return { kind: 'UNAVAILABLE' };
     default:

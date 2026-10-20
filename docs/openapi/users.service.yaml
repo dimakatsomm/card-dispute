@@ -26,19 +26,11 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
                 required: [cards]
                 properties:
                   cards:
                     type: array
-                    items:
-                      unevaluatedProperties: false
-                      allOf:
-                        - $ref: './common.yaml#/components/schemas/Card'
-                        - type: object
-                          required: [userId]
-                          properties:
-                            userId: { $ref: './common.yaml#/components/schemas/Uuid' }
+                    items: { $ref: '#/components/schemas/ServiceCard' }
         '400': { $ref: './common.yaml#/components/responses/BadRequest' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
@@ -59,15 +51,31 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: false
                 required: [userId, email, name]
                 properties:
                   userId: { $ref: './common.yaml#/components/schemas/Uuid' }
                   email: { type: string, format: email }
                   name: { type: string }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
         '404': { $ref: './common.yaml#/components/responses/NotFound' }
 components:
   securitySchemes:
     serviceToken: { $ref: './common.yaml#/components/securitySchemes/serviceToken' }
+  schemas:
+    ServiceCard:
+      description: 'Tolerant reader. Same fields as the public `Card` plus the owner; kept flat so strictness is never lost to `allOf`.'
+      type: object
+      required: [cardId, accountId, userId, brand, cardType, last4, expiryMonth, expiryYear, expired, status]
+      properties:
+        cardId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        accountId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        userId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        brand: { $ref: './common.yaml#/components/schemas/CardBrand' }
+        cardType: { $ref: './common.yaml#/components/schemas/CardType' }
+        last4: { type: string, pattern: '^[0-9]{4}$' }
+        expiryMonth: { type: integer, minimum: 1, maximum: 12 }
+        expiryYear: { type: integer, minimum: 2000, maximum: 2100 }
+        expired: { type: boolean }
+        status: { $ref: './common.yaml#/components/schemas/CardStatus' }

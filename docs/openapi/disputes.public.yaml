@@ -31,7 +31,8 @@ paths:
           required: false
           style: form
           explode: true
-          schema: { type: array, items: { $ref: './common.yaml#/components/schemas/DisputeStatus' } }
+          description: Repeat the parameter to filter by several statuses (`status=SUBMITTED&status=UNDER_REVIEW`).
+          schema: { type: array, minItems: 1, maxItems: 5, items: { $ref: './common.yaml#/components/schemas/DisputeStatus' } }
         - { name: accountId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
         - { name: cardId, in: query, required: false, schema: { $ref: './common.yaml#/components/schemas/Uuid' } }
         - $ref: './common.yaml#/components/parameters/Limit'
@@ -49,7 +50,10 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/DisputeSummary' }
-                  nextCursor: { type: [string, 'null'] }
+                  nextCursor:
+                    oneOf:
+                      - $ref: './common.yaml#/components/schemas/Cursor'
+                      - type: 'null'
         '400': { $ref: './common.yaml#/components/responses/BadRequest' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
@@ -63,7 +67,8 @@ paths:
       operationId: createDispute
       summary: Dispute a transaction (optionally declaring evidence files)
       description: |
-        Eligibility (first failure wins): ALREADY_DISPUTED → CARD_EXPIRED → TXN_NOT_POSTED → TXN_TYPE_NOT_DISPUTABLE → OUTSIDE_WINDOW.
+        Input is validated first: an unknown `reasonCode` is 400 `INVALID_REASON` and a `description` outside 10–2000
+        characters is 400 `INVALID_DESCRIPTION`. Eligibility (first failure wins): ALREADY_DISPUTED → CARD_EXPIRED → TXN_NOT_POSTED → TXN_TYPE_NOT_DISPUTABLE → OUTSIDE_WINDOW.
         No `Idempotency-Key`: a retry hits the unique constraint → 409 `ALREADY_DISPUTED`; the client then calls
         `GET /dispute/{transactionId}`.
 
@@ -94,16 +99,14 @@ paths:
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/Dispute'
-                  - type: object
-                    required: [uploads]
-                    properties:
-                      uploads:
-                        type: array
-                        maxItems: 5
-                        items: { $ref: '#/components/schemas/UploadInstruction' }
-        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+                $ref: '#/components/schemas/DisputeCreated'
+        '400':
+          description: |
+            Validation failed. `code` is VALIDATION_FAILED, INVALID_REASON (unknown reason code) or INVALID_DESCRIPTION
+            (outside 10–2000 characters).
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
         '404': { $ref: './common.yaml#/components/responses/NotFound' }
@@ -114,8 +117,7 @@ paths:
               schema: { $ref: './common.yaml#/components/schemas/Problem' }
         '422':
           description: |
-            `NOT_ELIGIBLE`; `code` is one of INVALID_REASON, INVALID_DESCRIPTION, CARD_EXPIRED, TXN_NOT_POSTED,
-            TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW.
+            `NOT_ELIGIBLE`; `code` is one of CARD_EXPIRED, TXN_NOT_POSTED, TXN_TYPE_NOT_DISPUTABLE, OUTSIDE_WINDOW.
           content:
             application/problem+json:
               schema: { $ref: './common.yaml#/components/schemas/Problem' }
@@ -131,15 +133,7 @@ paths:
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/Dispute'
-                  - type: object
-                    required: [timeline]
-                    properties:
-                      timeline:
-                        type: array
-                        description: Ascending by `at`.
-                        items: { $ref: '#/components/schemas/TimelineEvent' }
+                $ref: '#/components/schemas/DisputeDetail'
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
         '404': { $ref: './common.yaml#/components/responses/NotFound' }
@@ -150,8 +144,8 @@ paths:
         - name: If-Match
           in: header
           required: true
-          description: Current ETag (`"<version>"`).
-          schema: { type: string }
+          description: Current ETag (`"<version>"`). Any other form, including `*`, never matches.
+          schema: { type: string, pattern: '^"[1-9][0-9]{0,8}"$' }
       requestBody:
         required: true
         content:
@@ -173,7 +167,12 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dispute' }
-        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '400':
+          description: |
+            Validation failed. `code` is VALIDATION_FAILED, INVALID_REASON or INVALID_DESCRIPTION (edited values).
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
         '404': { $ref: './common.yaml#/components/responses/NotFound' }
@@ -230,6 +229,8 @@ paths:
                 properties:
                   uploads:
                     type: array
+                    minItems: 1
+                    maxItems: 5
                     items: { $ref: '#/components/schemas/UploadInstruction' }
         '400': { $ref: './common.yaml#/components/responses/BadRequest' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
@@ -266,7 +267,12 @@ components:
       additionalProperties: false
       required: [fileName, contentType, sizeBytes, sha256]
       properties:
-        fileName: { type: string, minLength: 1, maxLength: 255 }
+        fileName:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: '^[^\u0000-\u001F\u007F-\u009F]+$'
+          description: No control characters (Unicode Cc).
         contentType: { type: string, enum: [application/pdf, image/jpeg, image/png] }
         sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$', description: Lower-case hex of the file's SHA-256. }
@@ -281,11 +287,12 @@ components:
         headers:
           type: object
           description: Send exactly these headers; they are signed.
+          additionalProperties: false
           required: [Content-Type, Content-Length, x-amz-checksum-sha256]
           properties:
-            Content-Type: { type: string }
-            Content-Length: { type: string }
-            x-amz-checksum-sha256: { type: string, description: Base64 of the SHA-256 digest. }
+            Content-Type: { type: string, enum: [application/pdf, image/jpeg, image/png] }
+            Content-Length: { type: string, pattern: '^[1-9][0-9]{0,7}$' }
+            x-amz-checksum-sha256: { type: string, pattern: '^[A-Za-z0-9+/]{43}=$', description: Base64 of the SHA-256 digest. }
         expiresAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
     EditDispute:
       type: object
@@ -303,23 +310,25 @@ components:
       properties:
         action: { const: WITHDRAW }
         note: { type: string, maxLength: 500 }
+    TransactionSnapshot:
+      type: object
+      additionalProperties: false
+      required: [accountId, cardId, amount, currency, merchantName, transactionAt, postedAt]
+      properties:
+        accountId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        cardId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        amount: { $ref: './common.yaml#/components/schemas/Money' }
+        currency: { $ref: './common.yaml#/components/schemas/Currency' }
+        merchantName: { type: string }
+        transactionAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        postedAt:
+          oneOf:
+            - { $ref: './common.yaml#/components/schemas/Timestamp' }
+            - { type: 'null' }
     TransactionRef:
       description: Read live from transactions; null if transactions is unavailable.
       oneOf:
-        - type: object
-          additionalProperties: false
-          required: [accountId, cardId, amount, currency, merchantName, transactionAt, postedAt]
-          properties:
-            accountId: { $ref: './common.yaml#/components/schemas/Uuid' }
-            cardId: { $ref: './common.yaml#/components/schemas/Uuid' }
-            amount: { $ref: './common.yaml#/components/schemas/Money' }
-            currency: { $ref: './common.yaml#/components/schemas/Currency' }
-            merchantName: { type: string }
-            transactionAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
-            postedAt:
-              oneOf:
-                - { $ref: './common.yaml#/components/schemas/Timestamp' }
-                - { type: 'null' }
+        - $ref: '#/components/schemas/TransactionSnapshot'
         - { type: 'null' }
     Evidence:
       type: object
@@ -329,21 +338,23 @@ components:
         evidenceId: { $ref: './common.yaml#/components/schemas/Uuid' }
         fileName: { type: string }
         contentType: { type: string, enum: [application/pdf, image/jpeg, image/png] }
-        sizeBytes: { type: integer }
+        sizeBytes: { type: integer, minimum: 1, maximum: 10485760 }
         status: { type: string, enum: [PENDING, STORED, REJECTED, EXPIRED, ERASED] }
         rejectionReason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE] }
     Dispute:
       type: object
+      additionalProperties: false
       required: [disputeId, transactionId, status, reasonCode, description, transaction, evidence, version, createdAt, updatedAt, resolvedAt, resolutionNote]
       properties:
         disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
         transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
         status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
         reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
-        description: { type: string }
+        description: { type: string, minLength: 10, maxLength: 2000 }
         transaction: { $ref: '#/components/schemas/TransactionRef' }
         evidence:
           type: array
+          maxItems: 5
           items: { $ref: '#/components/schemas/Evidence' }
         version: { type: integer, minimum: 1 }
         createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
@@ -352,7 +363,63 @@ components:
           oneOf:
             - { $ref: './common.yaml#/components/schemas/Timestamp' }
             - { type: 'null' }
-        resolutionNote: { type: [string, 'null'] }
+        resolutionNote: { type: [string, 'null'], maxLength: 2000 }
+    DisputeCreated:
+      description: 'A `Dispute` plus the upload instructions; kept flat so `additionalProperties: false` holds.'
+      type: object
+      additionalProperties: false
+      required: [disputeId, transactionId, status, reasonCode, description, transaction, evidence, version, createdAt, updatedAt, resolvedAt, resolutionNote, uploads]
+      properties:
+        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+        transaction: { $ref: '#/components/schemas/TransactionRef' }
+        evidence:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/Evidence' }
+        version: { type: integer, minimum: 1 }
+        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        updatedAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        resolvedAt:
+          oneOf:
+            - { $ref: './common.yaml#/components/schemas/Timestamp' }
+            - { type: 'null' }
+        resolutionNote: { type: [string, 'null'], maxLength: 2000 }
+        uploads:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/UploadInstruction' }
+    DisputeDetail:
+      description: 'A `Dispute` plus its timeline; kept flat so `additionalProperties: false` holds.'
+      type: object
+      additionalProperties: false
+      required: [disputeId, transactionId, status, reasonCode, description, transaction, evidence, version, createdAt, updatedAt, resolvedAt, resolutionNote, timeline]
+      properties:
+        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+        description: { type: string, minLength: 10, maxLength: 2000 }
+        transaction: { $ref: '#/components/schemas/TransactionRef' }
+        evidence:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/Evidence' }
+        version: { type: integer, minimum: 1 }
+        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        updatedAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        resolvedAt:
+          oneOf:
+            - { $ref: './common.yaml#/components/schemas/Timestamp' }
+            - { type: 'null' }
+        resolutionNote: { type: [string, 'null'], maxLength: 2000 }
+        timeline:
+          type: array
+          description: Ascending by `at`.
+          items: { $ref: '#/components/schemas/TimelineEvent' }
     DisputeSummary:
       type: object
       additionalProperties: false
@@ -365,6 +432,7 @@ components:
         transaction: { $ref: '#/components/schemas/TransactionRef' }
         lastEvent:
           type: object
+          additionalProperties: false
           required: [type, at]
           properties:
             type: { $ref: '#/components/schemas/TimelineType' }
@@ -387,9 +455,10 @@ components:
           description: Agent identities are never exposed.
         detail:
           type: object
+          additionalProperties: false
           description: 'EDITED → {fields}; EVIDENCE_* → {fileName, reason?}; RESOLVED_* / WITHDRAWN → {note?}'
           properties:
-            fields: { type: array, items: { type: string, enum: [description, reasonCode] } }
-            fileName: { type: string }
-            reason: { type: string }
-            note: { type: string }
+            fields: { type: array, minItems: 1, maxItems: 2, items: { type: string, enum: [description, reasonCode] } }
+            fileName: { type: string, minLength: 1, maxLength: 255 }
+            reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE] }
+            note: { type: string, minLength: 1, maxLength: 2000 }
