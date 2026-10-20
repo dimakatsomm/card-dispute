@@ -11,15 +11,19 @@ export type ServiceTokenProviderDeps = {
   readonly scopes: readonly string[];
   readonly fetch: Fetch;
   readonly now: () => number;
+  readonly timeoutMs?: number;
 };
 
+export type GetTokenOptions = { readonly signal?: AbortSignal };
+
 export type ServiceTokenProvider = {
-  readonly getToken: () => Promise<Result<string, TokenError>>;
+  readonly getToken: (options?: GetTokenOptions) => Promise<Result<string, TokenError>>;
   readonly invalidate: (rejectedToken: string) => void;
 };
 
 const MAX_REFRESH_MARGIN_MS = 60_000;
 const INVALIDATE_COOLDOWN_MS = 10_000;
+const DEFAULT_TIMEOUT_MS = 5000;
 
 const formEncode = (value: string): string => new URLSearchParams({ v: value }).toString().slice(2);
 
@@ -28,7 +32,7 @@ const tokenResponseSchema = z.object({ access_token: z.string().min(1), expires_
 type Cached = { readonly token: string; readonly refreshAt: number };
 
 export const createServiceTokenProvider = (deps: ServiceTokenProviderDeps): ServiceTokenProvider => {
-  const http = createHttpClient({ fetch: deps.fetch });
+  const http = createHttpClient({ fetch: deps.fetch, timeoutMs: deps.timeoutMs ?? DEFAULT_TIMEOUT_MS });
   // RFC 6749 s2.3.1: id and secret are form-urlencoded (space as +) before Basic encoding.
   const basic = Buffer.from(`${formEncode(deps.clientId)}:${formEncode(deps.clientSecret)}`).toString('base64');
   let cached: Cached | undefined;
@@ -58,6 +62,24 @@ export const createServiceTokenProvider = (deps: ServiceTokenProviderDeps): Serv
     return ok(cached.token);
   };
 
+  // The shared fetch is bound only by the provider timeout; a caller's signal releases just that caller.
+  const abandonOn = (
+    pending: Promise<Result<string, TokenError>>,
+    signal: AbortSignal | undefined,
+  ): Promise<Result<string, TokenError>> =>
+    signal === undefined
+      ? pending
+      : new Promise((resolve) => {
+          const onAbort = (): void => {
+            resolve(unavailable('caller gave up'));
+          };
+          if (signal.aborted) onAbort();
+          signal.addEventListener('abort', onAbort, { once: true });
+          void pending.then(resolve).finally(() => {
+            signal.removeEventListener('abort', onAbort);
+          });
+        });
+
   return {
     // Only the token that was rejected is dropped, and not while a refresh runs or right after a forced one,
     // so a sustained rejection cannot amplify into a token-endpoint storm.
@@ -68,13 +90,13 @@ export const createServiceTokenProvider = (deps: ServiceTokenProviderDeps): Serv
       lastForcedAt = now;
       cached = undefined;
     },
-    getToken: async () => {
+    getToken: async (options) => {
       if (cached && deps.now() < cached.refreshAt) return ok(cached.token);
       // Single-flight: Cognito bills per token request.
       inflight ??= fetchToken().finally(() => {
         inflight = undefined;
       });
-      return inflight;
+      return abandonOn(inflight, options?.signal);
     },
   };
 };

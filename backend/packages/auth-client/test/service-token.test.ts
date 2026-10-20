@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createServiceTokenProvider } from '../src/service-token.ts';
+import type { Fetch } from '../src/http-client.ts';
 import { fakeFetch, jsonResponse } from './fakes.ts';
 
 const T0 = 1_800_000_000_000;
@@ -105,5 +106,51 @@ describe('createServiceTokenProvider', () => {
     expect((await provider.getToken()).ok).toBe(false);
     expect((await provider.getToken()).ok).toBe(false);
     expect(stub.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  describe('token-fetch timeout', () => {
+    const hangingThenOk = () => {
+      let calls = 0;
+      const fetch: Fetch = (_url, init) => {
+        if (++calls > 1) return Promise.resolve(jsonResponse(200, { access_token: `fresh-${calls}`, expires_in: 3600 }));
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        });
+      };
+      const provider = createServiceTokenProvider({
+        tokenUrl: 'http://issuer/oauth2/token',
+        clientId: 'svc-a',
+        clientSecret: 's3cret',
+        scopes: ['auth/validate'],
+        fetch,
+        now: () => T0,
+        timeoutMs: 50,
+      });
+      return { provider, calls: () => calls };
+    };
+
+    it('returns an error when the endpoint hangs, then fetches fresh and caches', async () => {
+      const { provider, calls } = hangingThenOk();
+      const first = await provider.getToken();
+      expect(first.ok).toBe(false);
+      expect(await provider.getToken()).toEqual({ ok: true, value: 'fresh-2' });
+      expect(await provider.getToken()).toEqual({ ok: true, value: 'fresh-2' });
+      expect(calls()).toBe(2);
+    });
+
+    it("one joiner's abort releases only that joiner", async () => {
+      const slow = setup(
+        () => jsonResponse(200, { access_token: 'shared', expires_in: 3600 }),
+      );
+      const impatient = new AbortController();
+      const patient = slow.provider.getToken();
+      const gaveUp = slow.provider.getToken({ signal: impatient.signal });
+      impatient.abort();
+      expect((await gaveUp).ok).toBe(false);
+      expect(await patient).toEqual({ ok: true, value: 'shared' });
+      expect(slow.stub.calls).toHaveLength(1);
+    });
   });
 });

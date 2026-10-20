@@ -3,7 +3,7 @@ import { zValidateTokenResponse } from '@cd/contracts/auth.service';
 import { err, ok, type Result } from '@cd/shared/fp';
 import { createHttpClient, type Fetch, type HttpResponse } from './http-client.ts';
 import { principalOf, type Principal } from './principal.ts';
-import type { TokenError } from './service-token.ts';
+import type { GetTokenOptions, TokenError } from './service-token.ts';
 
 export type AuthFailure =
   | { readonly kind: 'invalid'; readonly reason: string }
@@ -13,7 +13,7 @@ export type AuthClientDeps = {
   readonly authUrl: string;
   readonly fetch: Fetch;
   readonly now: () => number;
-  readonly getServiceToken: () => Promise<Result<string, TokenError>>;
+  readonly getServiceToken: (options?: GetTokenOptions) => Promise<Result<string, TokenError>>;
   readonly invalidateServiceToken?: (rejectedToken: string) => void;
   readonly timeoutMs?: number;
   readonly cacheMaxSeconds?: number;
@@ -58,7 +58,7 @@ export const createAuthClient = (deps: AuthClientDeps): AuthClient => {
     signal: AbortSignal,
     mayRetry: boolean,
   ): Promise<Result<HttpResponse, AuthFailure>> => {
-    const serviceToken = await deps.getServiceToken();
+    const serviceToken = await deps.getServiceToken({ signal });
     if (!serviceToken.ok) return unavailable(serviceToken.error.detail);
 
     const res = await http.request({
