@@ -294,14 +294,15 @@
       ]
     },
     "L-05": {
-      "status": "todo",
+      "status": "done",
       "agent": "async-lambda",
       "blockedBy": [
         "S-06",
         "S-07",
         "D-06",
         "M2-00"
-      ]
+      ],
+      "notes": "Security gate PASS + lows (DB_SSL required with secret, invalid_clock guard, RetentionFailed metric). Erases RESOLVED_*/WITHDRAWN at T+1y as disputes_retention; guard nulls s3_key/rejection_reason. 24 tests."
     },
     "L-07": {
       "status": "todo",
