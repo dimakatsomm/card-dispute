@@ -166,7 +166,7 @@ const GRANTS_PER_DOCS_05: Readonly<Record<string, string>> = {
   'svc-users': 'auth/validate',
   'svc-transactions': 'auth/validate users/cards.read disputes/read',
   'svc-disputes': 'auth/validate users/cards.read transactions/read',
-  'svc-notifier': 'users/contact.read',
+  'svc-notifier': 'users/contact.read disputes/read',
   'svc-evidence-intake': 'disputes/evidence.write',
   'svc-backoffice': 'disputes/review disputes/resolve users/cards.read',
 };

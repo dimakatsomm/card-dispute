@@ -1,0 +1,132 @@
+# Override on top of docker-compose.yml + docker-compose.services.yml: the three Lambdas under the Lambda RIE,
+# and the local driver standing in for GuardDuty/EventBridge, the SQS event-source mapping, the schedule and SES.
+# Emulation only: AWS behaviour is proven in E-03. Published ports are loopback only; 8081 is never published.
+x-aws-local: &aws-local
+  AWS_REGION: ${AWS_REGION:-af-south-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?set in local/.env.example}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?set in local/.env.example}
+
+x-driver: &driver
+  build:
+    context: .
+    dockerfile: local/lambda-driver/Dockerfile
+  image: cd-lambda-driver:local
+  environment:
+    <<: *aws-local
+    AWS_ENDPOINT_URL: http://moto:5000
+    QUARANTINE_BUCKET: ${QUARANTINE_BUCKET:?set in local/.env.example}
+    INTAKE_URL: http://evidence-intake:8080/2015-03-31/functions/function/invocations
+    NOTIFIER_URL: http://dispute-notifier:8080/2015-03-31/functions/function/invocations
+    SWEEPER_URL: http://retention-sweeper:8080/2015-03-31/functions/function/invocations
+    INTAKE_DLQ_NAME: ${MOTO_INTAKE_DLQ:-evidence-intake-dlq}
+    NOTIFICATIONS_QUEUE_NAME: ${MOTO_QUEUE:-dispute-notifications}
+  restart: unless-stopped
+  networks: [local]
+
+services:
+  moto-init:
+    environment:
+      MOTO_INTAKE_DLQ: ${MOTO_INTAKE_DLQ:-evidence-intake-dlq}
+      MOTO_VISIBILITY_TIMEOUT: ${MOTO_VISIBILITY_TIMEOUT:-5}
+
+  evidence-intake:
+    build:
+      context: .
+      dockerfile: backend/lambdas/evidence-intake/Dockerfile
+    image: cd-evidence-intake:local
+    environment:
+      <<: *aws-local
+      AWS_ENDPOINT_URL: http://moto:5000
+      QUARANTINE_BUCKET: ${QUARANTINE_BUCKET:?set in local/.env.example}
+      EVIDENCE_BUCKET: ${EVIDENCE_BUCKET:?set in local/.env.example}
+      DISPUTES_SERVICE_URL: http://disputes:8081
+      TOKEN_URL: http://mock-issuer:55900/oauth2/token
+      SERVICE_CLIENT_ID: svc-evidence-intake
+      SERVICE_CLIENT_SECRET: ${MOCK_ISSUER_CLIENT_SECRET:?set in local/.env.example}
+      LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+    ports:
+      - '127.0.0.1:${INTAKE_HOST_PORT:-58091}:8080'
+    depends_on:
+      moto-init:
+        condition: service_completed_successfully
+      mock-issuer:
+        condition: service_healthy
+      disputes:
+        condition: service_healthy
+    networks: [local]
+
+  dispute-notifier:
+    build:
+      context: .
+      dockerfile: backend/lambdas/dispute-notifier/Dockerfile
+    image: cd-dispute-notifier:local
+    environment:
+      <<: *aws-local
+      TOKEN_URL: http://mock-issuer:55900/oauth2/token
+      SERVICE_CLIENT_ID: svc-notifier
+      SERVICE_CLIENT_SECRET: ${MOCK_ISSUER_CLIENT_SECRET:?set in local/.env.example}
+      USERS_SERVICE_URL: http://users:8081
+      DISPUTES_SERVICE_URL: http://disputes:8081
+      SES_SENDER: ${SES_SENDER:?set in local/.env.example}
+      SES_ENDPOINT: http://driver-ses-sink:55901
+      LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+    ports:
+      - '127.0.0.1:${NOTIFIER_HOST_PORT:-58092}:8080'
+    depends_on:
+      mock-issuer:
+        condition: service_healthy
+      users:
+        condition: service_healthy
+      disputes:
+        condition: service_healthy
+      driver-ses-sink:
+        condition: service_healthy
+    networks: [local]
+
+  retention-sweeper:
+    build:
+      context: .
+      dockerfile: backend/lambdas/retention-sweeper/Dockerfile
+    image: cd-retention-sweeper:local
+    environment:
+      AWS_REGION: ${AWS_REGION:-af-south-1}
+      DATABASE_URL: postgres://disputes_retention:${DB_PASSWORD_DISPUTES_RETENTION:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+      LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+    ports:
+      - '127.0.0.1:${SWEEPER_HOST_PORT:-58093}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      disputes-migrate:
+        condition: service_completed_successfully
+    networks: [local]
+
+  driver-scan-stub:
+    <<: *driver
+    command: ['scan-stub']
+    depends_on:
+      moto-init:
+        condition: service_completed_successfully
+      evidence-intake:
+        condition: service_started
+
+  driver-sqs-poller:
+    <<: *driver
+    command: ['sqs-poller']
+    depends_on:
+      moto-init:
+        condition: service_completed_successfully
+      dispute-notifier:
+        condition: service_started
+
+  # Published on loopback so the host-side e2e can read GET /sent; it has no auth and holds mail bodies, so never widen it.
+  driver-ses-sink:
+    <<: *driver
+    command: ['ses-sink']
+    ports:
+      - '127.0.0.1:${SES_SINK_HOST_PORT:-55901}:55901'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:55901/sent']
+      interval: 5s
+      timeout: 3s
+      retries: 12

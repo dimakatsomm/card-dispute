@@ -56,7 +56,7 @@ const SERVICE_GRANTS: ReadonlyArray<readonly [string, ReadonlyArray<string>]> = 
   ['svc-users', [AUTH_VALIDATE]],
   ['svc-transactions', [AUTH_VALIDATE, 'users/cards.read', 'disputes/read']],
   ['svc-disputes', [AUTH_VALIDATE, 'users/cards.read', 'transactions/read']],
-  ['svc-notifier', ['users/contact.read']],
+  ['svc-notifier', ['users/contact.read', 'disputes/read']],
   ['svc-evidence-intake', ['disputes/evidence.write']],
   ['svc-backoffice', ['disputes/review', 'disputes/resolve', 'users/cards.read']],
 ];

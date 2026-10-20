@@ -307,14 +307,15 @@
       "notes": "Security gate PASS + lows (DB_SSL required with secret, invalid_clock guard, RetentionFailed metric). Erases RESOLVED_*/WITHDRAWN at T+1y as disputes_retention; guard nulls s3_key/rejection_reason. 24 tests."
     },
     "L-07": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "L-03",
         "L-04",
         "L-05",
         "L-06"
-      ]
+      ],
+      "notes": "docker-compose.lambdas.yml: 3 Lambda RIEs (127.0.0.1:58091-58093), driver scan-stub/sqs-poller/ses-sink (sink on 127.0.0.1:55901 for e2e). Base image pinned by digest; intake runs as 65534 under RIE. moto-init adds intake DLQ + notifications redrive. svc-notifier gets disputes/read. Live: withdrawal email reached the sink."
     },
     "E-02a": {
       "status": "todo",

@@ -7,7 +7,7 @@
   },
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "compose:local": "docker compose --env-file local/.env.example -f docker-compose.yml -f docker-compose.services.yml",
+    "compose:local": "docker compose --env-file local/.env.example -f docker-compose.yml -f docker-compose.services.yml -f docker-compose.lambdas.yml",
     "bootstrap:local": "node --env-file=local/.env.example backend/packages/db/bootstrap/main.ts",
     "dev": "pnpm compose:local up -d --wait postgres moto mock-issuer && pnpm bootstrap:local && pnpm compose:local up --build",
     "test": "pnpm -r --if-present --filter \"!@cd/e2e\" test",

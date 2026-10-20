@@ -1,8 +1,8 @@
 # Local stack
 
-Infrastructure only for now (L-01): Postgres 18, moto (S3 + SQS) and the mock OIDC issuer. The service
-containers join the compose file in L-02. Defaults live in `local/.env.example`; copy it to `local/.env`
-and run `docker compose --env-file local/.env up` only if you need to override something.
+Postgres 18, moto (S3 + SQS) and the mock OIDC issuer (L-01); the services (L-02) and the Lambdas (L-07) join as
+compose overrides. Defaults live in `local/.env.example`; copy it to `local/.env` and run
+`docker compose --env-file local/.env up` only if you need to override something.
 
 ```bash
 docker compose up -d --build --wait   # starts everything and waits until healthy
@@ -22,6 +22,33 @@ containers reach each other as `postgres:5432`, `moto:5000`, `mock-issuer:55900`
 
 moto-init (one-shot) creates buckets `cd-evidence-quarantine` and `cd-evidence`, queue `dispute-notifications`
 and its DLQ `dispute-notifications-dlq` (redrive after 5 receives). Credentials are dummies (`test`/`test`), region `af-south-1`.
+
+## Lambdas and the driver (L-07)
+
+`docker-compose.lambdas.yml` is a third override (`-f docker-compose.yml -f docker-compose.services.yml -f docker-compose.lambdas.yml`).
+It runs the three Lambda images under the Lambda RIE and `local/lambda-driver` as three containers (`scan-stub`, `sqs-poller`, `ses-sink`).
+This is emulation: AWS behaviour is proven only in E-03.
+
+| Component                        | Host binding (loopback only) | Notes                                                                           |
+| -------------------------------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| evidence-intake (RIE)            | `127.0.0.1:58091`            | runs as `65534:65534` (Dockerfile `USER`), verified under the RIE               |
+| dispute-notifier (RIE)           | `127.0.0.1:58092`            |                                                                                 |
+| retention-sweeper (RIE)          | `127.0.0.1:58093`            | connects as `disputes_retention`                                                |
+| driver `ses-sink`                | `127.0.0.1:55901`            | only so the host e2e can read `GET /sent`; unauthenticated, keep it on loopback |
+| driver `scan-stub`, `sqs-poller` | none                         | reach the RIEs and moto on the compose network                                  |
+
+No `8081` is ever published. Invoke a function once (the sweeper has no local schedule):
+
+```bash
+curl -s http://127.0.0.1:58093/2015-03-31/functions/function/invocations -d '{}'
+```
+
+The RIE answers 200 even when the handler throws; failure is in the body (`errorType`). Lambda base image
+`public.ecr.aws/lambda/nodejs` is pinned by digest in the three Dockerfiles. Local builds are native (amd64 on most
+dev machines); CI and AWS pass `--platform linux/arm64`.
+
+moto-init also creates `evidence-intake-dlq`, and sets the notifications queue to a 5 s visibility timeout
+(`MOTO_VISIBILITY_TIMEOUT`) with a redrive to `dispute-notifications-dlq` after 5 receives, so a bad message reaches the DLQ in about 25 s.
 
 ## Mock issuer
 
@@ -51,7 +78,7 @@ Cognito-shaped OIDC issuer: RS256 keys generated at start (set `MOCK_ISSUER_PRIV
 | `svc-users`           | confidential  | `auth/validate`                                                                |
 | `svc-transactions`    | confidential  | `auth/validate users/cards.read disputes/read`                                 |
 | `svc-disputes`        | confidential  | `auth/validate users/cards.read transactions/read`                             |
-| `svc-notifier`        | confidential  | `users/contact.read`                                                           |
+| `svc-notifier`        | confidential  | `users/contact.read disputes/read`                                             |
 | `svc-evidence-intake` | confidential  | `disputes/evidence.write`                                                      |
 | `svc-backoffice`      | confidential  | `disputes/review disputes/resolve users/cards.read`                            |
 

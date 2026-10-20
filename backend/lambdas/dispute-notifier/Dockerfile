@@ -2,7 +2,7 @@
 # Build context is the repo root (pnpm catalog + lockfile live there):
 #   docker build --platform linux/arm64 -f backend/lambdas/dispute-notifier/Dockerfile -t cd-dispute-notifier .
 
-# The bundle is plain JS, so it builds on the native platform; only the runtime stage is ARM64.
+# The bundle is plain JS, so it builds on the native platform; only the runtime stage is ARM64 in CI and AWS.
 FROM --platform=$BUILDPLATFORM node:24.22.0-alpine3.24 AS build
 WORKDIR /repo
 RUN corepack enable
@@ -15,6 +15,8 @@ COPY backend/lambdas/dispute-notifier/build.ts backend/lambdas/dispute-notifier/
 COPY backend/lambdas/dispute-notifier/src backend/lambdas/dispute-notifier/src
 RUN pnpm --filter @cd/dispute-notifier build
 
-FROM public.ecr.aws/lambda/nodejs:24
+# Pinned from public.ecr.aws/lambda/nodejs:24 (multi-arch index digest; bump deliberately).
+# Platform follows the build: CI and AWS pass --platform linux/arm64, a local compose build is native.
+FROM public.ecr.aws/lambda/nodejs@sha256:66c547b04b1ec3b0b832816df70d4911d0721b4d29717dd0bd5358876586092e
 COPY --from=build /repo/backend/lambdas/dispute-notifier/dist/ ${LAMBDA_TASK_ROOT}/
 CMD ["index.handler"]
