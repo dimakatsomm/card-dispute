@@ -351,14 +351,16 @@
       "notes": "verify-m3.md. edge_origin_mode=vpc_origin (supported in af-south-1, no extra charge on pay-as-you-go); Cognito per-client fee removed 2025-11-03 ($0.00225/M2M token); all components available (5 confirmed, 5 strong evidence pending first apply); cost ≈$222/mo vs $200 budget."
     },
     "DB-TLS": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "Security gate: vendored RDS global bundle (sha256 pinned, checked at build, 0444), NODE_EXTRA_CA_CERTS in 4 services + sweeper; bundle test asserts all CA, unexpired, af-south-1 root present."
     },
     "DB-BOOT": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "Security gate fix applied: discrete DB_ADMIN_* parts; remote hosts must use sslmode=verify-full (DB_ADMIN_SSL=false / no-verify / disable refused, local hosts exempt); host/port verified after parse; names-only errors. 46 db tests."
     },
     "ACL-TO": {
       "status": "done",

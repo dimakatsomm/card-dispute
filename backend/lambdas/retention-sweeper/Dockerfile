@@ -17,7 +17,9 @@ RUN pnpm --filter @cd/retention-sweeper bundle
 # Pinned from public.ecr.aws/lambda/nodejs:24 (multi-arch index digest; bump deliberately).
 # Platform follows the build: CI and AWS pass --platform linux/arm64, a local compose build is native.
 FROM public.ecr.aws/lambda/nodejs@sha256:66c547b04b1ec3b0b832816df70d4911d0721b4d29717dd0bd5358876586092e
-# Node no longer trusts the RDS CA by default; the Lambda base image ships it here.
-ENV NODE_EXTRA_CA_CERTS=/var/runtime/ca-cert.pem
+# Node no longer trusts the RDS CA by default; the vendored bundle is verified at build (backend/packages/db/certs).
+COPY --chmod=0444 backend/packages/db/certs/rds-global-bundle.pem /etc/ssl/rds/rds-global-bundle.pem
+RUN echo "90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/ssl/rds/rds-global-bundle.pem" | sha256sum -c -
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/rds/rds-global-bundle.pem
 COPY --from=build /repo/backend/lambdas/retention-sweeper/dist/index.mjs ${LAMBDA_TASK_ROOT}/
 CMD ["index.handler"]

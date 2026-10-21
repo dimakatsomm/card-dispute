@@ -18,6 +18,9 @@ COPY backend/auth/migrations/*.sql backend/auth/migrations/
 
 FROM node:24.22.0-alpine3.24 AS runtime
 ENV NODE_ENV=production
+COPY --chmod=0444 backend/packages/db/certs/rds-global-bundle.pem /etc/ssl/rds/rds-global-bundle.pem
+RUN echo "90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/ssl/rds/rds-global-bundle.pem" | sha256sum -c -
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/rds/rds-global-bundle.pem
 # The runtime never installs packages; dropping the bundled package managers removes their CVEs from the scan.
 RUN apk upgrade --no-cache \
  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
