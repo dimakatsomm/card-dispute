@@ -153,7 +153,7 @@ Built to **production patterns**:
 | Latency (dev) | p95 < 500 ms for list endpoints at dev load; 2 s timeout on every service call |
 | Availability (dev) | Single NAT/AZ egress accepted; ECS circuit-breaker rollback on deploy |
 | Auditability | Insert-only status history; actor recorded for every change |
-| Observability | JSON logs with correlation id across HTTP and SQS; X-Ray traces; alarms (§7.5) |
+| Observability | JSON logs with correlation id across HTTP and SQS; alarms (§7.5). X-Ray is dropped (ADR-063) |
 | Accessibility | WCAG 2.1 AA for the web app |
 
 ---
@@ -161,11 +161,11 @@ Built to **production patterns**:
 ## 5. Architecture
 
 ```
-Browser ─► CloudFront https://<id>.cloudfront.net (WAF) ─┬─ /*     ─► ALB (VPC origin) ─► web (nginx SPA)          ECS, ARM64
-                                         └─ /api/* ─HTTPS─► ALB ─► :8080 users | transactions | disputes
-          (CloudFront Function strips /api; ALB accepts CloudFront only)
+Browser ─► CloudFront https://<id>.cloudfront.net (WAF) ─┬─ /*     ─► internal ALB :80 (VPC origin) ─► web (nginx SPA)     ECS, ARM64
+                                         └─ /api/* ───────► internal ALB :80 ─► :8080 users | transactions | disputes
+          (CloudFront Function strips /api; the ALB SG admits only the CloudFront VPC-origin SG)
 Services ⇄ :8081 via ECS Service Connect (service token + scope)
-Lambdas ─► internal ALB ─► :8081
+Lambdas ─► the same internal ALB :8081 listener (SG: Lambdas only) ─► users | disputes :8081
 Aurora PostgreSQL 18 Serverless v2 — schemas auth | users | transactions | disputes (no cross-schema access)
 
 disputes ─(after commit)─► SQS dispute-notifications (+DLQ) ─► dispute-notifier ─► users :8081 contact ─► SES
@@ -173,7 +173,7 @@ client ─presigned PUT─► S3 quarantine ─► GuardDuty scan ─► EventBr
                                                   ├ clean → S3 evidence bucket → disputes :8081 (STORED)
                                                   └ bad   → delete            → disputes :8081 (REJECTED)
 EventBridge (daily) ─► retention-sweeper
-Supporting: Cognito (prefix domain), Secrets Manager, KMS, ECR, CloudWatch, X-Ray. No custom domain, Route 53 or ACM (ADR-046).
+Supporting: Cognito (prefix domain), Secrets Manager, KMS, ECR, CloudWatch, SNS (alarm email). No custom domain, Route 53 or ACM (ADR-046).
 ```
 
 Principles:
@@ -254,9 +254,9 @@ SUBMITTED ──RESOLVE (agent)──► RESOLVED_*   (allowed; agent may skip r
 Terminal states reject everything (`INVALID_TRANSITION`). A row lock + version guard every change. The DB clock is the only clock.
 
 ### 7.3 Security controls
-- **Identity:** Cognito user pool. One confidential client per caller: svc-transactions, svc-disputes, svc-notifier, svc-evidence-intake, svc-backoffice.
+- **Identity:** Cognito user pool. One confidential client per caller: svc-users, svc-transactions, svc-disputes, svc-notifier, svc-evidence-intake (60 min tokens); `spa` (15 min) and a dev-only `e2e` client (ADR-062). No back-office client in AWS (ADR-064).
 - **Network:**
-  - CloudFront → ALB → 8080 only; 8081 only from service SGs and the Lambda SG (via the ALB's 8081 listener).
+  - CloudFront → internal ALB `:80` → 8080 only; 8081 only from service SGs and the two Lambda SGs (via the ALB's `:8081` listener, ADR-059).
   - Aurora private with TLS forced.
   - One NAT.
 - **Data:**
@@ -267,7 +267,7 @@ Terminal states reject everything (`INVALID_TRANSITION`). A row lock + version g
   - Least privilege, no `*`.
   - The disputes task can only *sign* quarantine PUTs.
   - Only evidence-intake reads quarantine.
-- **Edge:** CloudFront HTTPS on its default `*.cloudfront.net` hostname; ALB via CloudFront VPC origin (fallback: CloudFront-only HTTP origin, mock data only); WAF on CloudFront with managed rules + rate limiting (M4: per-user caps on dispute create/evidence).
+- **Edge:** CloudFront HTTPS on its default `*.cloudfront.net` hostname; ALB via CloudFront VPC origin (`edge_origin_mode = vpc_origin`; the CloudFront-only public ALB fallback is not used); base WAF on CloudFront in M3 (CommonRuleSet, KnownBadInputs, IP rate rule, body-size COUNT on `/api/dispute*`); tuning and per-user caps on dispute create/evidence are M4.
 
 ### 7.4 Repository & containers (docs/09)
 ```
@@ -285,7 +285,7 @@ Image rules:
 - One frontend image across envs (runtime `/config.js`).
 
 ### 7.5 Observability
-- pino JSON logs with a correlation id, PII-redacted. X-Ray traces.
+- pino JSON logs with a correlation id, PII-redacted. No X-Ray (dropped, ADR-063).
 - Alarms:
   - 5xx rate
   - p95 latency
@@ -293,7 +293,8 @@ Image rules:
   - `EventPublishFailed`
   - evidence REJECTED spike
   - Aurora ACU at max
-- CloudWatch dashboard per service. 7-day log retention (dev).
+- Alarms publish to the SNS topic `cd-alarms` (email to the owner), created in I-13 with the budget alerts. Each alarm has a runbook entry in docs/11-dev-runbook.md.
+- CloudWatch dashboard `cd-dev`. 7-day log retention (dev).
 
 ### 7.6 CI/CD (docs/09 §4)
 | Pipeline | Trigger paths | PR stage | Main stage |
@@ -301,13 +302,13 @@ Image rules:
 | `svc-auth` · `svc-users` · `svc-transactions` · `svc-disputes` | own folder + `backend/packages` + own OpenAPI + lockfile | lint, typecheck, unit, integration, contract, build, Trivy, SBOM | push ECR → ⏸ **approval** → migrate → ECS rollout (auto-rollback) → smoke |
 | `lambda-evidence-intake` · `lambda-dispute-notifier` · `lambda-retention-sweeper` | own folder + packages + lockfile | same | push ECR → ⏸ approval → update function → publish version → alias `live` |
 | `web` | `frontend/**` + `docs/openapi/**` | lint, typecheck, test, build, Trivy | push ECR → ⏸ approval → ECS rollout → smoke |
-| `infra` | `infra/**` | fmt, validate, tflint, checkov, plan (PR comment) | plan → ⏸ approval → apply that plan |
+| `infra` | `infra/**` | fmt, validate, `terraform test`, tflint, checkov (offline, no AWS) | plan on main (stored in S3, never an artifact, ADR-060) → ⏸ approval → apply that stored plan |
 | `contract` | `docs/openapi/**` | redocly lint + breaking-change diff | — |
 | `e2e` | nightly + manual | API e2e + Playwright on the compose stack | — |
 
 How the pipelines run:
 - GitHub OIDC with one role per pipeline.
-- Reusable `_build.yml` / `_deploy.yml` workflows.
+- Reusable `_build.yml` (PR verification) and, in CI-02, `_publish.yml` / `_deploy-ecs.yml` / `_deploy-lambda.yml`.
 - Approval through GitHub Environment `dev` (required reviewers; plan check V-04).
 - Terraform ignores image versions, so pipelines own releases.
 
@@ -375,19 +376,21 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | I-01 network (2 AZs, 1 NAT, S3 gateway endpoint) · I-02 KMS + security groups | infra-terraform |
 | I-03 Cognito (pool, hosted UI, resource server + scopes, customer-facing app clients) | infra-terraform |
 | I-04 Aurora PG18 Serverless v2 + secrets + bootstrap roles | infra-terraform |
-| I-05 ECR repos ×8 (lifecycle keep 10, immutable tags) · I-06 ECS cluster + Service Connect + `ecs-service` module ×5 | infra-terraform |
-| I-07 CloudFront (`/api/*` + default), strip function, WAF · I-08 ALB (HTTPS origin, CloudFront-only; internal listener 8081 for Lambdas) | infra-terraform |
-| I-09 SQS + DLQ + alarms · I-10 quarantine/evidence buckets + GuardDuty + EventBridge | infra-terraform |
-| I-11 container-image Lambdas ×3 + schedules · I-12 SES email identity (dimakatsomm@icloud.com, sandbox) · I-13 observability (dashboards, alarms) | infra-terraform |
-| CI-02 deploy stages: approvals, migrations task, rollout/rollback, Lambda alias, infra apply | implementer |
-| X-01 customer provisioning tool (Cognito user + app_user + auth_identity) for seed customers | implementer |
+| I-05 ECR repos ×9 (the nine images incl. `dev-tools`; lifecycle keep 10, immutable tags) · I-06 ECS cluster + Service Connect + `ecs-service` module ×5 | infra-terraform |
+| I-07 CloudFront (`/api/*` + default), strip function, **base WAF (in M3)** · I-08 one internal ALB (`:80` for the CloudFront VPC origin, `:8081` for Lambdas, ADR-059) | infra-terraform |
+| I-09 SQS + DLQ · I-10 quarantine/evidence buckets + GuardDuty + EventBridge | infra-terraform |
+| I-11 container-image Lambdas ×3 + schedules · I-12 SES email identity (dimakatsomm@icloud.com, sandbox) · I-13 observability: **SNS alarm channel**, dashboard, alarms, budget | infra-terraform |
+| I-14 CI roles · I-15 dev-tools task definitions (db-bootstrap, dev-seed, net-probe; ADR-061/067) · I-WIRE wire `envs/dev` | infra-terraform |
+| CI-02 deploy stages: approvals, migrations task, rollout/rollback, Lambda alias, infra apply on main only (ADR-060), dev-tools, e2e-dev and oidc-negative workflows | implementer |
+| X-01 dev seeding + Cognito provisioning (users A–D, `auth_identity.cognito_sub`) · DOC-M3 docs + docs/11-dev-runbook.md | implementer |
+| Owner tasks OWN-1…OWN-7 (AWS account, GitHub settings, bootstrap apply, SES/SNS clicks, approvals): docs/11-dev-runbook.md | owner |
 | E-03 e2e + Playwright against dev; evidence controls on real S3; first: confirm the Lambda Node 24 image in af-south-1 | test-engineer |
 
 ### M4 — Hardening
 | Task |
 |---|
-| H-01 WAF tuning + per-user rate limits (dispute create, evidence, review queue) |
-| H-02 Alarms → notification channel, runbooks per alarm |
+| H-01 WAF tuning (the base WAF ships in M3) + per-user rate limits (dispute create, evidence, review queue) |
+| H-02 Runbooks per alarm (the SNS alarm channel ships in I-13; first drafts are in docs/11-dev-runbook.md) |
 | H-03 Full security review + threat-model refresh + dependency audit |
 | H-04 Accessibility pass (WCAG 2.1 AA) on the web app |
 | Deferred beyond the first release: row-level security, load testing, multi-env, DR, back-office UI |
@@ -398,24 +401,28 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 |---|
 | P-04 `GET /review-queue`, `PUT …/review`, `PUT …/resolution` (AGENT only, expectedVersion) 🔒 |
 | B-01 Agent identity (Cognito `agents` group) + access path (Q-17) 🔒 |
-| Terraform: `svc-backoffice` client + `disputes/review`, `disputes/resolve` grants |
+| Terraform: `svc-backoffice` client + `disputes/review`, `disputes/resolve` scopes and grants (not created in AWS in M3, ADR-064) |
 | Optional back-office UI |
 
 ---
 
-## 9. Cost (dev, af-south-1, monthly, lower bound)
+## 9. Cost (dev, af-south-1, monthly, corrected in V-M3)
 | Item | $ |
 |---|---|
-| Aurora Serverless v2 @ 0.5 ACU + storage | 64 |
-| NAT gateway + IP + 10 GB | 46 |
+| Aurora Serverless v2 @ 0.5 ACU + storage + I/O | 63 |
+| NAT gateway + IP + data | 46 |
 | Fargate ARM: 4 services + web (5 × 0.25 vCPU / 0.5 GB) | 49 |
-| ALB (CloudFront origin + 8081 listener for Lambdas) | ~36 |
-| CloudFront (low dev traffic; price V-06) | ~1–5 |
-| WAF | 7 |
-| Cognito M2M tokens | 6 |
-| Secrets, KMS, CloudWatch logs | ~8 |
-| ECR | ~2 |
-| **Total** | **≈ $225** + GuardDuty S3 scanning (price V-03) + data transfer + GitHub plan/minutes (V-04) |
+| Internal ALB (CloudFront VPC origin + `:8081` for Lambdas) | 25 |
+| CloudFront | 0.5 |
+| WAF | 9 |
+| Cognito M2M (60 min service tokens) | 7 |
+| Secrets Manager (19) | 7.6 |
+| KMS (3 keys) | 3.3 |
+| CloudWatch | 6.5 |
+| ECR, S3, SQS, SES, GuardDuty, Scheduler, Reachability Analyzer | 5 |
+| **Total** | **≈ $222** (range 210–235), plus GitHub minutes (free on a public repo) |
+
+Budget is $200 (ADR-063), so a 24x7 run is about $22 over; the forecast-100% and actual-80% alerts are expected. Park levers: ECS `desired_count` 0 and Aurora `aurora_min_acu = 0` (docs/06 "Budget and the park procedure"; steps in docs/11). Largest risk: the Service Connect proxy forcing 0.5 vCPU / 1 GB on four services (+$39, ≈ $261). Full table and scenarios: docs/06.
 
 ---
 
@@ -423,7 +430,7 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | Id | Risk | Mitigation |
 |---|---|---|
 | R-1 | GuardDuty S3 malware scanning not in af-south-1 | V-03 first. Fallback: magic-byte/checksum checks only, files flagged "not scanned"; owner decides |
-| R-2 | Lambda Node 24 container image issues in af-south-1 | First M3 task proves it |
+| R-2 | Lambda Node 24 container image issues in af-south-1 | Runbook phase B proves it |
 | R-3 | Best-effort events lose an email | Timeline is the truth; `EventPublishFailed` alarm; reinstate the outbox if emails become legal notices |
 | R-4 | GitHub required reviewers need a paid plan on private repos | V-04. Fallback: a public repo, or an approval job gated on a protected-branch PR |
 | R-5 | moto fidelity for S3 policies | Evidence controls re-tested on real S3 (E-03) |
@@ -456,6 +463,6 @@ All ADRs, with superseded ones marked, are in `orchestration/state.json`. The on
 | Q-17 | Back-office access path — **deferred** with back-office | deferred | — |
 | V-03 | Presigned PUT can sign `x-amz-checksum-sha256`; GuardDuty S3 in af-south-1 + price; presigner version | verification | before P-01 |
 | V-04 | GitHub required reviewers on a private repo (plan?); Actions minutes; Lambda Node 24 base image; frontend library versions | verification | before CI-01 / W-01 |
-| V-06 | CloudFront VPC origins in af-south-1 (optional: would make the ALB internal) + CloudFront/WAF pricing | verification | M3 |
+| V-06 | CloudFront VPC origins in af-south-1 + pricing: **closed by V-M3**, `edge_origin_mode = vpc_origin`, no extra charge | closed | — |
 
 The project folder is not yet a git repository. On "go M1": `git init` → initial commit → V-03/V-04/V-05 → wave 0.

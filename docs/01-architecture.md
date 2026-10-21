@@ -32,7 +32,7 @@ Evidence (ADR-028, presigned — disputes never touches file bytes):
            STORED   → copy to S3 evidence bucket at s3Key (private, SSE-KMS, versioned) + delete from quarantine
            REJECTED → delete from quarantine (also when the intake claimed STORED but disputes found a mismatch)
 
-Supporting: Cognito, Secrets Manager (DB creds), KMS (data + S3 keys), ECR, CloudWatch Logs/Alarms, X-Ray
+Supporting: Cognito, Secrets Manager (DB creds), KMS (data + S3 keys), ECR, CloudWatch Logs/Alarms/Dashboard, SNS alerts, AWS Budgets (X-Ray dropped, ADR-063)
 ```
 Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (owner, Q-14 → ADR-033): new disputes wait in SUBMITTED until an agent picks them up from the review queue.
 

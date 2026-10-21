@@ -42,7 +42,7 @@ Owner decisions 2026-10-11:
 ├── infra/
 │   └── terraform/                   bootstrap/, modules/*, envs/dev
 ├── docs/                            specs; docs/openapi/*.yaml is the API contract
-├── local/                           mock-issuer/, seed/, moto init
+├── local/                           mock-issuer/, seed/ (also the dev-tools image source), moto init
 ├── docker-compose.yml               whole stack locally
 ├── .github/workflows/               one workflow per deployable + reusable templates
 ├── pnpm-workspace.yaml              backend/*, backend/lambdas/*, backend/packages/*, frontend
@@ -62,10 +62,13 @@ Rules:
 
 | Artifact | Base image (versions to verify) | Notes |
 |---|---|---|
-| 4 services | build: `node:24-alpine`; runtime: distroless Node 24 or `node:24-alpine`, ARM64 | multi-stage; `pnpm install --frozen-lockfile --prod --filter @cd/<svc>...` (workspace packages stay symlinks outside node_modules so Node can strip their TS types — `pnpm deploy` breaks this, ADR-052); non-root; read-only root FS; ports 8080 + 8081; `HEALTHCHECK` → `/health` |
+| 4 services | build: `node:24-alpine`; runtime: distroless Node 24 or `node:24-alpine`, ARM64 | multi-stage; `pnpm install --frozen-lockfile --prod --filter @cd/<svc>...` (workspace packages stay symlinks outside node_modules so Node can strip their TS types — `pnpm deploy` breaks this, ADR-052); non-root; read-only root FS; ports 8080 + 8081; `HEALTHCHECK` → `/health` (liveness only; the ALB target group checks `/ready` with lenient thresholds, so a paused DB drains traffic instead of restarting healthy tasks, ADR-066) |
 | migrations | same image as the service | entrypoint `migrate`; run as a one-off ECS task before rollout |
 | frontend | build: `node:24-alpine`; runtime: `nginxinc/nginx-unprivileged` | static SPA; runtime config through `/config.js` generated at container start (API URL, Cognito ids), so **one image is promoted across envs**; strict CSP; SPA fallback |
 | 3 Lambdas | `public.ecr.aws/lambda/nodejs:24` (ARM64) | container-image Lambdas (owner choice); one ECR repo each; handler bundled with esbuild |
+| dev-tools | built from `local/seed` (ARM64, non-root) | one image, ECR repo `cd-dev-tools`, three one-shot ECS tasks: `db-bootstrap`, `dev-seed`, `net-probe` (ADR-061). Not a service; run by the dev-tools pipeline |
+
+Nine ECR repos (`cd-<key>`): `svc-auth`, `svc-users`, `svc-transactions`, `svc-disputes`, `web`, `lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`, `dev-tools`.
 
 Standard service env (every service, ADR-053): `PUBLIC_PORT`, `SERVICE_PORT`, `LOG_LEVEL`, `DATABASE_URL` (app role), `DB_POOL_MAX`, `MIGRATOR_DATABASE_URL` (migration task only), `AUTH_URL`, `TOKEN_URL`, `SERVICE_CLIENT_ID`, `SERVICE_CLIENT_SECRET`; plus per-service extras documented in each service README.
 
@@ -95,14 +98,16 @@ The owner dropped the custom domain, so AWS default hostnames are used:
 **Routing**
 | Path | CloudFront behaviour | Target |
 |---|---|---|
-| `/api/*` | CloudFront Function strips `/api`; no cache; forwards `Authorization`, `If-Match`, `x-correlation-id` | ALB → users / transactions / disputes **:8080** |
-| `/*` | static caching; SPA fallback in nginx | ALB → web |
+| `/api/*` | CloudFront Function strips `/api`; no cache; forwards `Authorization`, `If-Match`, `x-correlation-id` | internal ALB `:80` (origin header `x-cd-route: api`) → users / transactions / disputes **:8080** |
+| `/*` | static caching (`/config.js` no-store); SPA fallback in nginx | internal ALB `:80` → web |
+
+There is **one** internal ALB (ADR-059). Its `:80` listener is the CloudFront origin; its `:8081` listener (default 404) lets the evidence-intake and dispute-notifier Lambdas reach the service routes of users and disputes, and its SG admits only those two Lambda SGs.
 
 - **Same origin:** no CORS between app and API. S3 quarantine CORS allows `PUT` only from the distribution hostname (a Terraform output fed into the CORS rule and the frontend config).
 - **CloudFront → ALB:**
-  - **Preferred:** a CloudFront **VPC origin**. The ALB is internal and traffic stays on the AWS network (V-06: confirm availability in af-south-1).
-  - **Fallback:** a public ALB with an HTTP listener that accepts only the CloudFront origin-facing managed prefix list plus a secret origin header. That hop is unencrypted, so it is acceptable **only with mock data**. Before real data: a VPC origin, or a domain + ACM certificate.
-- **WAF** on CloudFront (scope CLOUDFRONT, us-east-1 provider alias).
+  - **Chosen (V-M3): a CloudFront VPC origin**, `edge_origin_mode = vpc_origin`. The ALB is internal, in private subnets. Apply order: ALB active, then the VPC origin (up to 15 min), then the ALB SG ingress from `CloudFront-VPCOrigins-Service-SG`. The hop is plain HTTP inside the VPC, acceptable **only with mock data** (ADR-059).
+  - **Fallback (not used):** `public_alb`, a public ALB that accepts only the CloudFront origin-facing prefix list plus a secret origin header (about +$7/month).
+- **WAF** on CloudFront (scope CLOUDFRONT, us-east-1 provider alias) is **in M3**: CommonRuleSet, KnownBadInputs, an IP rate rule and a body-size COUNT rule on `/api/dispute*`. Tuning is M4.
 - **Cognito:** free prefix domain. Callback/logout URL = the distribution hostname (Terraform output).
 - **Email:** SES **email identity** `dimakatsomm@icloud.com` as sender, in **sandbox**, so it delivers only to verified recipients (verify the same address as the test inbox). Risk R-6: SES cannot DKIM-sign for icloud.com, so DMARC alignment fails and mail may be spam-foldered (V-05). A domain identity with DKIM is the fix before real users.
 
@@ -115,14 +120,16 @@ The owner dropped the custom domain, so AWS default hostnames are used:
 | `svc-users.yml` | same pattern for users | ECS `users` |
 | `svc-transactions.yml` | same pattern | ECS `transactions` |
 | `svc-disputes.yml` | same pattern | ECS `disputes` |
-| `lambda-<name>.yml` ×3 | `backend/lambdas/<name>/**`, `backend/packages/**`, `pnpm-lock.yaml` | Lambda `<name>` (image) |
+| `lambda-<name>.yml` ×3 (`lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`) | `backend/lambdas/<name>/**`, `backend/packages/**`, `pnpm-lock.yaml` | Lambda `<name>` (image) |
 | `web.yml` | `frontend/**`, `docs/openapi/**`, `pnpm-lock.yaml` | ECS `web` |
-| `infra.yml` | `infra/**` | Terraform `dev` |
+| `infra.yml` | `infra/**` | Terraform `dev`; `workflow_dispatch` takes `lambda_image_uris` (CI-02) |
+| `dev-tools.yml` (CI-02) | manual dispatch | one-shot ECS tasks `db-bootstrap`, `dev-seed`, `net-probe` on the `dev-tools` image (environment `dev`) |
+| `e2e-dev.yml` (CI-02) | manual dispatch | — (API + UI e2e against the deployed `dev`) |
+| `oidc-negative.yml` (CI-02) | PR + manual | — (a PR job must get AccessDenied from every role) |
 | `contract.yml` | `docs/openapi/**` | — (OpenAPI lint + breaking-change diff vs `main`) |
 | `e2e.yml` | nightly + manual | — (full compose stack, API e2e + Playwright UI) |
 
-All service/Lambda/web workflows call two **reusable** workflows (`_build.yml`, `_deploy.yml`), so every
-pipeline behaves the same and is defined once.
+All service/Lambda/web workflows call **reusable** workflows, so every pipeline behaves the same and is defined once: `_build.yml` today (PR verification), and in CI-02 `_publish.yml` (build, Trivy, SBOM, push `:<git-sha>` on main), `_deploy-ecs.yml` and `_deploy-lambda.yml`. A deploy can be started with `workflow_dispatch` and an existing image `sha`, which is how a config-only Terraform change is rolled out (docs/11).
 
 ### 4.2 Stages
 ```
@@ -140,15 +147,15 @@ main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Enviro
 ```
 - **Manual approval on every deploy** (owner): GitHub Environment `dev` with required reviewers. The deploy job
   pauses until a reviewer approves. ⚠ Verify: required reviewers on **private** repos may need a paid GitHub plan.
-- `infra.yml`: on PR → `fmt -check`, `validate`, `tflint`, `checkov`, `plan` posted as a PR comment.
-  On main → `plan -out` → ⏸ approval → `apply` of that saved plan.
+- `infra.yml`: on PR → `fmt -check`, `validate`, `terraform test`, `tflint`, `checkov`. **PRs have no AWS access and post no plan** (ADR-060): a PR job can never present the `main` or `environment:dev` OIDC sub.
+  On main → `plan` with the read-only `gha-infra-plan` role → the plan is written to the encrypted state bucket as `plans/<git-sha>` (never a GitHub artifact; output masked) → ⏸ approval (environment `dev`) → `gha-infra-apply` applies that stored plan. The plan job declares no environment, so it reads repository variables, while the apply job reads Environment variables (docs/11 step 2).
 - Concurrency: one deploy per workflow at a time (`concurrency: deploy-<name>`); newer runs queue.
 - Shared-package changes rebuild every dependent. Each deploy is still approved per service.
 
 ### 4.3 Terraform ↔ pipelines ownership
-- Terraform owns infrastructure: cluster, services, ALB, IAM, ECR repos, Lambda functions with an initial image.
-- Pipelines own **image versions**: Terraform sets `lifecycle { ignore_changes = [task_definition] }` on ECS
-  services and `ignore_changes = [image_uri]` on Lambdas, so apply never rolls back a deployed version.
+- Terraform owns infrastructure: cluster, services (created at `desired_count` 0), ALB, IAM, ECR repos, Lambdas. Lambda **roles and log groups** exist from the first apply; the **functions** are created only when their key is in `lambda_image_uris`, after the image is published (ADR-066).
+- Pipelines own **image versions** and the running count: Terraform sets `lifecycle { ignore_changes = [task_definition, desired_count] }` on ECS
+  services and `ignore_changes = [image_uri]` on Lambdas, so apply never rolls back a deployed version. Consequence: a **config-only Terraform change** (environment variables, secrets, SG) updates the task definition Terraform manages but does not reach running tasks until the service is redeployed (dispatch the deploy workflow with the current sha, docs/11).
 - Each pipeline has its own OIDC role, scoped to **its** ECR repo and **its** ECS service / Lambda (least privilege).
 
 ### 4.4 Database migrations
@@ -160,7 +167,7 @@ main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Enviro
 
 ## 5. Cost delta (dev)
 - Frontend task (0.25 vCPU / 0.5 GB ARM): ≈ $9.7/month (same unit cost as the services).
-- ECR storage for ~9 repos with lifecycle "keep last 10": ~$1–2/month.
+- ECR storage for the 9 repos (incl. `dev-tools`) with lifecycle "keep last 10": ~$1–2/month.
 - GitHub Actions minutes: depends on the plan. ⚠ To verify.
 
 ---
@@ -175,12 +182,12 @@ Public-repo hardening (all mandatory, CI-01/CI-02 acceptance):
 - **No secrets in git, ever**: GitHub secret scanning + **push protection** on; a pre-commit/CI secret scan (e.g. gitleaks — version to verify) runs on every PR.
 - **Fork PRs**: workflows use `pull_request` (never `pull_request_target` with a checkout of PR code). Fork runs get no secrets and no OIDC.
   "Require approval for all outside collaborators" is set for Actions.
-- **OIDC trust**: every AWS deploy role's trust policy pins `token.actions.githubusercontent.com:sub` to
-  `repo:<owner>/<repo>:environment:dev` (deploy) or `repo:<owner>/<repo>:ref:refs/heads/main` (build/push). Never `repo:<owner>/<repo>:*`.
+- **OIDC trust**: every AWS role's trust policy pins `token.actions.githubusercontent.com:sub` to
+  `repo:<owner>/<repo>:environment:dev` (deploy, infra apply, tools, e2e) or `repo:<owner>/<repo>:ref:refs/heads/main` (build/push, infra plan), with audience `sts.amazonaws.com`. Never `repo:<owner>/<repo>:*`. A PR job without an environment presents `repo:<owner>/<repo>:pull_request` and is refused everywhere.
 - **Workflow permissions**: default `contents: read`; `id-token: write` only on jobs that assume AWS roles; all third-party actions pinned to a full commit SHA.
-- **Branch protection on `main`** (free on public repos): PR required, status checks required, no force-push.
-- **Environment `dev`**: required reviewer = `@dimakatsomm`; deployment branches = `main` only.
-- **CODEOWNERS**: `@dimakatsomm` owns `.github/`, gitleaks config, `tools/`, lint/workspace config and `docs/openapi/`; branch protection requires code-owner review.
+- **Branch protection on `main`** (free on public repos): PR required, `ci-gate` status check required, **0 required approvals**, admin bypass, no force-push (ADR-063).
+- **Environment `dev`**: required reviewer = `@dimakatsomm`; **prevent self-review OFF** (the owner is the only approver of their own deploys); deployment branches = `main` only and never `refs/pull/*/merge` (V-M3 10c: otherwise a PR job could present the `environment:dev` sub).
+- **CODEOWNERS**: `@dimakatsomm` owns `.github/`, gitleaks config, `tools/`, lint/workspace config and `docs/openapi/`. Review is informational while required approvals are 0.
 - **Data**: seed data is fake (`example.com`, synthetic names). The owner email appears in the docs by owner choice.
 
 ## 7. Build notes from verification (verify-claims-02)
