@@ -450,18 +450,20 @@
       ]
     },
     "I-05": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "9 immutable, scanned, KMS repos; lifecycle untagged 1 d / keep 10; Lambda pull policy source-ARN scoped. 3 tftest runs; checkov/tfsec clean."
     },
     "I-06a": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "cd-cluster (Fargate only, Container Insights off), cd.internal namespace as Service Connect default."
     },
     "I-06b": {
       "status": "todo",
@@ -966,7 +968,10 @@
     "M3 infra (from L-03 gate): default event bus must reject aws.-prefixed PutEvents; intake Lambda resource policy allows only events.amazonaws.com with the rule SourceArn; quarantine bucket policy denies GetObject unless tagged NO_THREATS_FOUND and must not exempt the intake role; client secret stored as raw string.",
     "tests/ui: card helper now waits for rows and pages; e2e and UI share user A data, which never resets (disputes are permanent) — reseed occasionally on long-lived local stacks.",
     "ACL-TO follow-up: pass the in-scope deadline signal into getToken({ signal }) at disputes service-client, transactions upstream (UpstreamDeps.getToken type), notifier service-client and intake disputes-client; until then token fetches are bounded by the 5 s provider default.",
-    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch."
+    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch.",
+    "Contract deltas for modules/README.md before I-WIRE: messaging gains evidence_intake_role_arns, retention_scheduler_role_arns, redrive_operator_arns (list(string)); notifier_timeout_seconds default 30 (visibility 180 s); lambda-fn must output the sweeper Scheduler execution role ARN; sending roles need kms:GenerateDataKey/Decrypt on cd-data.",
+    "Contract deltas (cont.): cognito gains deletion_protection, domain_suffix (+random provider); aurora gains engine_version (18.3), skip_final_snapshot, log_retention_days, logs_kms_key_arn, output cluster_resource_id, deletion_protection default true; ecs-service gains desired_count, autoscaling_min/max/cpu_target; container health /health, ALB TG health /ready lenient.",
+    "W-08 (frontend, M3): web CSP connect-src must include the Cognito cognito-idp.af-south-1.amazonaws.com origin (discovery/JWKS) in addition to OIDC_TOKEN_ORIGIN (hosted UI); logout_uri must equal ${web_origin}/ exactly."
   ],
   "peerReviews": [
     {
