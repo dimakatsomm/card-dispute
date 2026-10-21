@@ -515,11 +515,12 @@
       ]
     },
     "I-13": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "SNS cd-alarms (KMS), 20 alarms incl. DLQs, Lambda errors/throttles, EMF metrics (EventPublishFailed via Metrics Insights over all eventType), ALB 5xx/p95/unhealthy, Aurora max ACU; budget $200 forecast 100 / actual 80,100; dashboard cd-dev. Needs cd-data key statement for budgets.amazonaws.com (I-02 follow-up). Output alarm_arns added."
     },
     "I-14": {
       "status": "todo",
@@ -954,6 +955,11 @@
       "id": "ADR-065",
       "date": "2026-10-21",
       "text": "From V-M3: edge_origin_mode = vpc_origin. svc-* Cognito access tokens valid 60 min (cost); spa/e2e 15 min. ECS task size is a per-service variable (default 0.25 vCPU / 0.5 GB); Service Connect proxy headroom is validated under load before resizing (+≈$39 if all four need 0.5/1). A documented park procedure (services desired_count 0, Aurora min ACU 0) is the lever to stay under the $200 budget. VPC origin ordering: ALB active → VPC origin → ALB SG ingress from CloudFront-VPCOrigins-Service-SG (lookup method to settle in I-07). OWN-3: Environment dev deployment branches main only, never refs/pull/*."
+    },
+    {
+      "id": "ADR-066",
+      "date": "2026-10-21",
+      "text": "Lambda IAM roles, log groups and the sweeper scheduler role are created in phase A regardless of lambda_image_uris; only function-level resources wait for images. Queue and bucket policies can then name real role ARNs from the first apply. ECS container health = /health (liveness); ALB target health = /ready with lenient thresholds."
     }
   ],
   "openQuestions": [
@@ -971,7 +977,8 @@
     "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch.",
     "Contract deltas for modules/README.md before I-WIRE: messaging gains evidence_intake_role_arns, retention_scheduler_role_arns, redrive_operator_arns (list(string)); notifier_timeout_seconds default 30 (visibility 180 s); lambda-fn must output the sweeper Scheduler execution role ARN; sending roles need kms:GenerateDataKey/Decrypt on cd-data.",
     "Contract deltas (cont.): cognito gains deletion_protection, domain_suffix (+random provider); aurora gains engine_version (18.3), skip_final_snapshot, log_retention_days, logs_kms_key_arn, output cluster_resource_id, deletion_protection default true; ecs-service gains desired_count, autoscaling_min/max/cpu_target; container health /health, ALB TG health /ready lenient.",
-    "W-08 (frontend, M3): web CSP connect-src must include the Cognito cognito-idp.af-south-1.amazonaws.com origin (discovery/JWKS) in addition to OIDC_TOKEN_ORIGIN (hosted UI); logout_uri must equal ${web_origin}/ exactly."
+    "W-08 (frontend, M3): web CSP connect-src must include the Cognito cognito-idp.af-south-1.amazonaws.com origin (discovery/JWKS) in addition to OIDC_TOKEN_ORIGIN (hosted UI); logout_uri must equal ${web_origin}/ exactly.",
+    "Contract deltas (cont.): <stmt> type Condition = optional(map(map(list(string)))) (mixed shapes); lambda-fn extra input schedule_max_retries; alb extra input deletion_protection; I-WIRE: sweeper async_max_retries = 0 (scheduler already retries), never pass AWS_REGION to Lambdas; intake role needs s3:GetObject quarantine, PutObject evidence/*, kms Decrypt/GenerateDataKey cd-evidence; apply role may need kms:CreateGrant on cd-data for Lambda env encryption."
   ],
   "peerReviews": [
     {
