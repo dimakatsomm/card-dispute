@@ -345,9 +345,10 @@
       "notes": "Catalog AWS SDK clients 3.1146.0 (cognito-idp, ec2, ecs, cloudwatch, sts); @cd/e2e-aws skeleton (test:aws, excluded from root test); seed gains cognito + secrets-manager."
     },
     "V-M3": {
-      "status": "todo",
+      "status": "done",
       "agent": "orchestrator",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "verify-m3.md. edge_origin_mode=vpc_origin (supported in af-south-1, no extra charge on pay-as-you-go); Cognito per-client fee removed 2025-11-03 ($0.00225/M2M token); all components available (5 confirmed, 5 strong evidence pending first apply); cost ≈$222/mo vs $200 budget."
     },
     "DB-TLS": {
       "status": "todo",
@@ -943,10 +944,14 @@
       "id": "ADR-064",
       "date": "2026-10-21",
       "text": "Cognito clients for deferred back office (svc-backoffice, agents group, disputes/review|resolve) are not created in AWS; the mock-issuer keeps svc-backoffice for local seed/back-office tests and the I-03t parity test excludes it by an explicit deferred-clients list."
+    },
+    {
+      "id": "ADR-065",
+      "date": "2026-10-21",
+      "text": "From V-M3: edge_origin_mode = vpc_origin. svc-* Cognito access tokens valid 60 min (cost); spa/e2e 15 min. ECS task size is a per-service variable (default 0.25 vCPU / 0.5 GB); Service Connect proxy headroom is validated under load before resizing (+≈$39 if all four need 0.5/1). A documented park procedure (services desired_count 0, Aurora min ACU 0) is the lever to stay under the $200 budget. VPC origin ordering: ALB active → VPC origin → ALB SG ingress from CloudFront-VPCOrigins-Service-SG (lookup method to settle in I-07). OWN-3: Environment dev deployment branches main only, never refs/pull/*."
     }
   ],
   "openQuestions": [
-    "V-06: Verify CloudFront VPC origins in af-south-1 (optional — would make the ALB internal) and CloudFront/WAF/Route 53 pricing.",
     "V-08: Confirm against real S3 in dev that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",
     "R-9: vitest 5.0.5 fails to start on Node 24.4.1 (ERR_PACKAGE_IMPORT_NOT_DEFINED #module-evaluator) though engines say ^24.0.0; works on 26.3.1. Check with latest Node 24 LTS (24.21.x) in CI-01; if it fails there too, pin vitest lower.",
     "V-09: Verify whether Cognito client_credentials access tokens carry `sub` (= client_id) — A-01 classifies by client allow-list either way; confirm before M3.",
