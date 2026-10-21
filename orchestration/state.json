@@ -414,11 +414,12 @@
       ]
     },
     "I-01": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "VPC 2 AZs, 1 NAT, S3 gateway endpoint, no interface endpoints, empty default SG, optional flow logs. 9 tftest runs; checkov/tfsec clean with 2 justified inline skips."
     },
     "I-02": {
       "status": "todo",
