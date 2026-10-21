@@ -366,9 +366,10 @@
       "notes": "Security gate PASS. Token fetch bounded by provider timeout (default 5 s), inflight cleared on timeout, caller signal only releases that caller, validate path threads its 2 s signal. 72 tests."
     },
     "I-ENV": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "aws ~>6.67.0, random ~>3.9.1, S3 backend use_lockfile; variables with validations (github_repo placeholder rejected until OWN-3); modules/README.md interface contract for 17 modules. Rulings: edge owns ALB :80 ingress; alb generates fallback origin secret; ecs-cluster creates cd.internal namespace; all DLQs in messaging; ci-roles derive Lambda ARNs by naming. I-WIRE owns .terraform.lock.hcl (multi-platform lock)."
     },
     "OWN-1": {
       "status": "todo",
@@ -937,6 +938,11 @@
       "id": "ADR-063",
       "date": "2026-10-20",
       "text": "M3 owner rulings: managed NAT gateway; budget $200/month (alerts forecast 100%, actual 80/100%); if CloudFront VPC origins unavailable use a CloudFront-only public ALB with secret header (mock data only); CI logs mask account id and role ARNs; owner email stays public (O-02 closed); erased_at deferred to M4 (R-12); main branch protection with 0 approvals and admin bypass. Base WAF in M3, tuning M4; SNS alarm channel in I-13; X-Ray dropped."
+    },
+    {
+      "id": "ADR-064",
+      "date": "2026-10-21",
+      "text": "Cognito clients for deferred back office (svc-backoffice, agents group, disputes/review|resolve) are not created in AWS; the mock-issuer keeps svc-backoffice for local seed/back-office tests and the I-03t parity test excludes it by an explicit deferred-clients list."
     }
   ],
   "openQuestions": [
