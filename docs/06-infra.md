@@ -38,6 +38,7 @@ infra/terraform/
 | ADR-064 | No back-office Cognito clients or scopes in AWS |
 | ADR-065 | `edge_origin_mode = vpc_origin`; `svc-*` tokens 60 min, spa/e2e 15 min; task size per service (default 0.25 vCPU / 0.5 GB); park procedure; GitHub Environment `dev` deployment branches `main` only |
 | ADR-066 | Lambda roles, log groups and the sweeper scheduler role exist in phase A; only function-level resources wait for images. Container health check `/health`; ALB target health `/ready` with lenient thresholds |
+| ADR-068 | CloudFront on the default `*.cloudfront.net` certificate (no custom domain, ADR-046) forces viewer TLS minimum `TLSv1`; accepted because dev holds mock data only. A domain + ACM certificate (us-east-1) enabling `TLSv1.2_2021` and HTTPS on the internal hop are required before real data. WAF label rule blocks oversize bodies outside `/api/dispute*` (+$1/month). `PriceClass_All` |
 
 Tracing: X-Ray is dropped (ADR-063). Correlation ids in structured logs are the tracing story; Lambda tracing is PassThrough.
 

@@ -301,6 +301,25 @@ aws rds describe-db-clusters --query 'DBClusters[].[DBClusterIdentifier,Status,S
 
 All five services exist with `desiredCount` 0. Aurora is `available` with no application roles yet (step 7).
 
+### First apply checks
+
+Several behaviours could only be assumed when the modules were written. On the first real apply, check each one;
+paths are under `infra/terraform/`.
+
+| Check | What to look for | If it fails, change |
+|---|---|---|
+| VPC-origin SG | `aws ec2 describe-security-groups --filters Name=group-name,Values=CloudFront-VPCOrigins-Service-SG` returns a group once the VPC origin exists | `modules/edge` (SG lookup and ingress rule); re-apply after the origin is `Deployed` |
+| GuardDuty malware plan | The malware-protection plan for the quarantine bucket is created (OWN-5 covers a missing detector) | `bootstrap/apply_policies.tf` (guardduty actions); `bootstrap/boundary.tf` if the plan's role is refused |
+| Aurora PG 18.3 | `aws rds describe-orderable-db-instance-options --engine aurora-postgresql --engine-version 18.3 --db-instance-class db.serverless --region af-south-1` is non-empty | `modules/aurora` (engine version); pick the nearest orderable 18.x |
+| Performance Insights key | The cluster accepts the `cd-data` key for Performance Insights | `modules/aurora` (`performance_insights_kms_key_id`); `bootstrap/apply_policies.tf` if `AccessDenied` on `pi:*` or `kms:` |
+| `wait function-updated` | A deploy-lambda role can run `aws lambda wait function-updated`, which needs `lambda:GetFunctionConfiguration` on its own function | `modules/ci-roles` (deploy-lambda policy) |
+| ECS run-task with tags | `aws ecs run-task --tags ...` from `run-tools` is not refused; tagging at launch needs `ecs:TagResource` | `modules/ci-roles` (run-tools policy) |
+| Reachability Analyzer | The `gha-e2e` role can start and read an analysis; it may also need `tiros:*` actions | `modules/ci-roles` (e2e policy) |
+| Managed-rule ARN forms | GuardDuty and WAF managed-rule resources are accepted by the apply role's resource ARNs | `bootstrap/apply_policies.tf` |
+| VPC flow logs, if enabled | `gha-infra-apply` can `ec2:CreateFlowLogs` and `ec2:DeleteFlowLogs`, and `iam:PassRole` to `vpc-flow-logs.amazonaws.com` | `bootstrap/apply_policies.tf`; `bootstrap/boundary.tf` if the flow-log role is refused |
+
+Fix the policy, re-run step 3's `apply` with your own credentials when the change is in `bootstrap/`, then retry.
+
 ## 5. Publish all nine images
 
 Images are tagged with the **full git SHA** (immutable tags). Publish runs on `main` with the publish roles and needs
