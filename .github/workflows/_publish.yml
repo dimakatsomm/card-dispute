@@ -1,0 +1,126 @@
+name: _publish
+
+on:
+  workflow_call:
+    inputs:
+      repo-key:
+        description: ECR repo key (svc-auth, web, lambda-evidence-intake, dev-tools, ...); repository is <name-prefix>-<repo-key>
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      context:
+        required: false
+        type: string
+        default: "."
+      name-prefix:
+        required: false
+        type: string
+        default: cd
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      REPO_KEY: ${{ inputs.repo-key }}
+      NAME_PREFIX: ${{ inputs.name-prefix }}
+      DOCKERFILE: ${{ inputs.dockerfile }}
+      BUILD_CONTEXT: ${{ inputs.context }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Validate inputs and mask account
+        run: |
+          test -n "$AWS_ACCOUNT_ID" || { echo "::error::repository variable AWS_ACCOUNT_ID is not set"; exit 1; }
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          case "$REPO_KEY" in
+            svc-auth|svc-users|svc-transactions|svc-disputes|web|lambda-evidence-intake|lambda-dispute-notifier|lambda-retention-sweeper|dev-tools) ;;
+            *) echo "::error::unknown repo-key"; exit 1 ;;
+          esac
+          [[ "$NAME_PREFIX" =~ ^[a-z][a-z0-9-]{0,15}$ ]] || { echo "::error::invalid name-prefix"; exit 1; }
+          for path in "$DOCKERFILE" "$BUILD_CONTEXT"; do
+            if [[ -z "$path" || "$path" == /* || "$path" == *..* || "$path" == *$'\n'* ]]; then
+              echo "::error::dockerfile and context must be relative paths without '..'"; exit 1
+            fi
+          done
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Loaded locally so Trivy runs before ECR; provenance off for every image because Lambda rejects OCI indexes.
+      - name: Build image (linux/arm64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/arm64
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          tags: local/${{ inputs.repo-key }}:${{ github.sha }}
+
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: local/${{ inputs.repo-key }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          cache: false
+
+      - name: SBOM (SPDX)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: local/${{ inputs.repo-key }}:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ inputs.repo-key }}-${{ github.sha }}
+          path: sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Mask role ARN
+        run: |
+          role_arn="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${NAME_PREFIX}/${NAME_PREFIX}-gha-publish-${REPO_KEY}"
+          echo "::add-mask::$role_arn"
+          echo "ROLE_ARN=$role_arn" >> "$GITHUB_ENV"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      # ECR tags are immutable: a rerun of the same sha must not fail on push.
+      - name: Push :<sha>
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          repository="${NAME_PREFIX}-${REPO_KEY}"
+          if aws ecr describe-images --repository-name "$repository" --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text >/dev/null 2>&1; then
+            echo "::notice::$repository:$IMAGE_TAG already exists, not pushing"
+            exit 0
+          fi
+          docker tag "local/${REPO_KEY}:${IMAGE_TAG}" "${REGISTRY}/${repository}:${IMAGE_TAG}"
+          docker push "${REGISTRY}/${repository}:${IMAGE_TAG}"

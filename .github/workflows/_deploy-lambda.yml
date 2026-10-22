@@ -1,0 +1,76 @@
+name: _deploy-lambda
+
+on:
+  workflow_call:
+    inputs:
+      function-key:
+        description: evidence-intake, dispute-notifier or retention-sweeper
+        required: true
+        type: string
+      sha:
+        description: Full git sha of a published image (:<sha> in cd-lambda-<function-key>)
+        required: true
+        type: string
+      name-prefix:
+        required: false
+        type: string
+        default: cd
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    environment: dev
+    concurrency:
+      group: deploy-lambda-${{ inputs.function-key }}
+      cancel-in-progress: false
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      FUNCTION_KEY: ${{ inputs.function-key }}
+      NAME_PREFIX: ${{ inputs.name-prefix }}
+      IMAGE_TAG: ${{ inputs.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+    steps:
+      - name: Validate inputs and mask account
+        run: |
+          test -n "$AWS_ACCOUNT_ID" || { echo "::error::environment variable AWS_ACCOUNT_ID is not set"; exit 1; }
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          case "$FUNCTION_KEY" in
+            evidence-intake|dispute-notifier|retention-sweeper) ;;
+            *) echo "::error::unknown function-key"; exit 1 ;;
+          esac
+          [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha must be a full 40-character git sha"; exit 1; }
+          [[ "$NAME_PREFIX" =~ ^[a-z][a-z0-9-]{0,15}$ ]] || { echo "::error::invalid name-prefix"; exit 1; }
+          role_arn="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${NAME_PREFIX}/${NAME_PREFIX}-gha-deploy-lambda-${FUNCTION_KEY}"
+          echo "::add-mask::$role_arn"
+          echo "ROLE_ARN=$role_arn" >> "$GITHUB_ENV"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Update function code
+        run: |
+          function_name="${NAME_PREFIX}-${FUNCTION_KEY}"
+          image_uri="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NAME_PREFIX}-lambda-${FUNCTION_KEY}:${IMAGE_TAG}"
+          echo "FUNCTION_NAME=$function_name" >> "$GITHUB_ENV"
+          previous=$(aws lambda get-alias --function-name "$function_name" --name live --query FunctionVersion --output text)
+          echo "Alias live currently points at version $previous"
+          aws lambda update-function-code --function-name "$function_name" --image-uri "$image_uri" --query CodeSha256 --output text
+          # v2 polls GetFunction (granted); the original waiter needs lambda:GetFunctionConfiguration, which ci-roles lacks.
+          aws lambda wait function-updated-v2 --function-name "$function_name"
+
+      - name: Publish version and move alias live
+        run: |
+          version=$(aws lambda publish-version --function-name "$FUNCTION_NAME" --description "$IMAGE_TAG" --query Version --output text)
+          aws lambda update-alias --function-name "$FUNCTION_NAME" --name live --function-version "$version" --query FunctionVersion --output text
+          echo "live -> version $version ($IMAGE_TAG)"

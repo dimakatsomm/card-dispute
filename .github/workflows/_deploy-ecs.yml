@@ -1,0 +1,138 @@
+name: _deploy-ecs
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: auth, users, transactions, disputes or web
+        required: true
+        type: string
+      sha:
+        description: Full git sha of a published image (:<sha> in the service's ECR repo)
+        required: true
+        type: string
+      has-migrate:
+        description: Run the one-off <name-prefix>-<service>-migrate task first (false for web)
+        required: false
+        type: boolean
+        default: true
+      name-prefix:
+        required: false
+        type: string
+        default: cd
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    environment: dev
+    concurrency:
+      group: deploy-ecs-${{ inputs.service }}
+      cancel-in-progress: false
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      SERVICE: ${{ inputs.service }}
+      NAME_PREFIX: ${{ inputs.name-prefix }}
+      IMAGE_TAG: ${{ inputs.sha }}
+      HAS_MIGRATE: ${{ inputs.has-migrate }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+    steps:
+      - name: Validate inputs and mask account
+        run: |
+          test -n "$AWS_ACCOUNT_ID" || { echo "::error::environment variable AWS_ACCOUNT_ID is not set"; exit 1; }
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          case "$SERVICE" in
+            auth|users|transactions|disputes) repo_key="svc-$SERVICE" ;;
+            web) repo_key=web ;;
+            *) echo "::error::unknown service"; exit 1 ;;
+          esac
+          [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha must be a full 40-character git sha"; exit 1; }
+          [[ "$NAME_PREFIX" =~ ^[a-z][a-z0-9-]{0,15}$ ]] || { echo "::error::invalid name-prefix"; exit 1; }
+          role_arn="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${NAME_PREFIX}/${NAME_PREFIX}-gha-deploy-${SERVICE}"
+          echo "::add-mask::$role_arn"
+          {
+            echo "ROLE_ARN=$role_arn"
+            echo "CLUSTER=${NAME_PREFIX}-cluster"
+            echo "SERVICE_NAME=${NAME_PREFIX}-${SERVICE}"
+            echo "IMAGE=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NAME_PREFIX}-${repo_key}:${IMAGE_TAG}"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Describe current service
+        run: |
+          aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE_NAME" --output json > service.json
+          node -e '
+            const s = JSON.parse(require("fs").readFileSync("service.json", "utf8")).services?.[0];
+            if (!s || s.status !== "ACTIVE") { console.error("service not found or not ACTIVE"); process.exit(1); }
+            const out = [`CURRENT_TASKDEF=${s.taskDefinition}`, `DESIRED_COUNT=${s.desiredCount}`];
+            require("fs").appendFileSync(process.env.GITHUB_ENV, out.join("\n") + "\n");
+            require("fs").writeFileSync("network.json", JSON.stringify(s.networkConfiguration));
+          '
+
+      - name: Register task definition revision
+        run: |
+          register() {
+            local family_or_arn="$1" out="$2"
+            aws ecs describe-task-definition --task-definition "$family_or_arn" --output json > current.json
+            node .github/scripts/rewrite-taskdef.mjs current.json "$IMAGE" > next.json
+            aws ecs register-task-definition --cli-input-json file://next.json --query 'taskDefinition.taskDefinitionArn' --output text > "$out"
+          }
+          register "$CURRENT_TASKDEF" service.arn
+          echo "NEW_TASKDEF=$(cat service.arn)" >> "$GITHUB_ENV"
+          if [ "$HAS_MIGRATE" = "true" ]; then
+            register "${SERVICE_NAME}-migrate" migrate.arn
+            echo "MIGRATE_TASKDEF=$(cat migrate.arn)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run migrations
+        if: inputs.has-migrate
+        run: |
+          task_arn=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$MIGRATE_TASKDEF" --launch-type FARGATE \
+            --network-configuration file://network.json --count 1 --query 'tasks[0].taskArn' --output text)
+          if [ -z "$task_arn" ] || [ "$task_arn" = "None" ]; then echo "::error::migrate task did not start"; exit 1; fi
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$task_arn"
+          aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$task_arn" --output json > migrate-result.json
+          node .github/scripts/task-result.mjs migrate-result.json || {
+            echo "::error::migration failed; see log group /${NAME_PREFIX}/dev/ecs/${SERVICE}, stream prefix migrate"
+            exit 1
+          }
+          echo "Migration finished with exit code 0"
+
+      - name: Update service
+        run: |
+          args=(--cluster "$CLUSTER" --service "$SERVICE_NAME" --task-definition "$NEW_TASKDEF")
+          # A parked service (desired 0) is started once; otherwise the count is left alone.
+          if [ "$DESIRED_COUNT" = "0" ]; then args+=(--desired-count 1); fi
+          aws ecs update-service "${args[@]}" --query 'service.deploymentStatus' --output text >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE_NAME"
+
+      # Only web has a public health route (/healthz via CloudFront); API services are covered by ALB target health in services-stable.
+      - name: Public health check
+        if: inputs.service == 'web'
+        run: |
+          if [ -z "$WEB_ORIGIN" ]; then echo "::notice::WEB_ORIGIN not set, skipping public health check"; exit 0; fi
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors --max-time 10 \
+            --output /dev/null "${WEB_ORIGIN%/}/healthz"
+          echo "healthz OK"

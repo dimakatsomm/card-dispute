@@ -175,8 +175,8 @@ OIDC `sub`. The two plan/apply roles trust different subs, so the values are spl
 
 | Scope | Used by jobs that | Variables |
 |---|---|---|
-| **Repository** variables | do **not** declare an environment: `gha-infra-plan` (sub `ref:refs/heads/main`) and the publish roles (sub `ref:refs/heads/main`) | `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_STATE_KMS_KEY_ARN`, `AWS_INFRA_PLAN_ROLE_ARN`, the nine publish role ARNs (CI-02) |
-| **Environment `dev`** variables | declare `environment: dev`: `gha-infra-apply`, ECS and Lambda deploy roles, run-tools, e2e (sub `environment:dev`) | `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_STATE_KMS_KEY_ARN`, `AWS_INFRA_APPLY_ROLE_ARN`, the five deploy, three Lambda deploy, run-tools and e2e role ARNs (CI-02) |
+| **Repository** variables | do **not** declare an environment: `gha-infra-plan` (sub `ref:refs/heads/main`) and the publish roles (sub `ref:refs/heads/main`) | `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_STATE_KMS_KEY_ARN`, `AWS_INFRA_PLAN_ROLE_ARN` |
+| **Environment `dev`** variables | declare `environment: dev`: `gha-infra-apply`, ECS and Lambda deploy roles, run-tools, e2e (sub `environment:dev`) | `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_STATE_KMS_KEY_ARN`, `AWS_INFRA_APPLY_ROLE_ARN`, `WEB_ORIGIN` (Terraform output `web_origin`; enables the web health check after deploy) |
 
 They are variables, not secrets: they name resources but grant nothing, and CI masks the account id and role ARNs in logs (ADR-063).
 
@@ -278,16 +278,12 @@ What to expect:
   credentials, then retry (docs: `infra/terraform/bootstrap/README.md`).
 - SES and SNS each send a confirmation email now (step 10).
 
-Copy the CI role ARNs into GitHub. The `ci-roles` module returns `role_arns` with keys `publish-<repo key>`,
-`deploy-<svc>`, `deploy-lambda-<key>`, `run-tools` and `e2e`; I-WIRE exposes them as a root output (confirm the
-output name in `$ENV/outputs.tf`; `ci_role_arns` is assumed below). Publish roles trust `ref:refs/heads/main` so they
-go to **repository** variables; every other role trusts `environment:dev` so it goes to the **Environment**. The
-variable names are defined by the CI-02 workflows; take them from the `vars.` references in `.github/workflows/`.
+The publish, deploy, run-tools and e2e workflows build their role ARNs from `AWS_ACCOUNT_ID` and the fixed names
+(`arn:aws:iam::<account>:role/cd/cd-gha-<key>`, keys as in the `ci_role_arns` output), so no per-role variable is needed.
+Set `WEB_ORIGIN` on the Environment once the distribution exists:
 
 ```bash
-terraform -chdir=$ENV output -json ci_role_arns
-# for each publish-* key:   gh variable set <NAME> --body <arn> --repo "$REPO"
-# for every other key:      gh variable set <NAME> --env dev --body <arn> --repo "$REPO"
+gh variable set WEB_ORIGIN --env dev --body "$(terraform -chdir=$ENV output -raw web_origin)" --repo "$REPO"
 ```
 
 Check phase A:
@@ -312,7 +308,7 @@ paths are under `infra/terraform/`.
 | GuardDuty malware plan | The malware-protection plan for the quarantine bucket is created (OWN-5 covers a missing detector) | `bootstrap/apply_policies.tf` (guardduty actions); `bootstrap/boundary.tf` if the plan's role is refused |
 | Aurora PG 18.3 | `aws rds describe-orderable-db-instance-options --engine aurora-postgresql --engine-version 18.3 --db-instance-class db.serverless --region af-south-1` is non-empty | `modules/aurora` (engine version); pick the nearest orderable 18.x |
 | Performance Insights key | The cluster accepts the `cd-data` key for Performance Insights | `modules/aurora` (`performance_insights_kms_key_id`); `bootstrap/apply_policies.tf` if `AccessDenied` on `pi:*` or `kms:` |
-| `wait function-updated` | A deploy-lambda role can run `aws lambda wait function-updated`, which needs `lambda:GetFunctionConfiguration` on its own function | `modules/ci-roles` (deploy-lambda policy) |
+| `wait function-updated-v2` | A deploy-lambda role can run `aws lambda wait function-updated-v2` (polls `GetFunction`, which the role has) | `modules/ci-roles` (deploy-lambda policy) |
 | ECS run-task with tags | `aws ecs run-task --tags ...` from `run-tools` is not refused; tagging at launch needs `ecs:TagResource` | `modules/ci-roles` (run-tools policy) |
 | Reachability Analyzer | The `gha-e2e` role can start and read an analysis; it may also need `tiros:*` actions | `modules/ci-roles` (e2e policy) |
 | Managed-rule ARN forms | GuardDuty and WAF managed-rule resources are accepted by the apply role's resource ARNs | `bootstrap/apply_policies.tf` |
