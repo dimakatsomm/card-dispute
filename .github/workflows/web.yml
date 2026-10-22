@@ -13,6 +13,12 @@ on:
       - ".nvmrc"
       - ".github/workflows/web.yml"
       - ".github/workflows/_build.yml"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full git sha of an already published image to deploy
+        required: true
+        type: string
   push:
     branches: [main]
     paths:
@@ -36,9 +42,44 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_dispatch'
     uses: ./.github/workflows/_build.yml
     with:
       package-filter: "@cd/web"
       package-dir: frontend
       image-name: web
       check-api: true
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_publish.yml
+    with:
+      repo-key: web
+      dockerfile: frontend/Dockerfile
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: publish
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_deploy-ecs.yml
+    with:
+      service: web
+      sha: ${{ github.sha }}
+      has-migrate: false
+
+  deploy-sha:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_deploy-ecs.yml
+    with:
+      service: web
+      sha: ${{ inputs.sha || github.sha }}
+      has-migrate: false

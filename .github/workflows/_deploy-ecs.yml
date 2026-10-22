@@ -83,6 +83,7 @@ jobs:
       - name: Describe current service
         run: |
           aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE_NAME" --output json > service.json
+          # shellcheck disable=SC2016 # JS template literals, not shell expansions
           node -e '
             const s = JSON.parse(require("fs").readFileSync("service.json", "utf8")).services?.[0];
             if (!s || s.status !== "ACTIVE") { console.error("service not found or not ACTIVE"); process.exit(1); }

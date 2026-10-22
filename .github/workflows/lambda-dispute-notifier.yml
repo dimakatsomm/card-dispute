@@ -26,6 +26,14 @@ on:
       - ".nvmrc"
       - ".github/workflows/lambda-dispute-notifier.yml"
       - ".github/workflows/_build.yml"
+      - ".github/workflows/_publish.yml"
+      - ".github/workflows/_deploy-lambda.yml"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full git sha of an already published image to deploy (main only)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -36,9 +44,33 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_dispatch'
     uses: ./.github/workflows/_build.yml
     with:
       package-filter: "@cd/dispute-notifier"
       package-dir: backend/lambdas/dispute-notifier
       image-name: lambda-dispute-notifier
       lambda: true
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_publish.yml
+    with:
+      repo-key: lambda-dispute-notifier
+      dockerfile: backend/lambdas/dispute-notifier/Dockerfile
+
+  deploy:
+    # Functions exist only after infra phase B; set repository variable LAMBDAS_DEPLOYED=true then.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && vars.LAMBDAS_DEPLOYED == 'true' && (github.event_name == 'workflow_dispatch' || needs.publish.result == 'success') }}
+    needs: publish
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_deploy-lambda.yml
+    with:
+      function-key: dispute-notifier
+      sha: ${{ inputs.sha || github.sha }}

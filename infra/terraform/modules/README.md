@@ -98,7 +98,7 @@ Phase A applies before any image exists; phase B adds what needs an image.
 |---|---|---|
 | `Resource = "*"` in a KMS **key policy** | security (`cd-data`, `cd-evidence`), bootstrap (state key) | In a key policy `*` means "this key". Statements still list explicit actions (no `kms:*`, also for the account-root admin statement). |
 | `ecr:GetAuthorizationToken` on `*` | ecs-service execution roles, dev-tools execution roles, ci-roles `publish-*` | Action has no resource-level permission. |
-| `ecs:RegisterTaskDefinition`, `ecs:DescribeTaskDefinition` on `*` | ci-roles `deploy-*` | No resource-level permission. |
+| `ecs:RegisterTaskDefinition`, `ecs:DescribeTaskDefinition` on `*` | ci-roles `deploy-*`, `run-tools` (registers `:<sha>` tool revisions) | No resource-level permission. |
 | `elasticloadbalancing:DescribeTargetHealth` on `*` | ci-roles `deploy-*` (rollout wait) | No resource-level permission. |
 | `ec2:CreateNetworkInterface`, `ec2:DeleteNetworkInterface`, `ec2:AssignPrivateIpAddresses`, `ec2:UnassignPrivateIpAddresses` on `*` | lambda-fn role (VPC functions) | Lambda creates ENIs with unknown ids (`AWSLambdaVPCAccessExecutionRole` documents `*`). |
 | `ec2:DescribeNetworkInterfaces` on `*` | lambda-fn role | Describe actions have no resource-level permission. |

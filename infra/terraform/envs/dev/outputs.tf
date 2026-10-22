@@ -78,6 +78,11 @@ output "dev_tools_run_task_network" {
   value       = module.dev_tools.run_task_network
 }
 
+output "dispute_notifier_security_group_id" {
+  description = "Notifier SG for the second net-probe run (ADR-067)."
+  value       = module.security.security_group_ids["dispute-notifier"]
+}
+
 output "quarantine_bucket_name" {
   description = "Evidence quarantine bucket."
   value       = module.evidence_buckets.quarantine_bucket_name

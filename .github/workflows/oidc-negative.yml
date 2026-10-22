@@ -1,0 +1,85 @@
+name: oidc-negative
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# A pull_request token has sub repo:<owner>/<repo>:pull_request, which no role trusts, so every assume must be AccessDenied.
+# Never declares an environment, so the sub can never match an environment:dev role.
+jobs:
+  assume-denied:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+      REPO: ${{ github.repository }}
+      ACTOR: ${{ github.actor }}
+    steps:
+      - name: Skip without repository variables
+        id: gate
+        run: |
+          # Fork and Dependabot runs get no id-token; same-repo PRs must still fail hard if it goes missing.
+          if [ "$PR_HEAD_REPO" != "$REPO" ] || [ "$ACTOR" = "dependabot[bot]" ]; then
+            echo "::notice::fork or Dependabot pull request has no OIDC token, skipping"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$AWS_ACCOUNT_ID" ]; then
+            echo "::notice::AWS_ACCOUNT_ID not available (fork pull request or variable unset), skipping"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Request OIDC token
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          test -n "$ACTIONS_ID_TOKEN_REQUEST_URL" || { echo "::error::no OIDC token available"; exit 1; }
+          token=$(curl --fail --silent --show-error --max-time 20 \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')
+          if [ -z "$token" ] || [ "$token" = "null" ]; then echo "::error::OIDC token request failed"; exit 1; fi
+          echo "::add-mask::$token"
+          echo "OIDC_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Every role denies the pull_request identity
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          roles=("gha-infra-plan" "gha-infra-apply" "cd/cd-gha-run-tools" "cd/cd-gha-e2e")
+          for key in svc-auth svc-users svc-transactions svc-disputes web lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper dev-tools; do
+            roles+=("cd/cd-gha-publish-${key}")
+          done
+          for key in auth users transactions disputes web; do
+            roles+=("cd/cd-gha-deploy-${key}")
+          done
+          for key in evidence-intake dispute-notifier retention-sweeper; do
+            roles+=("cd/cd-gha-deploy-lambda-${key}")
+          done
+          failed=0
+          for role in "${roles[@]}"; do
+            role_arn="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${role}"
+            echo "::add-mask::$role_arn"
+            if output=$(aws sts assume-role-with-web-identity --no-sign-request --region "$AWS_REGION" \
+              --role-arn "$role_arn" --role-session-name oidc-negative --web-identity-token "$OIDC_TOKEN" 2>&1); then
+              echo "::error::${role##*/} was assumed from a pull_request token"
+              failed=1
+            elif [[ "$output" == *"(AccessDenied)"* ]]; then
+              echo "${role##*/}: AccessDenied as expected"
+            else
+              echo "::error::${role##*/}: expected AccessDenied, got a different error"
+              failed=1
+            fi
+          done
+          exit "$failed"

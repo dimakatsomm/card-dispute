@@ -161,6 +161,13 @@ locals {
 
   run_tools_statements = [
     {
+      Sid    = "ToolTaskDefinitions"
+      Effect = "Allow"
+      Action = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition"]
+      # Neither action supports resource-level permissions; PassToolRoles bounds what a revision can run as.
+      Resource = ["*"]
+    },
+    {
       Sid       = "RunToolTasks"
       Effect    = "Allow"
       Action    = ["ecs:RunTask"]

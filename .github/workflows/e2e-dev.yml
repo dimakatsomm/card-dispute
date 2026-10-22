@@ -1,0 +1,76 @@
+name: e2e-dev
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-dev
+  cancel-in-progress: false
+
+# Environment variables (Settings > Environments > dev), all non-secret and named after the Terraform outputs:
+# AWS_ACCOUNT_ID, AWS_REGION (optional), WEB_ORIGIN, COGNITO_USER_POOL_ID, COGNITO_E2E_CLIENT_ID,
+# QUARANTINE_BUCKET_NAME, EVIDENCE_BUCKET_NAME, NOTIFICATIONS_QUEUE_URL, SES_EVENTS_QUEUE_URL,
+# DEV_TOOLS_SUBNET_IDS, DEV_TOOLS_SG_ID, DISPUTE_NOTIFIER_SG_ID.
+jobs:
+  e2e:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      NAME_PREFIX: cd
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+      COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+      COGNITO_E2E_CLIENT_ID: ${{ vars.COGNITO_E2E_CLIENT_ID }}
+      QUARANTINE_BUCKET_NAME: ${{ vars.QUARANTINE_BUCKET_NAME }}
+      EVIDENCE_BUCKET_NAME: ${{ vars.EVIDENCE_BUCKET_NAME }}
+      NOTIFICATIONS_QUEUE_URL: ${{ vars.NOTIFICATIONS_QUEUE_URL }}
+      SES_EVENTS_QUEUE_URL: ${{ vars.SES_EVENTS_QUEUE_URL }}
+      DEV_TOOLS_SUBNET_IDS: ${{ vars.DEV_TOOLS_SUBNET_IDS }}
+      DEV_TOOLS_SG_ID: ${{ vars.DEV_TOOLS_SG_ID }}
+      DISPUTE_NOTIFIER_SG_ID: ${{ vars.DISPUTE_NOTIFIER_SG_ID }}
+    steps:
+      - name: Validate variables and mask account
+        run: |
+          test -n "$AWS_ACCOUNT_ID" || { echo "::error::environment variable AWS_ACCOUNT_ID is not set"; exit 1; }
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          missing=""
+          for name in WEB_ORIGIN COGNITO_USER_POOL_ID COGNITO_E2E_CLIENT_ID QUARANTINE_BUCKET_NAME EVIDENCE_BUCKET_NAME \
+            NOTIFICATIONS_QUEUE_URL SES_EVENTS_QUEUE_URL DEV_TOOLS_SUBNET_IDS DEV_TOOLS_SG_ID DISPUTE_NOTIFIER_SG_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          test -z "$missing" || { echo "::error::unset environment variables:$missing"; exit 1; }
+          role_arn="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${NAME_PREFIX}/${NAME_PREFIX}-gha-e2e"
+          echo "::add-mask::$role_arn"
+          echo "ROLE_ARN=$role_arn" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Run e2e against dev
+        run: pnpm --filter @cd/e2e-aws test:aws

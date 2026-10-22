@@ -228,8 +228,9 @@ run "wildcards_only_where_documented" {
     condition = alltrue(flatten([
       for k, pol in aws_iam_role_policy.this : [
         for s in jsondecode(pol.policy).Statement : s.Resource == ["*"] && length(setsubtract(s.Action, lookup({
-          publish = ["ecr:GetAuthorizationToken"]
-          deploy  = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition", "elasticloadbalancing:DescribeTargetHealth"]
+          publish     = ["ecr:GetAuthorizationToken"]
+          deploy      = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition", "elasticloadbalancing:DescribeTargetHealth"]
+          "run-tools" = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition"]
           e2e = [
             "ec2:CreateNetworkInsightsPath", "ec2:StartNetworkInsightsAnalysis",
             "ec2:DescribeNetworkInsightsAnalyses", "ec2:DescribeNetworkInsightsPaths", "ec2:DescribeNetworkInterfaces",

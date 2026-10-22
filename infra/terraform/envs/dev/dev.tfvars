@@ -1,7 +1,7 @@
 name_prefix = "cd"
 
 # Placeholder until the repo is pushed (OWN-3); the variable validation rejects it so no plan runs with it.
-github_repo = "PLACEHOLDER/card-dispute"
+github_repo = "dimakatsomm/card-dispute"
 
 # V-M3 decides; public_alb is the ADR-063 fallback.
 edge_origin_mode = "vpc_origin"

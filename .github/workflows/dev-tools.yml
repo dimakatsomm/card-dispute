@@ -1,0 +1,141 @@
+name: dev-tools
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "local/seed/**"
+      - ".github/workflows/dev-tools.yml"
+      - ".github/workflows/_publish.yml"
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: One-shot task to run on the dev-tools image
+        required: true
+        type: choice
+        options:
+          - db-bootstrap
+          - dev-seed
+          - net-probe
+      sha:
+        description: Full git sha of a published dev-tools image (defaults to the dispatched commit)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_publish.yml
+    with:
+      repo-key: dev-tools
+      dockerfile: local/seed/Dockerfile
+
+  # Environment variables (Settings > Environments > dev): AWS_ACCOUNT_ID, AWS_REGION (optional),
+  # DEV_TOOLS_SUBNET_IDS (comma-separated private subnets), DEV_TOOLS_SG_ID, DISPUTE_NOTIFIER_SG_ID.
+  # run-tools has no ecs:DescribeServices, so the network comes from variables (terraform output dev_tools_run_task_network).
+  run:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    environment: dev
+    concurrency:
+      group: dev-tools-run
+      cancel-in-progress: false
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      TOOL: ${{ inputs.tool }}
+      IMAGE_TAG: ${{ inputs.sha || github.sha }}
+      NAME_PREFIX: cd
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      SUBNET_IDS: ${{ vars.DEV_TOOLS_SUBNET_IDS }}
+      TOOLS_SG_ID: ${{ vars.DEV_TOOLS_SG_ID }}
+      NOTIFIER_SG_ID: ${{ vars.DISPUTE_NOTIFIER_SG_ID }}
+    steps:
+      - name: Validate inputs and mask account
+        run: |
+          test -n "$AWS_ACCOUNT_ID" || { echo "::error::environment variable AWS_ACCOUNT_ID is not set"; exit 1; }
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          case "$TOOL" in
+            db-bootstrap|dev-seed|net-probe) ;;
+            *) echo "::error::unknown tool"; exit 1 ;;
+          esac
+          [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha must be a full 40-character git sha"; exit 1; }
+          [[ "$SUBNET_IDS" =~ ^subnet-[0-9a-f]+(,subnet-[0-9a-f]+)*$ ]] || { echo "::error::DEV_TOOLS_SUBNET_IDS must be comma-separated subnet ids"; exit 1; }
+          [[ "$TOOLS_SG_ID" =~ ^sg-[0-9a-f]+$ ]] || { echo "::error::DEV_TOOLS_SG_ID must be a security group id"; exit 1; }
+          if [ "$TOOL" = "net-probe" ]; then
+            [[ "$NOTIFIER_SG_ID" =~ ^sg-[0-9a-f]+$ ]] || { echo "::error::DISPUTE_NOTIFIER_SG_ID must be a security group id"; exit 1; }
+          fi
+          role_arn="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${NAME_PREFIX}/${NAME_PREFIX}-gha-run-tools"
+          echo "::add-mask::$role_arn"
+          {
+            echo "ROLE_ARN=$role_arn"
+            echo "CLUSTER=${NAME_PREFIX}-cluster"
+            echo "FAMILY=${NAME_PREFIX}-${TOOL}"
+            echo "LOG_GROUP=/${NAME_PREFIX}/dev/tools/${TOOL}"
+            echo "IMAGE=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NAME_PREFIX}-dev-tools:${IMAGE_TAG}"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Register task definition revision
+        run: |
+          aws ecs describe-task-definition --task-definition "$FAMILY" --output json > current.json
+          node .github/scripts/rewrite-taskdef.mjs current.json "$IMAGE" > next.json
+          taskdef=$(aws ecs register-task-definition --cli-input-json file://next.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "TASKDEF=$taskdef" >> "$GITHUB_ENV"
+
+      # Commands are fixed literals per tool; no input reaches the override. No --tags: run-tools has no ecs:TagResource.
+      - name: Run task
+        run: |
+          run_task() {
+            local sg="$1" command_json="$2" task_arn
+            jq -n --arg subnets "$SUBNET_IDS" --arg sg "$sg" \
+              '{awsvpcConfiguration: {subnets: ($subnets | split(",")), securityGroups: [$sg], assignPublicIp: "DISABLED"}}' > network.json
+            jq -n --arg name "$TOOL" --argjson command "$command_json" \
+              '{containerOverrides: [{name: $name, command: $command}]}' > overrides.json
+            task_arn=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$TASKDEF" --launch-type FARGATE \
+              --network-configuration file://network.json --overrides file://overrides.json --count 1 \
+              --query 'tasks[0].taskArn' --output text)
+            if [ -z "$task_arn" ] || [ "$task_arn" = "None" ]; then echo "::error::task did not start"; return 1; fi
+            aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$task_arn"
+            aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$task_arn" --output json > result.json
+            echo "Log group $LOG_GROUP, stream ${TOOL}/${TOOL}/${task_arn##*/}"
+            node .github/scripts/task-result.mjs result.json || { echo "::error::$TOOL failed"; return 1; }
+            echo "$TOOL finished with exit code 0"
+          }
+          case "$TOOL" in
+            db-bootstrap) run_task "$TOOLS_SG_ID" '["bootstrap"]' ;;
+            dev-seed) run_task "$TOOLS_SG_ID" '["seed"]' ;;
+            net-probe)
+              echo "Run 1: dev-tools security group, service port must be unreachable"
+              run_task "$TOOLS_SG_ID" '["probe","--expect-unreachable"]'
+              echo "Run 2: dispute-notifier security group, denial checks"
+              run_task "$NOTIFIER_SG_ID" '["probe"]'
+              ;;
+          esac
