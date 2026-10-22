@@ -11,12 +11,12 @@ import {
   type Message,
 } from '@aws-sdk/client-sqs';
 import { mockClient } from 'aws-sdk-client-mock';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, inject, it } from 'vitest';
 import type { SqsHandler } from '../../src/handler.ts';
 import { EMAIL_A, setup, statusEvent } from '../support.ts';
 
-// The compose moto (docker-compose.yml, host port 55000); the redrive check mirrors orchestration/verify-m2-00.md.
-const ENDPOINT = process.env['MOTO_ENDPOINT'] ?? 'http://localhost:55000';
+// moto comes from test/moto-global-setup.ts; the redrive check mirrors orchestration/verify-m2-00.md.
+const ENDPOINT = inject('motoEndpoint');
 const MAX_RECEIVE_COUNT = 5;
 
 const sqs = new SQSClient({

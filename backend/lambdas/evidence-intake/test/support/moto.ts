@@ -9,9 +9,10 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { inject } from 'vitest';
 
 export const REGION = 'af-south-1';
-const ENDPOINT = process.env['MOTO_ENDPOINT'] ?? 'http://localhost:55000';
+const ENDPOINT = inject('motoEndpoint');
 
 export const s3 = new S3Client({
   endpoint: ENDPOINT,

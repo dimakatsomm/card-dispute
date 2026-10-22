@@ -171,6 +171,14 @@ export default defineConfig(
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
+    // TS files get Node globals from tsc; plain .mjs scripts need them declared for no-undef.
+    files: ['.github/scripts/**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly' },
+    },
+  },
+  {
     rules: {
       'no-param-reassign': ['error', { props: true }],
       'prefer-const': 'error',
