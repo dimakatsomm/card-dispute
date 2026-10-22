@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:aws": "vitest run",
-    "typecheck": "tsc -p tsconfig.json"
+    "test:aws": "vitest run --config api/vitest.config.ts && vitest run --config api/vitest.final.config.ts",
+    "typecheck": "tsc -p api/tsconfig.json"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "catalog:",
