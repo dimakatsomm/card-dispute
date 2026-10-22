@@ -5,7 +5,8 @@ import { err, ok, type Result } from '@cd/shared/fp';
 import pg from 'pg';
 import type { SeedData } from './generate.ts';
 
-type Service = (typeof SERVICES)[number];
+export type Service = (typeof SERVICES)[number];
+export type UrlFor = (svc: Service) => string;
 
 export type SeedOptions = {
   readonly adminConnectionString: string;
@@ -54,6 +55,11 @@ const SQL = {
     select auth_id, cognito_sub, username, user_id, status
     from jsonb_to_recordset($1::jsonb) as r(auth_id uuid, cognito_sub text, username text, user_id uuid, status text)
     on conflict do nothing`,
+  // A skipped insert must not hide a stale row: the stored identity has to be the one the provider issued.
+  identityMismatch: `
+    select r.username from jsonb_to_recordset($1::jsonb) as r(cognito_sub text, username text, user_id uuid)
+    left join auth.auth_identity i on i.username = r.username
+    where i.cognito_sub is distinct from r.cognito_sub or i.user_id is distinct from r.user_id`,
   transaction: `
     insert into transactions.transaction (transaction_id, user_id, account_id, card_id, amount, currency,
       merchant_name, mcc, type, status, transaction_at, posted_at)
@@ -99,7 +105,14 @@ const inserts = (data: SeedData): Readonly<Record<Service, Insert>> => ({
     account: await count(c, SQL.account, [json(data.accounts)]),
     card: await count(c, SQL.card, [json(data.cards)]),
   }),
-  auth: async (c) => ({ auth_identity: await count(c, SQL.authIdentity, [json(data.authIdentities)]) }),
+  auth: async (c) => {
+    const inserted = await count(c, SQL.authIdentity, [json(data.authIdentities)]);
+    const mismatched = await c.query<{ username: string }>(SQL.identityMismatch, [json(data.authIdentities)]);
+    if (mismatched.rows.length > 0) {
+      throw new Error(`auth_identity differs from the identity provider for ${mismatched.rows.map((r) => r.username).join(', ')}`);
+    }
+    return { auth_identity: inserted };
+  },
   transactions: async (c) => ({ transaction: await count(c, SQL.transaction, [json(data.transactions)]) }),
   disputes: async (c) => {
     const created = await c.query<{ dispute_id: string }>(SQL.dispute, [json(data.disputes)]);
@@ -125,7 +138,7 @@ const withPool = async <T>(connectionString: string, fn: (pool: pg.Pool) => Prom
   }
 };
 
-const migrateAll = async (options: SeedOptions, urlFor: (svc: Service) => string): Promise<Result<true, SeedError>> => {
+const migrateAll = async (options: SeedOptions, urlFor: UrlFor): Promise<Result<true, SeedError>> => {
   for (const schema of SERVICES) {
     const result = await migrate({ schema, dir: join(options.backendDir, schema, 'migrations'), connectionString: urlFor(schema) });
     if (!result.ok) return err({ kind: 'migrate', schema, error: result.error });
@@ -133,11 +146,8 @@ const migrateAll = async (options: SeedOptions, urlFor: (svc: Service) => string
   return ok(true);
 };
 
-const insertAll = async (
-  options: SeedOptions,
-  urlFor: (svc: Service) => string,
-): Promise<Result<InsertedCounts, SeedError>> => {
-  const plan = inserts(options.data);
+export const insertAll = async (data: SeedData, urlFor: UrlFor): Promise<Result<InsertedCounts, SeedError>> => {
+  const plan = inserts(data);
   return SEED_ORDER.reduce<Promise<Result<InsertedCounts, SeedError>>>(async (pending, schema) => {
     const previous = await pending;
     if (!previous.ok) return previous;
@@ -154,8 +164,8 @@ const insertAll = async (
 export const runSeed = async (options: SeedOptions): Promise<Result<InsertedCounts, SeedError>> => {
   const boot = await bootstrap({ adminConnectionString: options.adminConnectionString, passwords: options.passwords });
   if (!boot.ok) return err({ kind: 'bootstrap', error: boot.error });
-  const urlFor = (svc: Service): string =>
+  const urlFor: UrlFor = (svc) =>
     roleUrl(options.adminConnectionString, `${svc}_migrator`, options.passwords[`${svc}_migrator`]);
   const migrated = await migrateAll(options, urlFor);
-  return migrated.ok ? insertAll(options, urlFor) : migrated;
+  return migrated.ok ? insertAll(options.data, urlFor) : migrated;
 };

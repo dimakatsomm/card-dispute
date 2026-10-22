@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+// Relative path: @cd/seed may not add dependencies (orchestrator-owned lockfile), and this is the rule POST /dispute applies.
+import { evaluateTransactionEligibility } from '@cd/dispute-domain';
 import {
   cardId,
   DEFAULT_SEED,
@@ -142,6 +144,30 @@ describe('generateSeedData', () => {
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     ]);
   });
+
+  it.each(['2026-10-19T09:30:00Z', '2027-01-05T12:00:00Z', '2026-03-31T23:59:00Z'])(
+    'gives A at least 60 transactions the domain rule says are disputable when seeded at %s',
+    (iso) => {
+      const now = new Date(iso);
+      const seeded = generateSeedData({ seed: DEFAULT_SEED, now });
+      const cards = new Map(seeded.cards.map((c) => [c.card_id, c]));
+      const disputed = new Set(seeded.disputes.map((d) => d.transaction_id));
+      const disputable = seeded.transactions.filter((t) => {
+        const c = cards.get(t.card_id);
+        return (
+          t.user_id === userId('A') &&
+          c !== undefined &&
+          evaluateTransactionEligibility(
+            { type: t.type, status: t.status, postedAt: t.posted_at === null ? null : new Date(t.posted_at) },
+            { expiryMonth: c.expiry_month, expiryYear: c.expiry_year, status: 'ACTIVE' },
+            disputed.has(t.transaction_id) ? { status: 'SUBMITTED' } : null,
+            now,
+          ).ok
+        );
+      });
+      expect(disputable.length).toBeGreaterThanOrEqual(60);
+    },
+  );
 
   it('uses only example.com emails and ZAR', () => {
     expect(data.appUsers.every((u) => u.email.endsWith('@example.com'))).toBe(true);

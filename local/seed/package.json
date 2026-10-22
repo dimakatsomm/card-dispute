@@ -16,6 +16,7 @@
     "@cd/shared": "workspace:*"
   },
   "devDependencies": {
+    "@cd/dispute-domain": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "typescript": "catalog:",
