@@ -58,6 +58,8 @@
 ## Accepted residuals
 - `gha-infra-apply` can create roles under `/cd/` with the `cd-workload-boundary`, and that boundary permits `cd/*` secret reads, `cd-dev-*` object access and KMS use. Apply can therefore reach that data indirectly by creating a role and assuming it. Accepted because apply runs only from `main`, in the approval-gated GitHub Environment `dev`. Mitigation path: narrow the boundary's S3 and KMS statements to named buckets and keys (`bootstrap/boundary.tf`).
 - The quarantine bucket's clean-scan tag is the read control, so only the GuardDuty role may write object tags or upload outside `intake/`; the bucket policy denies everyone else.
+- `gha-run-tools` can start the dev-tools task families with `containerOverrides`, so it can run any command as the `dev-seed` task role and read what that role reads: seed-user passwords (synthetic dev users) and the migrator database URLs. IAM has no condition key that forbids overrides. Accepted because the role is reachable only from `main` jobs in the approval-gated Environment `dev`, and the data is dev-only and synthetic.
+- Service, frontend and dev-tools base images are pinned by exact tag (`node:24.22.0-alpine3.24`), not digest, and `apk upgrade` runs at build, so rebuilds are not byte-reproducible; Trivy scans every published image. Lambda base images are digest-pinned.
 
 ## Logging
 - Structured JSON (pino). Redact: `authorization`, `token`, `email`, `cellphoneNumber`, `name`, `surname`, `*.secret`, `password`.

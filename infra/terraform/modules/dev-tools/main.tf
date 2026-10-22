@@ -85,7 +85,7 @@ locals {
       {
         Sid      = "SeedCognitoUsersInPool"
         Effect   = "Allow"
-        Action   = ["cognito-idp:AdminCreateUser", "cognito-idp:AdminSetUserPassword", "cognito-idp:AdminGetUser", "cognito-idp:AdminDisableUser", "cognito-idp:ListUsers"]
+        Action   = ["cognito-idp:AdminCreateUser", "cognito-idp:AdminSetUserPassword", "cognito-idp:AdminGetUser", "cognito-idp:AdminDisableUser"]
         Resource = [var.cognito_user_pool_arn]
       },
       {
