@@ -1,54 +1,24 @@
-import { execFile } from 'node:child_process';
-import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { promisify } from 'node:util';
 import { CreateBucketCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-
-const run = promisify(execFile);
+import { inject } from 'vitest';
 
 export const S3_REGION = 'af-south-1';
 export const S3_KEY = { accessKeyId: 'test', secretAccessKey: 'test-secret-key' } as const;
-const MOTO_IMAGE = 'motoserver/moto:5.2.4';
 
 export type Moto = { readonly endpoint: string; readonly stop: () => Promise<void> };
 
-const waitForMoto = async (endpoint: string, deadline: number): Promise<void> => {
-  const up = await fetch(`${endpoint}/moto-api/`).then(
-    (r) => r.ok,
-    () => false,
-  );
-  if (up) return;
-  if (Date.now() > deadline) throw new Error(`moto did not become ready at ${endpoint}`);
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  return waitForMoto(endpoint, deadline);
-};
-
-// MOTO_ENDPOINT reuses the compose `moto` service (host port 55000); otherwise a throwaway container is started.
-export const startMoto = async (): Promise<Moto> => {
-  const shared = process.env.MOTO_ENDPOINT;
-  if (shared) {
-    await waitForMoto(shared, Date.now() + 30_000);
-    return { endpoint: shared, stop: async () => undefined };
-  }
-  const name = `cd-disputes-test-moto-${randomUUID().slice(0, 8)}`;
-  await run('docker', ['run', '-d', '--rm', '--name', name, '-p', '127.0.0.1::5000', MOTO_IMAGE]);
-  const { stdout } = await run('docker', ['port', name, '5000/tcp']);
-  const hostPort = stdout.trim().split('\n')[0]?.split(':').pop();
-  const endpoint = `http://127.0.0.1:${hostPort}`;
-  await waitForMoto(endpoint, Date.now() + 60_000);
-  return {
-    endpoint,
-    stop: async () => {
-      await run('docker', ['rm', '-f', name]).catch(() => undefined);
-    },
-  };
-};
+// test/moto-global-setup.ts owns the one moto per run, so test files never start or stop their own.
+export const startMoto = async (): Promise<Moto> => ({
+  endpoint: inject('motoEndpoint'),
+  stop: async () => undefined,
+});
 
 export const s3ClientFor = (endpoint: string): S3Client =>
   new S3Client({ region: S3_REGION, endpoint, forcePathStyle: true, credentials: S3_KEY });
 
-// Idempotent because test files share the compose moto when MOTO_ENDPOINT is set.
+// Idempotent because every test file shares the one moto from the global setup.
 export const createBucket = async (endpoint: string, bucket: string): Promise<void> => {
   await s3ClientFor(endpoint)
     .send(

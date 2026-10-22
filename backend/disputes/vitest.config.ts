@@ -5,6 +5,7 @@ export default defineConfig({
     name: '@cd/disputes',
     include: ['test/**/*.test.ts', 'migrations/test/**/*.test.ts'],
     passWithNoTests: true,
+    globalSetup: ['test/moto-global-setup.ts'],
     testTimeout: 120_000,
     hookTimeout: 120_000,
   },
