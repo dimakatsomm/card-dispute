@@ -39,7 +39,7 @@
 - KMS CMKs: `cd-data` (Aurora, Secrets, SQS, logs) and `cd-evidence` (S3).
 - Malware scanning (verified available in af-south-1): GuardDuty Malware Protection for S3 on the quarantine bucket, with object tagging enabled **before** first upload. evidence-intake is triggered by the EventBridge event `GuardDuty Malware Protection Object Scan Result` (delivered at least once, so it must be idempotent) and promotes **only** on `NO_THREATS_FOUND`. `THREATS_FOUND`, `UNSUPPORTED`, `ACCESS_DENIED` and `FAILED` → REJECTED. A bucket policy denies `s3:GetObject` on objects without `GuardDutyMalwareScanStatus=NO_THREATS_FOUND`, except for the GuardDuty role. Price: $0.099/GB + $0.000237/object after the free 1 GB / 1,000 objects a month.
 - S3 quarantine bucket: Block Public Access, CORS allows `PUT` from the web origin only, lifecycle deletes objects after 1 day, no read access except evidence-intake.
-- S3 evidence: Block Public Access, bucket policy denies non-TLS and non-KMS puts, versioning, lifecycle: delete after 365 days (interim retention, ADR-017).
+- S3 evidence: Block Public Access, bucket policy denies non-TLS requests, default SSE-KMS on every object (no deny-non-KMS PUT: the intake CopyObject sends no SSE header), versioning, lifecycle: delete after 365 days (interim retention, ADR-017).
 - Secrets Manager (encrypted with `cd-data`): nine per-role DB credentials (`cd/dev/db/<role>`) + Cognito client secrets. **DB credential rotation is deferred**: the db-bootstrap task sets the role passwords and re-sets them on every run; there is no rotation Lambda. Revisit before real data.
 
 ## IAM (least privilege, no `*` resources)
@@ -49,7 +49,7 @@
 | disputes task role | + `s3:PutObject` on the quarantine bucket only — used solely to **sign** presigned URLs (no reads, no evidence-bucket access); `sqs:SendMessage` to the dispute-notifications queue only (ADR-033) |
 | notifier Lambda | own queue; own client secret; `ses:SendEmail` on verified identity |
 | GuardDuty malware-protection role | read + tag objects in the quarantine bucket; `kms:Decrypt` on the quarantine key (verify-claims-02 #2) |
-| evidence-intake Lambda | `s3:GetObject`, `s3:DeleteObject` on the quarantine bucket; `s3:PutObject` on `evidence/*` in the evidence bucket; KMS for both keys; own client secret |
+| evidence-intake Lambda | `s3:GetObject`, `s3:DeleteObject`, `s3:ListBucket` on the quarantine bucket (ListBucket so a missing key reads as 404); `s3:PutObject` on `evidence/*` in the evidence bucket; KMS for both keys; own client secret |
 | `gha-infra-plan` (OIDC, sub `ref:refs/heads/main`) | `ReadOnlyAccess`, state read/lock, writes under `plans/`; denied seed-user secrets and evidence/quarantine reads. Plans are stored in S3 (`plans/<sha>`), never as a GitHub artifact (ADR-060) |
 | `gha-infra-apply` (OIDC, sub `environment:dev`) | Writes only for the services in `infra/terraform/modules/README.md` on `cd-` / `cd/` names; creates roles only under path `/cd/` with boundary `cd-workload-boundary`; cannot change itself, the boundary, the OIDC provider or the state bucket; af-south-1 and us-east-1 only |
 | CI publish / deploy roles (OIDC, `ci-roles`) | publish: main only, push to its own ECR repo. deploy: environment `dev`, own ECS service or Lambda only, PassRole of its own roles. None can call `iam:*` or reach another deployable. `gha-run-tools` runs the dev-tools task families; `gha-e2e` calls `AdminInitiateAuth` on the pool, reads seed-user secrets and `cd-ses-events`, and uses Reachability Analyzer |
@@ -59,6 +59,7 @@
 - `gha-infra-apply` can create roles under `/cd/` with the `cd-workload-boundary`, and that boundary permits `cd/*` secret reads, `cd-dev-*` object access and KMS use. Apply can therefore reach that data indirectly by creating a role and assuming it. Accepted because apply runs only from `main`, in the approval-gated GitHub Environment `dev`. Mitigation path: narrow the boundary's S3 and KMS statements to named buckets and keys (`bootstrap/boundary.tf`).
 - The quarantine bucket's clean-scan tag is the read control, so only the GuardDuty role may write object tags or upload outside `intake/`; the bucket policy denies everyone else.
 - `gha-run-tools` can start the dev-tools task families with `containerOverrides`, so it can run any command as the `dev-seed` task role and read what that role reads: seed-user passwords (synthetic dev users) and the migrator database URLs. IAM has no condition key that forbids overrides. Accepted because the role is reachable only from `main` jobs in the approval-gated Environment `dev`, and the data is dev-only and synthetic.
+- The net-probe task carries the `svc-notifier` client secret (ADR-067), so the `gha-run-tools` override residual above also covers that service identity (`users/contact.read`, `disputes/read`). A dedicated probe client is the mitigation if it matters.
 - Service, frontend and dev-tools base images are pinned by exact tag (`node:24.22.0-alpine3.24`), not digest, and `apk upgrade` runs at build, so rebuilds are not byte-reproducible; Trivy scans every published image. Lambda base images are digest-pinned.
 
 ## Logging

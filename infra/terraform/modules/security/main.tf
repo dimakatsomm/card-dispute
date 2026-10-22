@@ -253,6 +253,7 @@ locals {
 
 resource "aws_security_group" "this" {
   for_each = local.sg_descriptions
+  #checkov:skip=CKV2_AWS_5:Attached by the consuming modules (ecs-service, lambda-fn, aurora, alb, dev-tools); checkov cannot follow module inputs.
 
   name        = "${var.name_prefix}-${each.key}"
   description = each.value

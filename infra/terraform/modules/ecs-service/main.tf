@@ -178,6 +178,7 @@ locals {
 }
 
 resource "aws_cloudwatch_log_group" "this" {
+  #checkov:skip=CKV_AWS_338:Dev keeps logs for log_retention_days (default 7), not a year.
   name              = local.log_group_name
   retention_in_days = var.log_retention_days
   kms_key_id        = var.logs_kms_key_arn

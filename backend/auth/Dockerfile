@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build context is the repo root (pnpm catalog + lockfile live there):
 #   docker build --platform linux/arm64 -f backend/auth/Dockerfile -t cd-auth .
-# Run: default CMD serves 8080 (health only) + 8081 (/validate). Migration task: command ["migrate"] with MIGRATOR_DATABASE_URL (auth_migrator).
+# Run: default CMD serves 8080 (health only) + 8081 (/validate). Migration task: command ["node","src/main.ts","migrate"] with MIGRATOR_DATABASE_URL (auth_migrator).
 
 # Dependencies are pure JS, so they install on the native platform; only the runtime stage is ARM64.
 FROM --platform=$BUILDPLATFORM node:24.22.0-alpine3.24 AS deps

@@ -211,7 +211,7 @@ variable "secrets" {
 }
 
 variable "migrate" {
-  description = "One-shot migration task definition <prefix>-<svc>-migrate (DB services only); null for none. Same image; typically command [\"migrate\"] and MIGRATOR_DATABASE_URL from the migrator secret key url."
+  description = "One-shot migration task definition <prefix>-<svc>-migrate (DB services only); null for none. Same image; command is the service migrate entry (images have no ENTRYPOINT, e.g. [\"node\",\"src/migrate.ts\"]) and MIGRATOR_DATABASE_URL from the migrator secret key url."
   type = object({
     command     = list(string)
     environment = map(string)
