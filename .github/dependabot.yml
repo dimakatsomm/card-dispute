@@ -14,3 +14,7 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+    # typescript-eslint lags TypeScript majors; take those deliberately.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
