@@ -19,7 +19,7 @@ output "infra_plan_role_arn" {
 }
 
 output "infra_apply_role_arn" {
-  description = "gha-infra-apply, trusted only for sub repo:<repo>:environment:dev."
+  description = "gha-infra-apply, trusted only for sub repo:<repo>:environment:dev-infra."
   value       = aws_iam_role.infra_apply.arn
 }
 

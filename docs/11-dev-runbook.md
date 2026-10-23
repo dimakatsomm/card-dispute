@@ -159,6 +159,7 @@ gh api -X PUT "repos/$REPO/environments/dev" --input - <<JSON
 {
   "reviewers": [ { "type": "User", "id": $REVIEWER_ID } ],
   "prevent_self_review": false,
+  "can_admins_bypass": false,
   "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true }
 }
 JSON
@@ -168,17 +169,52 @@ gh api -X POST "repos/$REPO/environments/dev/deployment-branch-policies" -f name
 gh api "repos/$REPO/environments/dev" --jq '{reviewers: [.protection_rules[]?.reviewers], prevent_self_review: (.protection_rules[]? | select(.type=="required_reviewers") | .prevent_self_review)}'
 ```
 
+### 2.4b Environment `dev-infra` (infra apply only)
+
+The `infra` workflow's apply job is the only job that uses `dev-infra`, and `gha-infra-apply` trusts only its sub
+(`repo:<repo>:environment:dev-infra`). Keeping it apart from `dev` means approving an app deploy can never approve an
+infra apply, and no deploy, tools or e2e job can present the apply role's sub.
+
+Settings: required reviewer, **prevent self-review ON**, admins cannot bypass, deployment branches = `main` only
+(never `refs/pull/*/merge`).
+
+```bash
+gh api -X PUT "repos/$REPO/environments/dev-infra" --input - <<JSON
+{
+  "reviewers": [ { "type": "User", "id": $REVIEWER_ID } ],
+  "prevent_self_review": true,
+  "can_admins_bypass": false,
+  "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true }
+}
+JSON
+
+gh api -X POST "repos/$REPO/environments/dev-infra/deployment-branch-policies" -f name=main -f type=branch
+
+gh api "repos/$REPO/environments/dev-infra" --jq '{can_admins_bypass, rules: [.protection_rules[]? | {type, prevent_self_review, reviewers: [.reviewers[]?.reviewer.login]}]}'
+gh api "repos/$REPO/environments/dev-infra/deployment-branch-policies" --jq '[.branch_policies[].name]'   # ["main"]
+```
+
+With prevent self-review ON, whoever triggered the run (the person who merged to `main`, or who ran
+`gh workflow run infra.yml`) cannot approve it. Add a second reviewer (another `{ "type": "User", "id": ... }` entry in `reviewers`) who approves infra applies. If
+you are the only reviewer, CI cannot apply infra: use the local fallback in step 4 with your SSO admin credentials.
+
 ### 2.5 Variables: which go where
 
-GitHub gives a job the Environment's variables only when the job declares `environment: dev`, and that changes its
-OIDC `sub`. The two plan/apply roles trust different subs, so the values are split (set in step 3 once they exist):
+GitHub gives a job an Environment's variables only when the job declares that environment, and that changes its
+OIDC `sub`. Repository variables are visible to every job, with or without an environment. So the shared values are
+repository variables, and only the apply role ARN sits on `dev-infra` (set in step 3 once they exist):
 
 | Scope | Used by jobs that | Variables |
 |---|---|---|
-| **Repository** variables | do **not** declare an environment: `gha-infra-plan` (sub `ref:refs/heads/main`) and the publish roles (sub `ref:refs/heads/main`) | `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_STATE_KMS_KEY_ARN`, `AWS_INFRA_PLAN_ROLE_ARN` |
-| **Environment `dev`** variables | declare `environment: dev`: `gha-infra-apply`, ECS and Lambda deploy roles, run-tools, e2e (sub `environment:dev`) | `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_STATE_KMS_KEY_ARN`, `AWS_INFRA_APPLY_ROLE_ARN`, `WEB_ORIGIN` (Terraform output `web_origin`; enables the web health check after deploy) |
+| **Repository** variables | every job; the `infra` plan job and the publish jobs declare no environment (sub `ref:refs/heads/main`) | `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_STATE_KMS_KEY_ARN`, `AWS_INFRA_PLAN_ROLE_ARN` |
+| **Environment `dev-infra`** variables | declare `environment: dev-infra`: only the `infra` apply job (`gha-infra-apply`, sub `environment:dev-infra`) | `AWS_INFRA_APPLY_ROLE_ARN` |
+| **Environment `dev`** variables | declare `environment: dev`: ECS and Lambda deploy roles, run-tools, e2e (sub `environment:dev`) | `WEB_ORIGIN` (Terraform output `web_origin`; enables the web health check after deploy), plus the values the dev-tools and e2e steps below set |
 
-They are variables, not secrets: they name resources but grant nothing, and CI masks the account id and role ARNs in logs (ADR-063).
+Do not set `TF_STATE_*` or `AWS_INFRA_*` on `dev`: no job there uses them. An Environment variable overrides a
+repository variable of the same name, so never set a different `AWS_REGION` or `AWS_ACCOUNT_ID` on either Environment.
+
+They are variables, not secrets: they name resources but grant nothing, and CI masks the account id, state bucket,
+state key and role ARNs in logs (ADR-063).
 
 ## 3. OWN-4 — bootstrap apply and state migration
 
@@ -214,22 +250,46 @@ git add $B/backend.tf && git commit -m "chore(infra): bootstrap remote state" &&
 
 (Push through a PR if branch protection stops the direct push; admin bypass allows it.)
 
-Publish the outputs. Environment `dev` variables:
-
-```bash
-for kv in AWS_REGION=af-south-1 AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID TF_STATE_BUCKET=$TF_STATE_BUCKET \
-          TF_STATE_KMS_KEY_ARN=$TF_STATE_KMS_KEY_ARN AWS_INFRA_APPLY_ROLE_ARN=$INFRA_APPLY_ROLE_ARN; do
-  gh variable set "${kv%%=*}" --env dev --body "${kv#*=}" --repo "$REPO"
-done
-```
-
-Repository variables, for jobs that cannot declare the Environment:
+Publish the outputs (step 2.5 explains the split). Repository variables:
 
 ```bash
 for kv in AWS_REGION=af-south-1 AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID TF_STATE_BUCKET=$TF_STATE_BUCKET \
           TF_STATE_KMS_KEY_ARN=$TF_STATE_KMS_KEY_ARN AWS_INFRA_PLAN_ROLE_ARN=$INFRA_PLAN_ROLE_ARN; do
   gh variable set "${kv%%=*}" --body "${kv#*=}" --repo "$REPO"
 done
+```
+
+The apply role ARN, on Environment `dev-infra` only:
+
+```bash
+gh variable set AWS_INFRA_APPLY_ROLE_ARN --env dev-infra --body "$INFRA_APPLY_ROLE_ARN" --repo "$REPO"
+gh variable list --env dev-infra --repo "$REPO"
+```
+
+If you published variables with an earlier version of this step, remove the copies from `dev`:
+`for v in TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN AWS_INFRA_APPLY_ROLE_ARN; do gh variable delete "$v" --env dev --repo "$REPO"; done`
+
+### 3.1 Re-apply bootstrap after a trust change
+
+`gha-infra-apply` trusts `repo:<repo>:environment:dev-infra` (it trusted `environment:dev` before CI-02d). CI never
+applies `bootstrap/`, so if you applied bootstrap before that change, re-apply it yourself before the first CI
+infra apply; until then the apply job fails at `AssumeRoleWithWebIdentity`:
+
+```bash
+terraform -chdir=$B init \
+  -backend-config="bucket=$TF_STATE_BUCKET" \
+  -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN"
+terraform -chdir=$B plan -var="github_repo=$REPO" -out="$TEMP/bootstrap.tfplan"
+```
+
+The plan must show exactly one in-place update: `aws_iam_role.infra_apply` (`assume_role_policy`, sub
+`environment:dev` to `environment:dev-infra`). Anything else, stop and ask. Then:
+
+```bash
+terraform -chdir=$B apply "$TEMP/bootstrap.tfplan"
+rm "$TEMP/bootstrap.tfplan"
+aws iam get-role --role-name gha-infra-apply \
+  --query 'Role.AssumeRolePolicyDocument.Statement[0].Condition.StringEquals' --output json   # sub ends in environment:dev-infra
 ```
 
 Initialise the `dev` root against the new backend (you need this for local `terraform` commands later):
@@ -249,19 +309,42 @@ exists yet, but the Lambda roles, log groups and the sweeper scheduler role do (
 policies can name real role ARNs. All five ECS services are created at `desired_count` 0 and
 `enable_service_autoscaling` stays `false`, so nothing needs an image and nothing is billed for tasks.
 
-Run it through the pipeline (ADR-060): the plan job runs on `main`, stores the plan in S3 (`plans/<git-sha>`) and
-waits for approval; the apply job applies that stored plan.
+Run it through the pipeline (ADR-060). `infra.yml` runs on every push to `main` that touches `infra/terraform/**`,
+or on dispatch:
+1. `verify`: `fmt -check`, `validate` and `terraform test` for every module, `bootstrap` and `envs/dev`, then tflint
+   and checkov. No AWS access (this is also all a PR runs).
+2. `plan` (`gha-infra-plan`, no environment): `terraform plan -out`, upload to
+   `s3://<state bucket>/plans/<git-sha>/<run-attempt>.tfplan` with SSE-KMS (state key), and record the S3
+   `VersionId` and the file's sha256 as job outputs. The log and the run summary show only change counts and the
+   addresses of destroys and replacements; plan text and the plan file are never printed or uploaded as an artifact.
+   No changes means no upload and no apply job.
+3. `apply` (`gha-infra-apply`, Environment `dev-infra`): waits for approval, downloads exactly that `VersionId`,
+   refuses it unless the sha256 matches, applies it, then puts a delete marker on the object (the `plans/` lifecycle
+   expires the version a day later). Resource ids and Terraform outputs are stripped from the log.
+
+Runs share the concurrency group `infra` and are never cancelled: a second run waits until the first finishes
+(including its approval wait). Reject a pending approval to release the queue. If several runs queue, GitHub
+keeps only the newest pending one.
 
 ```bash
-gh workflow run infra.yml --ref main                  # (CI-02) infra.yml gains plan-on-main + approval
+gh workflow run infra.yml --ref main --repo "$REPO"
 gh run watch --repo "$REPO"                           # pick the infra run
 ```
 
-Open the run in the Actions tab, read the plan summary, then **Review deployments > dev > Approve**.
-If the pipeline is not built yet, the owner fallback is the same plan applied locally with your SSO admin
-credentials:
+Open the run in the Actions tab, read the plan job's summary (check every `delete` and `replace` line), then
+**Review deployments > dev-infra > Approve** (step 2.4b: a reviewer other than whoever triggered the run).
+A rerun of only the apply job reuses the approved plan; if the state changed since the plan, Terraform rejects it as
+stale and you re-run the whole workflow.
+
+If CI cannot apply (no second reviewer, or the pipeline is broken), the owner fallback is the same plan applied
+locally with your SSO admin credentials. This is a **break-glass admin apply**: it skips the `gha-infra-apply`
+guardrails (permissions boundary, `/cd/` path rule, deny list, region deny) and the stored-plan hash pin, so plan only
+from a clean checkout of `origin/main` (`git status` empty, `git rev-parse HEAD` equal to `origin/main`) and read every
+`delete` and `replace` line before you apply. With a single reviewer this is the normal infra path; adding a second
+reviewer to `dev-infra` moves applies back to the scoped CI role.
 
 ```bash
+git fetch origin && git status --short && test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
 terraform -chdir=$ENV plan -var-file=dev.tfvars -out="$TEMP/phase-a.tfplan"
 terraform -chdir=$ENV apply "$TEMP/phase-a.tfplan"
 rm "$TEMP/phase-a.tfplan"        # plans can contain secrets; never commit or upload one
@@ -280,10 +363,25 @@ What to expect:
 
 The publish, deploy, run-tools and e2e workflows build their role ARNs from `AWS_ACCOUNT_ID` and the fixed names
 (`arn:aws:iam::<account>:role/cd/cd-gha-<key>`, keys as in the `ci_role_arns` output), so no per-role variable is needed.
-Set `WEB_ORIGIN` on the Environment once the distribution exists:
+Set the Environment `dev` variables the deploy, dev-tools and e2e workflows read, once phase A has applied:
 
 ```bash
-gh variable set WEB_ORIGIN --env dev --body "$(terraform -chdir=$ENV output -raw web_origin)" --repo "$REPO"
+out() { terraform -chdir=$ENV output -raw "$1"; }
+net() { terraform -chdir=$ENV output -json dev_tools_run_task_network | jq -r "$1"; }
+for kv in \
+  WEB_ORIGIN="$(out web_origin)" \
+  NAME_PREFIX=cd \
+  COGNITO_USER_POOL_ID="$(out cognito_user_pool_id)" \
+  COGNITO_E2E_CLIENT_ID="$(out cognito_e2e_client_id)" \
+  QUARANTINE_BUCKET_NAME="$(out quarantine_bucket_name)" \
+  EVIDENCE_BUCKET_NAME="$(out evidence_bucket_name)" \
+  NOTIFICATIONS_QUEUE_URL="$(out notifications_queue_url)" \
+  SES_EVENTS_QUEUE_URL="$(out ses_events_queue_url)" \
+  DEV_TOOLS_SUBNET_IDS="$(net '.subnet_ids | join(",")')" \
+  DEV_TOOLS_SG_ID="$(net .security_group_id)" \
+  DISPUTE_NOTIFIER_SG_ID="$(out dispute_notifier_security_group_id)"; do
+  gh variable set "${kv%%=*}" --env dev --body "${kv#*=}" --repo "$REPO"
+done
 ```
 
 Check phase A:
@@ -357,16 +455,20 @@ event source mapping, the EventBridge rule target for evidence-intake and the ni
 proof that arm64 container-image Lambdas work in af-south-1 (R-2).
 
 ```bash
-gh workflow run infra.yml --ref main --repo "$REPO" -f lambda_image_uris="{\"evidence-intake\":\"$ECR/cd-lambda-evidence-intake:$SHA\",\"dispute-notifier\":\"$ECR/cd-lambda-dispute-notifier:$SHA\",\"retention-sweeper\":\"$ECR/cd-lambda-retention-sweeper:$SHA\"}"    # (CI-02)
+gh workflow run infra.yml --ref main --repo "$REPO" -f lambda_image_uris="{\"evidence-intake\":\"$ECR/cd-lambda-evidence-intake:$SHA\",\"dispute-notifier\":\"$ECR/cd-lambda-dispute-notifier:$SHA\",\"retention-sweeper\":\"$ECR/cd-lambda-retention-sweeper:$SHA\"}"
 ```
 
+The plan job rejects the input before touching AWS unless it is a JSON object with exactly these three keys, each
+`<AWS_ACCOUNT_ID>.dkr.ecr.af-south-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>`. All three are required because the
+input replaces the whole `dev.tfvars` map, so an omitted key would destroy that function.
+
 Read the plan summary in the run (only creates and updates of the Lambda-dependent resources; no destroys), then approve
-under **Review deployments > dev**. Local fallback: add `-var='lambda_image_uris={...}'` to the step 4 plan command.
+under **Review deployments > dev-infra**. Local fallback: add `-var='lambda_image_uris={...}'` to the step 4 plan command.
 
 **Keep the Lambdas afterwards.** A function exists only while its key is in `lambda_image_uris`, so a later push-triggered
 plan with the empty default would plan to **destroy** them. After phase B, put the same map in `dev.tfvars` through
 a PR (`image_uri` is ignored after creation, so these URIs only need to stay valid; the deploy pipeline owns the code).
-Always read the plan summary for `destroy` before approving any infra run.
+Always read the plan summary for `delete` and `replace` lines before approving any infra run.
 
 ```bash
 for k in evidence-intake dispute-notifier retention-sweeper; do
@@ -375,7 +477,11 @@ for k in evidence-intake dispute-notifier retention-sweeper; do
 done
 ```
 
-Expect `Image arm64 Active` for each.
+Expect `Image arm64 Active` for each. Then let the Lambda pipelines deploy on push and dispatch (they skip the deploy job until this is set):
+
+```bash
+gh variable set LAMBDAS_DEPLOYED --body true --repo "$REPO"
+```
 
 ## 7. dev-tools `db-bootstrap`
 

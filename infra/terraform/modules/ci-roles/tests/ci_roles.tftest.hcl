@@ -235,6 +235,7 @@ run "wildcards_only_where_documented" {
             "ec2:CreateNetworkInsightsPath", "ec2:StartNetworkInsightsAnalysis",
             "ec2:DescribeNetworkInsightsAnalyses", "ec2:DescribeNetworkInsightsPaths", "ec2:DescribeNetworkInterfaces",
             "ec2:DescribeSecurityGroups", "ec2:DescribeSubnets", "ec2:DescribeVpcs",
+            "tiros:CreateQuery", "tiros:GetQueryAnswer", "tiros:GetQueryExplanation",
           ]
         }, startswith(k, "publish-") ? "publish" : startswith(k, "deploy-lambda-") ? "none" : startswith(k, "deploy-") ? "deploy" : k, []))) == 0
         if contains(s.Resource, "*")

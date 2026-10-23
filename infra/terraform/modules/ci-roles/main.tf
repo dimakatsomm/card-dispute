@@ -275,8 +275,11 @@ locals {
         "ec2:DescribeSecurityGroups",
         "ec2:DescribeSubnets",
         "ec2:DescribeVpcs",
+        "tiros:CreateQuery",
+        "tiros:GetQueryAnswer",
+        "tiros:GetQueryExplanation",
       ]
-      # EC2 Describe actions have no resource-level permission.
+      # EC2 Describe and Reachability Analyzer query actions have no resource-level permission.
       Resource = ["*"]
     },
     {

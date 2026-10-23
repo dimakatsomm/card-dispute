@@ -8,69 +8,322 @@ on:
   push:
     branches: [main]
     paths:
-      - "infra/**"
-      - ".github/workflows/infra.yml"
+      - "infra/terraform/**"
+  workflow_dispatch:
+    inputs:
+      lambda_image_uris:
+        description: 'Optional JSON object {"evidence-intake","dispute-notifier","retention-sweeper"} -> <account>.dkr.ecr.af-south-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>; replaces the dev.tfvars value'
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
+# main runs queue behind each other (a newer pending run replaces an older pending one); PR runs cancel.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.event_name == 'pull_request' && format('infra-pr-{0}', github.ref) || 'infra' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   ENV_DIR: infra/terraform/envs/dev
+  # Plan and apply must run the same Terraform version or the saved plan is rejected.
+  TF_VERSION: 1.11.3
+  TF_IN_AUTOMATION: "1"
+  TF_INPUT: "0"
+  NAME_PREFIX: cd
 
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tf-plugin-cache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # Terraform arrives in a later milestone; skip until the env exists.
-      - name: Detect env
-        id: tf
-        run: |
-          if [ -d "$ENV_DIR" ]; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::$ENV_DIR not found, skipping"
-          fi
-
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        if: steps.tf.outputs.found == 'true'
         with:
+          terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
       - name: Format
-        if: steps.tf.outputs.found == 'true'
         run: terraform -chdir=infra/terraform fmt -check -recursive
 
-      - name: Init (no backend)
-        if: steps.tf.outputs.found == 'true'
-        run: terraform -chdir="$ENV_DIR" init -backend=false -input=false
-
-      - name: Validate
-        if: steps.tf.outputs.found == 'true'
-        run: terraform -chdir="$ENV_DIR" validate
+      # validate runs on the two roots only: standalone it rejects modules with configuration_aliases (edge); test covers modules.
+      - name: Init, validate and test
+        run: |
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          failed=()
+          for dir in infra/terraform/modules/*/ infra/terraform/bootstrap infra/terraform/envs/dev; do
+            dir="${dir%/}"
+            echo "::group::$dir"
+            if terraform -chdir="$dir" init -backend=false -input=false -no-color >/dev/null \
+              && { [[ "$dir" == */modules/* ]] || terraform -chdir="$dir" validate -no-color; } \
+              && terraform -chdir="$dir" test -no-color; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error::$dir failed init, validate or test"
+              failed+=("$dir")
+            fi
+          done
+          [ "${#failed[@]}" -eq 0 ] || { printf 'failed: %s\n' "${failed[@]}"; exit 1; }
 
       - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
-        if: steps.tf.outputs.found == 'true'
 
+      # Run from infra/terraform so --init and --recursive both load infra/terraform/.tflint.hcl.
       - name: tflint
-        if: steps.tf.outputs.found == 'true'
+        working-directory: infra/terraform
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           tflint --init
-          tflint --recursive --chdir=infra/terraform
+          tflint --recursive
 
       - name: checkov
-        if: steps.tf.outputs.found == 'true'
         uses: bridgecrewio/checkov-action@6f26dc90000b74feb589a906cdfae540f5119895 # v12.3134.0
         with:
           directory: infra/terraform
           framework: terraform
           quiet: true
+
+  plan:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # No environment: gha-infra-plan trusts only sub repo:<repo>:ref:refs/heads/main, so this reads repository variables.
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+      plan_key: ${{ steps.store.outputs.plan_key }}
+      plan_version_id: ${{ steps.store.outputs.version_id }}
+      plan_sha256: ${{ steps.store.outputs.sha256 }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
+      ROLE_ARN: ${{ vars.AWS_INFRA_PLAN_ROLE_ARN }}
+      LAMBDA_IMAGE_URIS: ${{ inputs.lambda_image_uris }}
+    steps:
+      - name: Validate variables and mask
+        run: |
+          echo "PLAN_FILE=$RUNNER_TEMP/tfplan" >> "$GITHUB_ENV"
+          echo "LAMBDA_VAR_FILE=$RUNNER_TEMP/lambda.tfvars.json" >> "$GITHUB_ENV"
+          for name in AWS_ACCOUNT_ID TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN ROLE_ARN; do
+            test -n "${!name}" || { echo "::error::repository variable for $name is not set"; exit 1; }
+          done
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          echo "::add-mask::$TF_STATE_BUCKET"
+          echo "::add-mask::$TF_STATE_KMS_KEY_ARN"
+          echo "::add-mask::${TF_STATE_KMS_KEY_ARN##*/}"
+          echo "::add-mask::$ROLE_ARN"
+          [ "$AWS_REGION" = "af-south-1" ] || { echo "::error::AWS_REGION must be af-south-1"; exit 1; }
+          [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || { echo "::error::AWS_ACCOUNT_ID must be 12 digits"; exit 1; }
+          [[ "$ROLE_ARN" == "arn:aws:iam::${AWS_ACCOUNT_ID}:role/gha-infra-plan" ]] || { echo "::error::AWS_INFRA_PLAN_ROLE_ARN must be gha-infra-plan in AWS_ACCOUNT_ID"; exit 1; }
+          [[ "$TF_STATE_KMS_KEY_ARN" =~ ^arn:aws:kms:af-south-1:${AWS_ACCOUNT_ID}:key/[0-9a-f-]{36}$ ]] || { echo "::error::TF_STATE_KMS_KEY_ARN must be a key ARN in af-south-1"; exit 1; }
+          [[ "$TF_STATE_BUCKET" =~ ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$ ]] || { echo "::error::TF_STATE_BUCKET is not a bucket name"; exit 1; }
+
+      # All three keys are required: the input replaces the whole map, so an omitted key would destroy that Lambda.
+      - name: Validate lambda_image_uris
+        if: env.LAMBDA_IMAGE_URIS != ''
+        run: |
+          printf '%s' "$LAMBDA_IMAGE_URIS" | jq -ce --arg acct "$AWS_ACCOUNT_ID" --arg p "$NAME_PREFIX" '
+            def ok: .key as $k | (.value | type) == "string"
+              and (.value | test("^[0-9]{12}\\.dkr\\.ecr\\.af-south-1\\.amazonaws\\.com/[a-z0-9-]+:[0-9a-f]{40}\\z"))
+              and (.value | length) < 200
+              and (.value | startswith($acct + ".dkr.ecr.af-south-1.amazonaws.com/" + $p + "-lambda-" + $k + ":"));
+            if type == "object"
+              and keys == ["dispute-notifier", "evidence-intake", "retention-sweeper"]
+              and (to_entries | all(.[]; ok))
+            then { lambda_image_uris: . } else false end
+          ' > "$LAMBDA_VAR_FILE" || {
+            echo "::error::lambda_image_uris must be a JSON object with exactly evidence-intake, dispute-notifier and retention-sweeper, each <AWS_ACCOUNT_ID>.dkr.ecr.af-south-1.amazonaws.com/${NAME_PREFIX}-lambda-<key>:<40-hex sha>"
+            exit 1
+          }
+          echo "LAMBDA_VAR_ARGS=-var-file=$LAMBDA_VAR_FILE" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+          mask-aws-account-id: true
+
+      # kms_key_id is mandatory: without it the backend sends AES256 and the bucket policy rejects the lock write.
+      - name: Init
+        run: |
+          terraform -chdir="$ENV_DIR" init -input=false -no-color \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=envs/dev/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN" >/dev/null
+
+      # Plan stdout carries attribute values, so it is discarded; stderr goes through the same id filter as apply.
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          # shellcheck disable=SC2086
+          terraform -chdir="$ENV_DIR" plan -input=false -no-color -lock-timeout=10m -detailed-exitcode \
+            -var-file=dev.tfvars $LAMBDA_VAR_ARGS -out="$PLAN_FILE" 2>&1 >/dev/null \
+            | sed -u -E 's/ \[id=[^]]*\]//g; s/arn:aws:[a-z0-9-]+:[a-z0-9-]*:[0-9]{12}:[^ "]*/<arn>/g'
+          code=${PIPESTATUS[0]}
+          set -e
+          case "$code" in
+            0) echo "has_changes=false" >> "$GITHUB_OUTPUT"; echo "::notice::No changes" ;;
+            2) echo "has_changes=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$code" ;;
+          esac
+
+      - name: Summary (addresses and counts only)
+        if: steps.plan.outputs.has_changes == 'true'
+        run: |
+          summary=$(terraform -chdir="$ENV_DIR" show -json "$PLAN_FILE" | jq -r '
+            [ .resource_changes[]?
+              | .change.actions as $a
+              | select($a != ["no-op"] and $a != ["read"])
+              | { action: (if $a == ["create"] then "create" elif $a == ["update"] then "update" elif $a == ["delete"] then "delete"
+                           elif ($a | contains(["create", "delete"])) then "replace" else ($a | join("+")) end),
+                  address } ] as $changes
+            | ([ "create", "update", "replace", "delete" ] | map(. as $k | "\($k): \([ $changes[] | select(.action == $k) ] | length)") | join("  ")),
+              "outputs changed: \([ .output_changes // {} | to_entries[] | select(.value.actions != ["no-op"]) ] | length)",
+              ( $changes[] | select(.action != "create" and .action != "update") | "  \(.action) \(.address)" )
+          ')
+          printf '%s\n' "$summary"
+          {
+            echo "### Infra plan for \`${GITHUB_SHA}\`"
+            echo '```'
+            printf '%s\n' "$summary"
+            echo '```'
+            echo "Destroys and replacements are listed by address. Approve only if they are expected."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Store plan in S3
+        id: store
+        if: steps.plan.outputs.has_changes == 'true'
+        run: |
+          key="plans/${GITHUB_SHA}/${GITHUB_RUN_ATTEMPT}.tfplan"
+          sha256=$(sha256sum "$PLAN_FILE" | cut -d' ' -f1)
+          version_id=$(aws s3api put-object \
+            --bucket "$TF_STATE_BUCKET" --key "$key" --body "$PLAN_FILE" \
+            --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+            --server-side-encryption aws:kms --ssekms-key-id "$TF_STATE_KMS_KEY_ARN" \
+            --query VersionId --output text)
+          [[ -n "$version_id" && "$version_id" != "None" && "$version_id" != "null" ]] || { echo "::error::no VersionId returned (bucket versioning off?)"; exit 1; }
+          {
+            echo "plan_key=$key"
+            echo "version_id=$version_id"
+            echo "sha256=$sha256"
+          } >> "$GITHUB_OUTPUT"
+          echo "Stored $key version $version_id sha256 $sha256"
+
+      - name: Remove local plan
+        if: always()
+        run: rm -f "$PLAN_FILE" "$LAMBDA_VAR_FILE"
+
+  apply:
+    needs: plan
+    if: github.ref == 'refs/heads/main' && needs.plan.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    # Aurora plus a CloudFront VPC origin can take most of the 2-hour apply-role session.
+    timeout-minutes: 115
+    environment: dev-infra
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
+      ROLE_ARN: ${{ vars.AWS_INFRA_APPLY_ROLE_ARN }}
+      PLAN_KEY: ${{ needs.plan.outputs.plan_key }}
+      PLAN_VERSION_ID: ${{ needs.plan.outputs.plan_version_id }}
+      PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+    steps:
+      - name: Validate variables, plan reference and mask
+        run: |
+          echo "PLAN_FILE=$RUNNER_TEMP/tfplan" >> "$GITHUB_ENV"
+          for name in AWS_ACCOUNT_ID TF_STATE_BUCKET TF_STATE_KMS_KEY_ARN ROLE_ARN; do
+            test -n "${!name}" || { echo "::error::variable for $name is not set (repository or environment dev-infra)"; exit 1; }
+          done
+          echo "::add-mask::$AWS_ACCOUNT_ID"
+          echo "::add-mask::$TF_STATE_BUCKET"
+          echo "::add-mask::$TF_STATE_KMS_KEY_ARN"
+          echo "::add-mask::${TF_STATE_KMS_KEY_ARN##*/}"
+          echo "::add-mask::$ROLE_ARN"
+          [ "$AWS_REGION" = "af-south-1" ] || { echo "::error::AWS_REGION must be af-south-1"; exit 1; }
+          [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || { echo "::error::AWS_ACCOUNT_ID must be 12 digits"; exit 1; }
+          [[ "$ROLE_ARN" == "arn:aws:iam::${AWS_ACCOUNT_ID}:role/gha-infra-apply" ]] || { echo "::error::AWS_INFRA_APPLY_ROLE_ARN must be gha-infra-apply in AWS_ACCOUNT_ID"; exit 1; }
+          [[ "$TF_STATE_KMS_KEY_ARN" =~ ^arn:aws:kms:af-south-1:${AWS_ACCOUNT_ID}:key/[0-9a-f-]{36}$ ]] || { echo "::error::TF_STATE_KMS_KEY_ARN must be a key ARN in af-south-1"; exit 1; }
+          [[ "$PLAN_KEY" =~ ^plans/${GITHUB_SHA}/[0-9]+\.tfplan$ ]] || { echo "::error::plan key does not belong to this commit"; exit 1; }
+          [[ "$PLAN_VERSION_ID" =~ ^[A-Za-z0-9._-]{1,1024}$ ]] || { echo "::error::plan VersionId missing or malformed"; exit 1; }
+          [[ "$PLAN_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::plan sha256 missing or malformed"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 7200
+          mask-aws-account-id: true
+
+      # Fetch by VersionId so an object overwritten after approval is never applied.
+      - name: Fetch and verify stored plan
+        run: |
+          aws s3api get-object \
+            --bucket "$TF_STATE_BUCKET" --key "$PLAN_KEY" --version-id "$PLAN_VERSION_ID" \
+            --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+            "$PLAN_FILE" --query VersionId --output text >/dev/null
+          echo "${PLAN_SHA256}  ${PLAN_FILE}" | sha256sum --check --quiet || { echo "::error::stored plan sha256 does not match the approved plan"; exit 1; }
+          echo "Verified $PLAN_KEY version $PLAN_VERSION_ID"
+
+      - name: Init
+        run: |
+          terraform -chdir="$ENV_DIR" init -input=false -no-color \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=envs/dev/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN" >/dev/null
+
+      # Resource ids, ARNs and the Outputs block are stripped from the public log (stderr too); progress per address stays.
+      - name: Apply stored plan
+        run: |
+          terraform -chdir="$ENV_DIR" apply -input=false -no-color -lock-timeout=10m "$PLAN_FILE" 2>&1 \
+            | sed -u -E 's/ \[id=[^]]*\]//g; s/arn:aws:[a-z0-9-]+:[a-z0-9-]*:[0-9]{12}:[^ "]*/<arn>/g; /^Outputs:/,$d'
+
+      # Delete marker only (DeleteObjectVersion is denied); the plans/ lifecycle expires it after a day (unapplied plans after 7).
+      - name: Retire stored plan
+        run: aws s3api delete-object --bucket "$TF_STATE_BUCKET" --key "$PLAN_KEY" --expected-bucket-owner "$AWS_ACCOUNT_ID" --query VersionId --output text >/dev/null
+
+      - name: Remove local plan
+        if: always()
+        run: rm -f "$PLAN_FILE"

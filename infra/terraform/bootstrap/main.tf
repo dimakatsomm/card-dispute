@@ -15,8 +15,10 @@ locals {
 
   github_oidc_host = "token.actions.githubusercontent.com"
   oidc_audience    = "sts.amazonaws.com"
-  plan_subject     = "repo:${var.github_repo}:ref:refs/heads/main"
-  apply_subject    = "repo:${var.github_repo}:environment:dev"
+
+  # Infra apply has its own environment: deploy, tools and e2e roles all trust environment:dev.
+  plan_subject  = "repo:${var.github_repo}:ref:refs/heads/main"
+  apply_subject = "repo:${var.github_repo}:environment:dev-infra"
 
   state_bucket_name = coalesce(var.state_bucket_name, "${local.p}-tfstate-${local.account}")
   state_bucket_arn  = "arn:${local.partition}:s3:::${local.state_bucket_name}"
@@ -85,7 +87,7 @@ locals {
   apply_trust_policy = {
     Version = "2012-10-17"
     Statement = [{
-      Sid       = "GitHubActionsEnvironmentDev"
+      Sid       = "GitHubActionsEnvironmentDevInfra"
       Effect    = "Allow"
       Principal = { Federated = aws_iam_openid_connect_provider.github.arn }
       Action    = "sts:AssumeRoleWithWebIdentity"

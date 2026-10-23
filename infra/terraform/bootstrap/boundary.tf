@@ -52,6 +52,9 @@ locals {
           "ecs:DescribeTaskDefinition",
           "ecs:RegisterTaskDefinition",
           "elasticloadbalancing:DescribeTargetHealth",
+          "tiros:CreateQuery",
+          "tiros:GetQueryAnswer",
+          "tiros:GetQueryExplanation",
         ]
         Resource  = "*"
         Condition = local.in_region

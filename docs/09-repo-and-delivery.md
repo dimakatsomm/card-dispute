@@ -148,7 +148,7 @@ main ─► build ─► push ECR (tag = SHA) ─► ⏸ approval (GitHub Enviro
 - **Manual approval on every deploy** (owner): GitHub Environment `dev` with required reviewers. The deploy job
   pauses until a reviewer approves. ⚠ Verify: required reviewers on **private** repos may need a paid GitHub plan.
 - `infra.yml`: on PR → `fmt -check`, `validate`, `terraform test`, `tflint`, `checkov`. **PRs have no AWS access and post no plan** (ADR-060): a PR job can never present the `main` or `environment:dev` OIDC sub.
-  On main → `plan` with the read-only `gha-infra-plan` role → the plan is written to the encrypted state bucket as `plans/<git-sha>` (never a GitHub artifact; output masked) → ⏸ approval (environment `dev`) → `gha-infra-apply` applies that stored plan. The plan job declares no environment, so it reads repository variables, while the apply job reads Environment variables (docs/11 step 2).
+  On main → `plan` with the read-only `gha-infra-plan` role → the plan is written to the encrypted state bucket as `plans/<git-sha>` (never a GitHub artifact; output masked) → ⏸ approval (environment `dev-infra`, separate from app deploys) → `gha-infra-apply` applies exactly the approved S3 version after a sha256 check. The plan job declares no environment, so it reads repository variables, while the apply job reads Environment variables (docs/11 step 2).
 - Concurrency: one deploy per workflow at a time (`concurrency: deploy-<name>`); newer runs queue.
 - Shared-package changes rebuild every dependent. Each deploy is still approved per service.
 

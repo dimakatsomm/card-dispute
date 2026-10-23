@@ -65,8 +65,13 @@ run "trust_policies_pin_exact_subject_and_audience" {
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role.infra_apply.assume_role_policy).Statement[0].Condition == { StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com", "token.actions.githubusercontent.com:sub" = "repo:acme/card-dispute:environment:dev" } }
-    error_message = "gha-infra-apply must trust only StringEquals aud sts.amazonaws.com and sub repo:acme/card-dispute:environment:dev."
+    condition     = jsondecode(aws_iam_role.infra_apply.assume_role_policy).Statement[0].Condition == { StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com", "token.actions.githubusercontent.com:sub" = "repo:acme/card-dispute:environment:dev-infra" } }
+    error_message = "gha-infra-apply must trust only StringEquals aud sts.amazonaws.com and sub repo:acme/card-dispute:environment:dev-infra."
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role.infra_apply.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] != "repo:acme/card-dispute:environment:dev"
+    error_message = "gha-infra-apply must not trust environment dev: every deploy, tools and e2e job runs there."
   }
 
   assert {

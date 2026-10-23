@@ -34,7 +34,7 @@ resource "aws_iam_role_policy_attachment" "infra_plan_read_only" {
 resource "aws_iam_role" "infra_apply" {
   name                 = local.apply_role_name
   path                 = "/"
-  description          = "terraform apply for envs/dev from GitHub Environment dev (manual approval)."
+  description          = "terraform apply for envs/dev from GitHub Environment dev-infra (manual approval)."
   assume_role_policy   = jsonencode(local.apply_trust_policy)
   max_session_duration = 7200
 }
