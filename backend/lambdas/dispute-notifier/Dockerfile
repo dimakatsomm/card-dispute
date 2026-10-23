@@ -17,6 +17,9 @@ RUN pnpm --filter @cd/dispute-notifier build
 
 # Pinned from public.ecr.aws/lambda/nodejs:24 (multi-arch index digest; bump deliberately).
 # Platform follows the build: CI and AWS pass --platform linux/arm64, a local compose build is native.
-FROM public.ecr.aws/lambda/nodejs@sha256:66c547b04b1ec3b0b832816df70d4911d0721b4d29717dd0bd5358876586092e
+FROM public.ecr.aws/lambda/nodejs@sha256:92b7cccd985332238af80ac8da42d6965d418552e88955e315da4e3c0c76ca79
+# The base image lags Amazon Linux fixes; our bundle carries its own AWS SDK, so the runtime copy and npm go.
+RUN dnf upgrade -y --refresh --releasever=latest && dnf clean all && rm -rf /var/cache/dnf \
+      /var/runtime/node_modules/@aws-sdk /var/lang/lib/node_modules/npm /var/lang/bin/npm /var/lang/bin/npx
 COPY --from=build /repo/backend/lambdas/dispute-notifier/dist/ ${LAMBDA_TASK_ROOT}/
 CMD ["index.handler"]

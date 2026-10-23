@@ -79,6 +79,7 @@ jobs:
           image-ref: local/${{ inputs.repo-key }}:${{ github.sha }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
           cache: false
 

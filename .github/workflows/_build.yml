@@ -122,6 +122,7 @@ jobs:
           image-ref: ${{ inputs.image-name }}:ci
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
           cache: false
 

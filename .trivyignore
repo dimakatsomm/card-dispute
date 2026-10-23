@@ -1,0 +1,3 @@
+# Go stdlib in aws-lambda-rie (Lambda base image). The emulator runs only when AWS_LAMBDA_RUNTIME_API is unset,
+# i.e. locally; in AWS the entrypoint execs /var/runtime/bootstrap. Remove once the base image ships a rebuilt RIE.
+CVE-2026-111943 exp:2026-12-31

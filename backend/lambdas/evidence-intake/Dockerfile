@@ -17,7 +17,10 @@ RUN pnpm --filter @cd/evidence-intake bundle
 
 # Pinned from public.ecr.aws/lambda/nodejs:24 (multi-arch index digest; bump deliberately).
 # Platform follows the build: CI and AWS pass --platform linux/arm64, a local compose build is native.
-FROM public.ecr.aws/lambda/nodejs@sha256:66c547b04b1ec3b0b832816df70d4911d0721b4d29717dd0bd5358876586092e
+FROM public.ecr.aws/lambda/nodejs@sha256:92b7cccd985332238af80ac8da42d6965d418552e88955e315da4e3c0c76ca79
+# The base image lags Amazon Linux fixes; our bundle carries its own AWS SDK, so the runtime copy and npm go.
+RUN dnf upgrade -y --refresh --releasever=latest && dnf clean all && rm -rf /var/cache/dnf \
+      /var/runtime/node_modules/@aws-sdk /var/lang/lib/node_modules/npm /var/lang/bin/npm /var/lang/bin/npx
 COPY --from=build --chmod=0444 /repo/backend/lambdas/evidence-intake/dist/index.mjs ${LAMBDA_TASK_ROOT}/
 # AWS runs functions as its own unprivileged user; this keeps the local RIE container off root too.
 USER 65534:65534

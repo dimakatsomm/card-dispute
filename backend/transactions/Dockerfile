@@ -21,7 +21,9 @@ ENV NODE_ENV=production
 COPY --chmod=0444 backend/packages/db/certs/rds-global-bundle.pem /etc/ssl/rds/rds-global-bundle.pem
 RUN echo "90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/ssl/rds/rds-global-bundle.pem" | sha256sum -c -
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/rds/rds-global-bundle.pem
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-* \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 COPY --from=deps /repo/node_modules /app/node_modules
 COPY --from=deps /repo/backend /app/backend
 COPY --chmod=0755 <<'EOF' /usr/local/bin/migrate
