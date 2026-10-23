@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test:aws": "vitest run --config api/vitest.config.ts && vitest run --config api/vitest.final.config.ts",
-    "typecheck": "tsc -p api/tsconfig.json"
+    "test:aws:ui": "playwright test --config ui/playwright.config.ts",
+    "typecheck": "tsc -p api/tsconfig.json && tsc -p ui/tsconfig.json"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "catalog:",

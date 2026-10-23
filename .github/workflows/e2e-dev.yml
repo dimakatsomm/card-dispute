@@ -66,6 +66,10 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Browser download happens before any AWS credentials exist in the job.
+      - name: Install Chromium
+        run: pnpm --filter @cd/e2e-aws exec playwright install chromium --with-deps
+
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ env.ROLE_ARN }}
@@ -74,3 +78,7 @@ jobs:
 
       - name: Run e2e against dev
         run: pnpm --filter @cd/e2e-aws test:aws
+
+      # Results stay on the runner: failure output can hold page text, and nothing is uploaded.
+      - name: Run UI e2e against dev
+        run: pnpm --filter @cd/e2e-aws test:aws:ui
