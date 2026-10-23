@@ -547,8 +547,25 @@ Creates Cognito users A to D (D disabled) idempotently with random passwords sto
 changes nothing. User A gets at least 60 disputable transactions.
 
 ```bash
-gh workflow run dev-tools.yml --ref main --repo "$REPO" -f task=dev-seed         # (CI-02) approve under dev
+gh workflow run dev-tools.yml --ref main --repo "$REPO" -f tool=dev-seed         # (CI-02) approve under dev
 aws logs tail /cd/dev/tools/dev-seed --since 30m --format short
+```
+
+**User A's email (`SEED_A_EMAIL`).** By default every user gets a generated `@example.com` address, and the e2e
+SES delivery check skips because the SES sandbox only delivers to verified identities. To run that check, set
+`SEED_A_EMAIL` to the SES-verified owner identity from step 10 (OWN-6). The seed then writes it to user A's
+`app_user.email` and to A's Cognito `email` attribute (marked verified). It is validated as a plausible address and
+never logged: the log line shows only `emailA: "custom"` or `"generated"`. A re-run with the same value changes 0 rows.
+Changing or unsetting it on a later run updates both places again (unset restores the generated address).
+
+The address reaches the task as a container environment override on the dev-seed run. Store it as the GitHub
+environment **secret** `SEED_A_EMAIL` under Settings > Environments > dev, not as a variable or a workflow input: it is
+real personal data and this repository is public (ADR-041). `dev-tools.yml` passes it only to dev-seed, and the
+dev-seed role can update an existing user's address. The override value is visible in CloudTrail `RunTask` records
+and `DescribeTasks` output inside the account.
+
+```bash
+gh secret set SEED_A_EMAIL --env dev --repo "$REPO"        # prompts for the value; never put it on the command line
 ```
 
 Rerunning is safe. Disputes are permanent (one per transaction, ever), so seeded data is consumed over time; the

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAwsSeedConfig, seedUsers, withCognitoSubs } from '../src/aws-seed.ts';
+import { isPlausibleEmail, resolveAwsSeedConfig, seedUsers, withCognitoSubs, withEmailA } from '../src/aws-seed.ts';
 import { provisionSeedUsers, ROTATE_ACTION, type ProvisionDeps } from '../src/cognito.ts';
-import { DEFAULT_SEED, generateSeedData } from '../src/generate.ts';
+import { DEFAULT_SEED, generateSeedData, userId } from '../src/generate.ts';
 import { generatePassword } from '../src/password.ts';
 import { parseSeedUserSecret } from '../src/seed-user-secret.ts';
 import { fakeAws, MUTATING, type FakeAws } from './fake-aws.ts';
@@ -33,6 +33,7 @@ describe('provisionSeedUsers (Cognito + Secrets Manager behind an SDK stub)', ()
     expect(result.ok && result.value.counts).toEqual({
       cognito_user_created: 4,
       cognito_user_disabled: 1,
+      cognito_email_updated: 0,
       cognito_password_set: 4,
       seed_secret_created: 4,
       seed_secret_updated: 0,
@@ -82,6 +83,7 @@ describe('provisionSeedUsers (Cognito + Secrets Manager behind an SDK stub)', ()
     expect(second.ok && second.value.counts).toEqual({
       cognito_user_created: 0,
       cognito_user_disabled: 0,
+      cognito_email_updated: 0,
       cognito_password_set: 0,
       seed_secret_created: 0,
       seed_secret_updated: 0,
@@ -231,5 +233,110 @@ describe('resolveAwsSeedConfig', () => {
     });
     expect(resolveAwsSeedConfig({ ...env, MIGRATOR_DATABASE_URL_AUTH: url('auth').replace('postgres:', 'postgresql:') }).ok).toBe(true);
     expect(resolveAwsSeedConfig({})).toMatchObject({ ok: false, error: { missing: expect.arrayContaining(['MIGRATOR_DATABASE_URL_AUTH']) } });
+  });
+});
+
+describe('SEED_A_EMAIL', () => {
+  const CUSTOM = 'thandi.owner@example.test';
+  const env = {
+    COGNITO_USER_POOL_ID: 'af-south-1_FAKEPOOL',
+    SEED_USER_SECRET_PREFIX: PREFIX,
+    SEED_USER_SECRET_KMS_KEY_ID: KMS,
+    DB_HOST: 'cd-dev.cluster-x.af-south-1.rds.amazonaws.com',
+    DB_PORT: '5432',
+    DB_NAME: 'disputes',
+    ...Object.fromEntries(
+      ['auth', 'users', 'transactions', 'disputes'].map((svc) => [
+        `MIGRATOR_DATABASE_URL_${svc.toUpperCase()}`,
+        `postgres://${svc}_migrator:fake-pass@cd-dev.cluster-x.af-south-1.rds.amazonaws.com:5432/disputes?sslmode=verify-full`,
+      ]),
+    ),
+  };
+
+  it.each([
+    [undefined, null],
+    ['', null],
+    [CUSTOM, CUSTOM],
+    ["o'brien+e2e@mail.example.test", "o'brien+e2e@mail.example.test"],
+  ])('accepts %j as emailA %j', (value, emailA) => {
+    const config = resolveAwsSeedConfig({ ...env, SEED_A_EMAIL: value });
+    expect(config.ok && config.value.emailA).toBe(emailA);
+  });
+
+  it.each([
+    'thandi',
+    'thandi@',
+    '@example.test',
+    'thandi@example',
+    'thandi owner@example.test',
+    'thandi@exa mple.test',
+    'a@b@example.test',
+    '.thandi@example.test',
+    'thandi..owner@example.test',
+    'thandi@-example.test',
+    'Thandi <thandi@example.test>',
+    'thandi@example.test\n',
+    `${'a'.repeat(65)}@example.test`,
+    `thandi@${`${'a'.repeat(60)}.`.repeat(4)}test`,
+  ])('rejects %j, naming only the variable and never echoing the value', (value) => {
+    expect(isPlausibleEmail(value)).toBe(false);
+    const config = resolveAwsSeedConfig({ ...env, SEED_A_EMAIL: value });
+    expect(config).toEqual({ ok: false, error: { missing: [], invalid: ['SEED_A_EMAIL'] } });
+  });
+
+  it('overrides only user A, so Cognito and app_user both get the custom address', () => {
+    const custom = withEmailA(data, CUSTOM);
+    expect(custom.appUsers.filter((u) => u.email === CUSTOM).map((u) => u.user_id)).toEqual([userId('A')]);
+    expect(custom.appUsers.filter((u) => u.user_id !== userId('A'))).toEqual(data.appUsers.filter((u) => u.user_id !== userId('A')));
+    expect(seedUsers(custom).find((u) => u.username === 'thandi.nkosi')?.email).toBe(CUSTOM);
+    expect(withEmailA(data, null)).toBe(data);
+  });
+
+  it('a new value updates only A in Cognito (verified), a repeat changes nothing, and unsetting restores the generated address', async () => {
+    const aws = fakeAws();
+    await provisionSeedUsers(deps(aws))(users);
+    aws.calls.length = 0;
+
+    const changed = await provisionSeedUsers(deps(aws))(seedUsers(withEmailA(data, CUSTOM)));
+    expect(changed.ok && changed.value.counts).toMatchObject({ cognito_email_updated: 1, cognito_user_created: 0, cognito_password_set: 0 });
+    expect(aws.calls.filter((c) => c.command === 'AdminUpdateUserAttributesCommand').map((c) => c.input)).toEqual([
+      {
+        UserPoolId: 'af-south-1_FAKEPOOL',
+        Username: 'thandi.nkosi',
+        UserAttributes: [
+          { Name: 'email', Value: CUSTOM },
+          { Name: 'email_verified', Value: 'true' },
+        ],
+      },
+    ]);
+    expect(aws.users.get('thandi.nkosi')?.email).toBe(CUSTOM);
+
+    aws.calls.length = 0;
+    const repeated = await provisionSeedUsers(deps(aws))(seedUsers(withEmailA(data, CUSTOM)));
+    expect(repeated.ok && repeated.value.counts.cognito_email_updated).toBe(0);
+    expect(mutations(aws)).toEqual([]);
+
+    const restored = await provisionSeedUsers(deps(aws))(users);
+    expect(restored.ok && restored.value.counts.cognito_email_updated).toBe(1);
+    expect(aws.users.get('thandi.nkosi')?.email).toBe('thandi.nkosi@example.com');
+  });
+
+  it('stops with only the SDK error name when the role may not update attributes, so the address is not in the error', async () => {
+    const aws = fakeAws();
+    await provisionSeedUsers(deps(aws))(users);
+    const refusing = {
+      send: async (command: unknown) => {
+        if ((command as { constructor: { name: string } }).constructor.name === 'AdminUpdateUserAttributesCommand') {
+          throw Object.assign(new Error(`not authorized to update ${CUSTOM}`), { name: 'AccessDeniedException' });
+        }
+        return aws.cognito.send(command as never);
+      },
+    } as unknown as ProvisionDeps['cognito'];
+    const result = await provisionSeedUsers(deps(aws, { cognito: refusing }))(seedUsers(withEmailA(data, CUSTOM)));
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'provision', username: 'thandi.nkosi', step: 'AdminUpdateUserAttributes', name: 'AccessDeniedException' },
+    });
+    expect(JSON.stringify(result)).not.toContain(CUSTOM);
   });
 });

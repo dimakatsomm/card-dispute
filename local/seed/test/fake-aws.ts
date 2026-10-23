@@ -5,6 +5,7 @@ import {
   AdminGetUserCommand,
   AdminInitiateAuthCommand,
   AdminSetUserPasswordCommand,
+  AdminUpdateUserAttributesCommand,
   type CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
 import {
@@ -40,7 +41,7 @@ export const fakeAws = () => {
     if (command instanceof AdminGetUserCommand) {
       record(command);
       const u = user(command.input.Username ?? '');
-      return { Username: command.input.Username, Enabled: u.enabled, UserStatus: u.status, UserAttributes: [{ Name: 'sub', Value: u.sub }] };
+      return { Username: command.input.Username, Enabled: u.enabled, UserStatus: u.status, UserAttributes: [{ Name: 'sub', Value: u.sub }, { Name: 'email', Value: u.email }] };
     }
     if (command instanceof AdminCreateUserCommand) {
       record(command);
@@ -55,6 +56,12 @@ export const fakeAws = () => {
       const u = user(command.input.Username ?? '');
       u.password = command.input.Password ?? null;
       if (command.input.Permanent === true) u.status = 'CONFIRMED';
+      return {};
+    }
+    if (command instanceof AdminUpdateUserAttributesCommand) {
+      record(command);
+      const u = user(command.input.Username ?? '');
+      u.email = command.input.UserAttributes?.find((a) => a.Name === 'email')?.Value ?? u.email;
       return {};
     }
     if (command instanceof AdminDisableUserCommand) {
@@ -117,6 +124,7 @@ export const MUTATING = [
   'AdminCreateUserCommand',
   'AdminSetUserPasswordCommand',
   'AdminDisableUserCommand',
+  'AdminUpdateUserAttributesCommand',
   'CreateSecretCommand',
   'PutSecretValueCommand',
 ] as const;

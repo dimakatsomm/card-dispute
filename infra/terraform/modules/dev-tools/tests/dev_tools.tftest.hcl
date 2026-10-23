@@ -185,9 +185,9 @@ run "cognito_permissions_scoped_to_pool" {
   assert {
     condition = toset(one([for s in jsondecode(aws_iam_role_policy.task["dev-seed"].policy).Statement : s.Action if s.Sid == "SeedCognitoUsersInPool"])) == toset([
       "cognito-idp:AdminCreateUser", "cognito-idp:AdminSetUserPassword", "cognito-idp:AdminGetUser",
-      "cognito-idp:AdminDisableUser",
+      "cognito-idp:AdminDisableUser", "cognito-idp:AdminUpdateUserAttributes",
     ])
-    error_message = "seed gets exactly the four admin actions."
+    error_message = "seed gets exactly the five admin actions."
   }
 
   assert {

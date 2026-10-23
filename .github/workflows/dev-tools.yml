@@ -63,6 +63,7 @@ jobs:
       SUBNET_IDS: ${{ vars.DEV_TOOLS_SUBNET_IDS }}
       TOOLS_SG_ID: ${{ vars.DEV_TOOLS_SG_ID }}
       NOTIFIER_SG_ID: ${{ vars.DISPUTE_NOTIFIER_SG_ID }}
+      SEED_A_EMAIL: ${{ secrets.SEED_A_EMAIL }}
     steps:
       - name: Validate inputs and mask account
         run: |
@@ -110,15 +111,18 @@ jobs:
           taskdef=$(aws ecs register-task-definition --cli-input-json file://next.json --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "TASKDEF=$taskdef" >> "$GITHUB_ENV"
 
-      # Commands are fixed literals per tool; no input reaches the override. No --tags: run-tools has no ecs:TagResource.
+      # Commands are fixed literals per tool; the only other override is dev-seed's SEED_A_EMAIL Environment secret. No --tags: run-tools has no ecs:TagResource.
       - name: Run task
         run: |
           run_task() {
             local sg="$1" command_json="$2" task_arn
             jq -n --arg subnets "$SUBNET_IDS" --arg sg "$sg" \
               '{awsvpcConfiguration: {subnets: ($subnets | split(",")), securityGroups: [$sg], assignPublicIp: "DISABLED"}}' > network.json
-            jq -n --arg name "$TOOL" --argjson command "$command_json" \
-              '{containerOverrides: [{name: $name, command: $command}]}' > overrides.json
+            local email=""
+            if [ "$TOOL" = "dev-seed" ]; then email="${SEED_A_EMAIL:-}"; fi
+            jq -n --arg name "$TOOL" --argjson command "$command_json" --arg email "$email" \
+              '{containerOverrides: [{name: $name, command: $command}
+                + (if $email == "" then {} else {environment: [{name: "SEED_A_EMAIL", value: $email}]} end)]}' > overrides.json
             task_arn=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$TASKDEF" --launch-type FARGATE \
               --network-configuration file://network.json --overrides file://overrides.json --count 1 \
               --query 'tasks[0].taskArn' --output text)

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # dev-tools image (ADR-061). Build context is the repo root (pnpm catalog + lockfile live there):
 #   docker build --platform linux/arm64 -f local/seed/Dockerfile -t cd-dev-tools .
-# Run: command bootstrap | seed | probe [--expect-unreachable]; read-only root with /tmp writable, user 1000.
+# Run: command bootstrap | seed | probe [--expect-unreachable] [--hold <seconds>]; read-only root with /tmp writable, user 1000.
 
 # Dependencies are pure JS, so they install on the native platform; only the runtime stage is ARM64.
 FROM --platform=$BUILDPLATFORM node:24.22.0-alpine3.24 AS deps
@@ -33,7 +33,7 @@ case "$cmd" in
   bootstrap) exec node /app/backend/packages/db/bootstrap/main.ts "$@" ;;
   seed) exec node /app/local/seed/src/main.ts "$@" ;;
   probe) exec node /app/local/seed/src/probe-main.ts "$@" ;;
-  *) echo "usage: dev-tools bootstrap | seed | probe [--expect-unreachable|--help]" >&2; exit 64 ;;
+  *) echo "usage: dev-tools bootstrap | seed | probe [--expect-unreachable] [--hold <seconds>] [--help]" >&2; exit 64 ;;
 esac
 SCRIPT
 # Nothing writes outside /tmp, so the task runs with readonlyRootFilesystem.

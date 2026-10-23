@@ -58,7 +58,7 @@ describe('net-probe task (ADR-067)', () => {
   it(
     'from the dev-tools security group every service port is unreachable: the probe task and Reachability Analyzer agree',
     async () => {
-      const run = await startProbe(env().toolsSgId, ['probe', '--expect-unreachable']);
+      const run = await startProbe(env().toolsSgId, ['probe', '--expect-unreachable', '--hold', '420']);
       const source = await until('the net-probe ENI to be attached', () => run.eniId(), 3 * 60_000, 2_000);
 
       type Created = { pathId: string; analysisId: string; label: string };

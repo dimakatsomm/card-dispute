@@ -1,7 +1,7 @@
 import { SERVICES } from '@cd/db/bootstrap';
 import { err, ok, type Result } from '@cd/shared/fp';
 import { provisionSeedUsers, type ProvisionDeps, type ProvisionError, type SeedUser } from './cognito.ts';
-import type { SeedData } from './generate.ts';
+import { userId, type SeedData } from './generate.ts';
 import { insertAll, type InsertedCounts, type SeedError, type Service, type UrlFor } from './seed.ts';
 
 export type Env = Readonly<Record<string, string | undefined>>;
@@ -11,6 +11,7 @@ export type AwsSeedConfig = {
   readonly secretPrefix: string;
   readonly kmsKeyId: string;
   readonly rotatePasswords: boolean;
+  readonly emailA: string | null;
   readonly migratorUrls: Readonly<Record<Service, string>>;
 };
 
@@ -58,6 +59,13 @@ const isExpectedMigratorUrl = (raw: string, svc: Service, env: Env): boolean => 
   );
 };
 
+const ATOM = "[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+";
+const LABEL = '[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?';
+// Plausible, not full RFC 5322: a dot-atom local part, a host of at least two LDH labels, SMTP length limits.
+const EMAIL = new RegExp(`^(?=[^@]{1,64}@)${ATOM}(?:\\.${ATOM})*@${LABEL}(?:\\.${LABEL})+$`);
+
+export const isPlausibleEmail = (raw: string): boolean => raw.length <= 254 && EMAIL.test(raw);
+
 export const resolveAwsSeedConfig = (env: Env): Result<AwsSeedConfig, ConfigError> => {
   const missing = REQUIRED.filter((k) => !env[k]);
   if (missing.length > 0) return err({ missing, invalid: [] });
@@ -67,6 +75,7 @@ export const resolveAwsSeedConfig = (env: Env): Result<AwsSeedConfig, ConfigErro
       ? []
       : ['SEED_USER_SECRET_KMS_KEY_ID']),
     ...SERVICES.filter((svc) => !isExpectedMigratorUrl(env[migratorEnv(svc)] ?? '', svc, env)).map(migratorEnv),
+    ...(!env.SEED_A_EMAIL || isPlausibleEmail(env.SEED_A_EMAIL) ? [] : ['SEED_A_EMAIL']),
   ];
   if (invalid.length > 0) return err({ missing: [], invalid });
   return ok({
@@ -74,9 +83,13 @@ export const resolveAwsSeedConfig = (env: Env): Result<AwsSeedConfig, ConfigErro
     secretPrefix: env.SEED_USER_SECRET_PREFIX ?? '',
     kmsKeyId: env.SEED_USER_SECRET_KMS_KEY_ID ?? '',
     rotatePasswords: env.SEED_ROTATE_USER_PASSWORDS === 'true',
+    emailA: env.SEED_A_EMAIL || null,
     migratorUrls: Object.fromEntries(SERVICES.map((svc) => [svc, env[migratorEnv(svc)] ?? ''])) as Record<Service, string>,
   });
 };
+
+export const withEmailA = (data: SeedData, email: string | null): SeedData =>
+  email === null ? data : { ...data, appUsers: data.appUsers.map((u) => (u.user_id === userId('A') ? { ...u, email } : u)) };
 
 export const seedUsers = (data: SeedData): ReadonlyArray<SeedUser> => {
   const emails = new Map(data.appUsers.map((u) => [u.user_id, u.email]));

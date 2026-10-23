@@ -3,6 +3,7 @@ import {
   AdminDisableUserCommand,
   AdminGetUserCommand,
   AdminSetUserPasswordCommand,
+  AdminUpdateUserAttributesCommand,
   type CognitoIdentityProviderClient,
 } from '@aws-sdk/client-cognito-identity-provider';
 import {
@@ -30,6 +31,7 @@ export type ProvisionDeps = {
 export type ProvisionCounts = {
   readonly cognito_user_created: number;
   readonly cognito_user_disabled: number;
+  readonly cognito_email_updated: number;
   readonly cognito_password_set: number;
   readonly seed_secret_created: number;
   readonly seed_secret_updated: number;
@@ -47,12 +49,13 @@ export type ProvisionError = {
 
 export const ROTATE_ACTION = 'Cognito holds a password the secret does not; re-run dev-seed with SEED_ROTATE_USER_PASSWORDS=true';
 
-type CognitoUser = { readonly sub: string; readonly enabled: boolean; readonly confirmed: boolean };
+type CognitoUser = { readonly sub: string; readonly email: string | undefined; readonly enabled: boolean; readonly confirmed: boolean };
 type Step<T> = Promise<Result<T, ProvisionError>>;
 
 const ZERO: ProvisionCounts = {
   cognito_user_created: 0,
   cognito_user_disabled: 0,
+  cognito_email_updated: 0,
   cognito_password_set: 0,
   seed_secret_created: 0,
   seed_secret_updated: 0,
@@ -75,9 +78,10 @@ const getUser = (deps: ProvisionDeps, username: string): Step<CognitoUser | null
   attempt(username, 'AdminGetUser', async () => {
     try {
       const out = await deps.cognito.send(new AdminGetUserCommand({ UserPoolId: deps.userPoolId, Username: username }));
-      const sub = out.UserAttributes?.find((a) => a.Name === 'sub')?.Value;
+      const attribute = (name: string): string | undefined => out.UserAttributes?.find((a) => a.Name === name)?.Value;
+      const sub = attribute('sub');
       if (sub === undefined || sub === '') throw Object.assign(new Error('missing sub'), { name: 'MissingSub' });
-      return { sub, enabled: out.Enabled !== false, confirmed: out.UserStatus === 'CONFIRMED' };
+      return { sub, email: attribute('email'), enabled: out.Enabled !== false, confirmed: out.UserStatus === 'CONFIRMED' };
     } catch (e) {
       if (isNotFound(e, 'UserNotFoundException')) return null;
       throw e;
@@ -103,6 +107,20 @@ const setPassword = (deps: ProvisionDeps, username: string, password: string): S
   attempt(username, 'AdminSetUserPassword', () =>
     deps.cognito.send(
       new AdminSetUserPasswordCommand({ UserPoolId: deps.userPoolId, Username: username, Password: password, Permanent: true }),
+    ),
+  );
+
+const updateEmail = (deps: ProvisionDeps, user: SeedUser): Step<unknown> =>
+  attempt(user.username, 'AdminUpdateUserAttributes', () =>
+    deps.cognito.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: deps.userPoolId,
+        Username: user.username,
+        UserAttributes: [
+          { Name: 'email', Value: user.email },
+          { Name: 'email_verified', Value: 'true' },
+        ],
+      }),
     ),
   );
 
@@ -209,6 +227,12 @@ const provisionOne = async (
   if (current.value === null) return err({ kind: 'provision', username: user.username, step: 'AdminGetUser', name: 'UserNotFoundException' });
   const cognitoUser = current.value;
 
+  const mustUpdateEmail = cognitoUser.email !== user.email;
+  if (mustUpdateEmail) {
+    const updated = await updateEmail(deps, user);
+    if (!updated.ok) return updated;
+  }
+
   const secretName = `${deps.secretPrefix}${user.username}`;
   const plan = await planPassword(deps, user, secretName, created || !cognitoUser.confirmed);
   if (!plan.ok) return plan;
@@ -222,13 +246,19 @@ const provisionOne = async (
   }
   return ok({
     sub: cognitoUser.sub,
-    counts: { ...applied.value, cognito_user_created: created ? 1 : 0, cognito_user_disabled: mustDisable ? 1 : 0 },
+    counts: {
+      ...applied.value,
+      cognito_user_created: created ? 1 : 0,
+      cognito_user_disabled: mustDisable ? 1 : 0,
+      cognito_email_updated: mustUpdateEmail ? 1 : 0,
+    },
   });
 };
 
 const addCounts = (a: ProvisionCounts, b: Partial<ProvisionCounts>): ProvisionCounts => ({
   cognito_user_created: a.cognito_user_created + (b.cognito_user_created ?? 0),
   cognito_user_disabled: a.cognito_user_disabled + (b.cognito_user_disabled ?? 0),
+  cognito_email_updated: a.cognito_email_updated + (b.cognito_email_updated ?? 0),
   cognito_password_set: a.cognito_password_set + (b.cognito_password_set ?? 0),
   seed_secret_created: a.seed_secret_created + (b.seed_secret_created ?? 0),
   seed_secret_updated: a.seed_secret_updated + (b.seed_secret_updated ?? 0),

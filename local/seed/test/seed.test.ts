@@ -60,6 +60,7 @@ describe('runSeed against Postgres 18 (bootstrap + committed migrations)', () =>
       ok: true,
       value: {
         app_user: 4,
+        app_user_email_updated: 0,
         account: data.accounts.length,
         card: data.cards.length,
         auth_identity: 4,

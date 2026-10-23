@@ -5,8 +5,8 @@ import { bootstrap, ROLES, SERVICES, type Role } from '@cd/db/bootstrap';
 import { startTestPostgres, type TestPostgres } from '@cd/db/testing';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { runAwsSeed, type AwsSeedDeps } from '../src/aws-seed.ts';
-import { DEFAULT_SEED, generateSeedData } from '../src/generate.ts';
+import { runAwsSeed, withEmailA, type AwsSeedDeps } from '../src/aws-seed.ts';
+import { DEFAULT_SEED, generateSeedData, userId } from '../src/generate.ts';
 import { generatePassword } from '../src/password.ts';
 import type { UrlFor } from '../src/seed.ts';
 import { fakeAws, MUTATING, type FakeAws } from './fake-aws.ts';
@@ -93,6 +93,30 @@ describe('runAwsSeed against Postgres 18 with Cognito stubbed', () => {
     const second = await runAwsSeed(seedDeps(aws))(data);
     expect(second.ok && Object.entries(second.value).filter(([, n]) => n !== 0)).toEqual([]);
     expect(aws.commands().filter((c) => (MUTATING as ReadonlyArray<string>).includes(c))).toEqual([]);
+  });
+
+  it('SEED_A_EMAIL sets the app_user email and Cognito attribute; a repeat changes 0 rows; a new value updates both again', async () => {
+    const emailOfA = async (): Promise<unknown> =>
+      (await adminQuery(`select email::text as email from users.app_user where user_id = '${userId('A')}'`)).rows[0]?.email;
+    const changes = async (email: string) => {
+      const result = await runAwsSeed(seedDeps(aws))(withEmailA(data, email));
+      expect(result.ok).toBe(true);
+      return result.ok ? Object.fromEntries(Object.entries(result.value).filter(([, n]) => n !== 0)) : {};
+    };
+
+    expect(await changes('thandi.owner@example.test')).toEqual({ app_user_email_updated: 1, cognito_email_updated: 1 });
+    expect(await emailOfA()).toBe('thandi.owner@example.test');
+    expect(aws.users.get('thandi.nkosi')?.email).toBe('thandi.owner@example.test');
+
+    aws.calls.length = 0;
+    expect(await changes('thandi.owner@example.test')).toEqual({});
+    expect(aws.commands().filter((c) => (MUTATING as ReadonlyArray<string>).includes(c))).toEqual([]);
+
+    expect(await changes('Thandi.Owner@example.test')).toEqual({ app_user_email_updated: 1, cognito_email_updated: 1 });
+    expect(await emailOfA()).toBe('Thandi.Owner@example.test');
+    expect(aws.users.get('thandi.nkosi')?.email).toBe('Thandi.Owner@example.test');
+    const others = await adminQuery(`select count(*)::int as n from users.app_user where email::text like '%@example.com'`);
+    expect(others.rows[0]?.n).toBe(3);
   });
 
   it('refuses to keep a stale auth_identity when Cognito now issues a different sub for the username', async () => {

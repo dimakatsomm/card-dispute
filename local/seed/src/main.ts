@@ -3,7 +3,7 @@ import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { ROLES, type Role } from '@cd/db/bootstrap';
 import { createLogger } from '@cd/shared';
-import { resolveAwsSeedConfig, runAwsSeed } from './aws-seed.ts';
+import { resolveAwsSeedConfig, runAwsSeed, withEmailA } from './aws-seed.ts';
 import { DEFAULT_SEED, generateSeedData } from './generate.ts';
 import { generatePassword } from './password.ts';
 import { runSeed } from './seed.ts';
@@ -49,7 +49,9 @@ const runAws = async (now: Date): Promise<number> => {
     log.error(config.error, 'seed: missing or invalid environment variables');
     return 1;
   }
-  const { migratorUrls, ...cognito } = config.value;
+  const { migratorUrls, emailA, ...cognito } = config.value;
+  // The address itself is PII and never logged; only whether it was overridden.
+  const emailMode = emailA === null ? 'generated' : 'custom';
   const result = await runAwsSeed({
     provision: {
       ...cognito,
@@ -58,12 +60,12 @@ const runAws = async (now: Date): Promise<number> => {
       newPassword: () => generatePassword(),
     },
     urlFor: (svc) => migratorUrls[svc],
-  })(generateSeedData({ seed: DEFAULT_SEED, now }));
+  })(withEmailA(generateSeedData({ seed: DEFAULT_SEED, now }), emailA));
   if (!result.ok) {
-    log.error({ error: result.error }, 'seed failed');
+    log.error({ emailA: emailMode, error: result.error }, 'seed failed');
     return 1;
   }
-  log.info({ target: 'aws', now: now.toISOString(), changed: result.value }, 'seed complete');
+  log.info({ target: 'aws', now: now.toISOString(), emailA: emailMode, changed: result.value }, 'seed complete');
   return 0;
 };
 

@@ -36,6 +36,11 @@ const SQL = {
     from jsonb_to_recordset($1::jsonb) as r(user_id uuid, auth_id uuid, name text, surname text,
       cellphone_number text, email text, status text)
     on conflict do nothing`,
+  // Compared as text so a case-only change still lands (email is citext).
+  appUserEmail: `
+    update users.app_user u set email = r.email
+    from jsonb_to_recordset($1::jsonb) as r(user_id uuid, email text)
+    where u.user_id = r.user_id and u.email::text is distinct from r.email`,
   account: `
     insert into users.account (account_id, user_id, account_number_masked, account_type, currency)
     select r.account_id, u.id, r.account_number_masked, r.account_type, r.currency
@@ -102,6 +107,7 @@ const inserts = (data: SeedData): Readonly<Record<Service, Insert>> => ({
   // docs/03 provisioning order: app_user is written before auth_identity.
   users: async (c) => ({
     app_user: await count(c, SQL.appUser, [json(data.appUsers)]),
+    app_user_email_updated: await count(c, SQL.appUserEmail, [json(data.appUsers)]),
     account: await count(c, SQL.account, [json(data.accounts)]),
     card: await count(c, SQL.card, [json(data.cards)]),
   }),
