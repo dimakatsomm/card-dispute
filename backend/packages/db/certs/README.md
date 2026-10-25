@@ -1,6 +1,6 @@
 # RDS CA bundle
 
-`rds-global-bundle.pem` is the AWS RDS global CA bundle (all regions, including af-south-1).
+`rds-global-bundle.pem` is the AWS RDS global CA bundle (all regions, including eu-north-1).
 
 - Source: https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 - Downloaded: 2026-10-20

@@ -18,7 +18,7 @@ export const configSchema = serverConfigSchema.extend({
   TOKEN_URL: z.url(),
   SERVICE_CLIENT_ID: z.string().min(1),
   SERVICE_CLIENT_SECRET: z.string().min(1),
-  AWS_REGION: z.string().min(1).default('af-south-1'),
+  AWS_REGION: z.string().min(1).default('eu-north-1'),
   S3_ENDPOINT: z.url().optional(),
   S3_PRESIGN_ENDPOINT: z.url().optional(),
   S3_FORCE_PATH_STYLE: booleanFlag,

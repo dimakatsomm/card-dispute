@@ -46,7 +46,7 @@ describe('sqs poller', () => {
     sqs,
     invoke: makeInvoke(5000),
     queueUrl,
-    queueArn: 'arn:aws:sqs:af-south-1:000000000000:test',
+    queueArn: 'arn:aws:sqs:eu-north-1:000000000000:test',
     region: REGION,
     notifierUrl,
     waitSeconds: 0,

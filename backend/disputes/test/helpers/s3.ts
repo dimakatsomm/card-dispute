@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { CreateBucketCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { inject } from 'vitest';
 
-export const S3_REGION = 'af-south-1';
+export const S3_REGION = 'eu-north-1';
 export const S3_KEY = { accessKeyId: 'test', secretAccessKey: 'test-secret-key' } as const;
 
 export type Moto = { readonly endpoint: string; readonly stop: () => Promise<void> };

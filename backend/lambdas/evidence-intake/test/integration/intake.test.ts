@@ -39,7 +39,7 @@ const setup = async ({ env = {}, secrets, timeoutMs }: Setup = {}) => {
   const lines: string[] = [];
   const log = createLogger({ level: 'debug', destination: { write: (line: string) => lines.push(line) } });
   const config = configSchema.parse({
-    AWS_REGION: 'af-south-1',
+    AWS_REGION: 'eu-north-1',
     QUARANTINE_BUCKET: quarantine,
     EVIDENCE_BUCKET: evidence,
     DISPUTES_SERVICE_URL: `${stub.url}/`,
@@ -336,7 +336,7 @@ describe('service client secret source', () => {
 
   it('config refuses both or neither secret source', () => {
     const base = {
-      AWS_REGION: 'af-south-1',
+      AWS_REGION: 'eu-north-1',
       QUARANTINE_BUCKET: 'q',
       EVIDENCE_BUCKET: 'e',
       DISPUTES_SERVICE_URL: 'http://disputes:8081',

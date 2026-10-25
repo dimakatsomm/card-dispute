@@ -9,12 +9,12 @@ It creates:
 | KMS key `alias/cd-tfstate` | Rotation on, `prevent_destroy`. Encrypts state, locks and stored plans. |
 | OIDC provider `token.actions.githubusercontent.com` | Audience `sts.amazonaws.com`. No thumbprint: AWS trusts GitHub's certificate via its root CA library. |
 | `gha-infra-plan` | Trusted only for `repo:<repo>:ref:refs/heads/main`. `ReadOnlyAccess` plus state read, lock and `plans/*` writes, the state key, and read access to `cd/*` secret values (which Terraform refresh reads; they are in state anyway). Denied seed-user secrets and evidence/quarantine object reads. |
-| `gha-infra-apply` | Trusted only for `repo:<repo>:environment:dev-infra` (its own GitHub Environment; the deploy, tools and e2e roles trust `environment:dev`). `ReadOnlyAccess` for refresh, plus write actions limited to the services in `modules/README.md` and the `cd-` / `cd/` / `/cd/` names. Creating roles requires path `/cd/` and boundary `cd-workload-boundary`, and `iam:PassRole` is allowed only for `/cd/` roles. Requests outside af-south-1 and us-east-1 are denied, and so are changes to its own role, its own policies, the boundary, the OIDC provider, the state bucket and the state key. |
+| `gha-infra-apply` | Trusted only for `repo:<repo>:environment:dev-infra` (its own GitHub Environment; the deploy, tools and e2e roles trust `environment:dev`). `ReadOnlyAccess` for refresh, plus write actions limited to the services in `modules/README.md` and the `cd-` / `cd/` / `/cd/` names. Creating roles requires path `/cd/` and boundary `cd-workload-boundary`, and `iam:PassRole` is allowed only for `/cd/` roles. Requests outside eu-north-1 and us-east-1 are denied, and so are changes to its own role, its own policies, the boundary, the OIDC provider, the state bucket and the state key. |
 | `cd-workload-boundary` | Caps every `/cd/` role (workloads and CI roles) to ECS, ECR, Logs, S3, SQS, KMS, Secrets Manager, SES, Cognito admin, Lambda, EventBridge, ENIs and GuardDuty malware protection. Denies every IAM action except `iam:PassRole` (to ECS tasks, for `/cd/` roles only), denies `organizations:*`, and denies `sts:AssumeRole` outside `/cd/`. |
 
 ## OWN-4: apply, migrate state, publish outputs
 
-Run this in Git Bash from the repository root, with SSO admin credentials for the dev account (af-south-1 enabled).
+Run this in Git Bash from the repository root, with SSO admin credentials for the dev account (eu-north-1 enabled).
 
 ```bash
 export AWS_PROFILE=<owner-sso-admin-profile>
@@ -49,7 +49,7 @@ The `infra` workflow's plan job declares no environment: if it did, its token's 
 job (including environment jobs) can see:
 
 ```bash
-for kv in AWS_REGION=af-south-1 AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID TF_STATE_BUCKET=$TF_STATE_BUCKET \
+for kv in AWS_REGION=eu-north-1 AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID TF_STATE_BUCKET=$TF_STATE_BUCKET \
           TF_STATE_KMS_KEY_ARN=$TF_STATE_KMS_KEY_ARN AWS_INFRA_PLAN_ROLE_ARN=$INFRA_PLAN_ROLE_ARN; do
   gh variable set "${kv%%=*}" --body "${kv#*=}" --repo "$REPO"
 done
@@ -70,7 +70,7 @@ These are variables, not secrets. They identify resources but grant nothing, and
 terraform -chdir=infra/terraform/envs/dev init \
   -backend-config="bucket=$TF_STATE_BUCKET" \
   -backend-config="key=envs/dev/terraform.tfstate" \
-  -backend-config="region=af-south-1" \
+  -backend-config="region=eu-north-1" \
   -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN"
 ```
 

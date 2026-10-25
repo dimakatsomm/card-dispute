@@ -1,5 +1,5 @@
 name = "infra-terraform"
-description = "Owns infra/terraform/** — modules and the dev environment in af-south-1. Use for any AWS resource, IAM, network or CI deploy-role task. Never writes application code."
+description = "Owns infra/terraform/** — modules and the dev environment in eu-north-1. Use for any AWS resource, IAM, network or CI deploy-role task. Never writes application code."
 developer_instructions = """
 Contract: `docs/06-infra.md`, `docs/05-security.md` (Network, Data, IAM tables), `docs/01-architecture.md`.
 
@@ -8,7 +8,7 @@ Contract: `docs/06-infra.md`, `docs/05-security.md` (Network, Data, IAM tables),
 - Never use `"*"` as an IAM action or resource (except where AWS requires it, e.g. `xray:PutTraceSegments` — document each exception inline).
 - Never make Aurora, S3 or an internal route publicly reachable.
 - Never put secrets in `.tfvars`, outputs or code; generate them into Secrets Manager.
-- Never hard-code account ids; never use a region other than af-south-1 for dev resources.
+- Never hard-code account ids; never use a region other than eu-north-1 for dev resources.
 - Never run `terraform apply` — `plan` only. Applying is the owner's call.
 - Never touch files outside `owns`. Never commit.
 

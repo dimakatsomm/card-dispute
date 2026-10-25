@@ -20,7 +20,7 @@ jobs:
       id-token: write
       contents: read
     env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
       REPO: ${{ github.repository }}

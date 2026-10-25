@@ -4,27 +4,27 @@ mock_provider "aws" {
   }
 
   mock_data "aws_region" {
-    defaults = { region = "af-south-1" }
+    defaults = { region = "eu-north-1" }
   }
 
   mock_resource "aws_lb" {
     defaults = {
-      arn        = "arn:aws:elasticloadbalancing:af-south-1:123456789012:loadbalancer/app/cd-alb/0123456789abcdef"
+      arn        = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:loadbalancer/app/cd-alb/0123456789abcdef"
       arn_suffix = "app/cd-alb/0123456789abcdef"
-      dns_name   = "internal-cd-alb-123456789.af-south-1.elb.amazonaws.com"
+      dns_name   = "internal-cd-alb-123456789.eu-north-1.elb.amazonaws.com"
     }
   }
 
   mock_resource "aws_lb_listener" {
-    defaults = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:listener/app/cd-alb/0123456789abcdef/0000000000000001" }
+    defaults = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:listener/app/cd-alb/0123456789abcdef/0000000000000001" }
   }
 
   mock_resource "aws_lb_target_group" {
-    defaults = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-default/0000000000000000" }
+    defaults = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-default/0000000000000000" }
   }
 
   mock_resource "aws_secretsmanager_secret" {
-    defaults = { arn = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/edge/origin-secret-AbCdEf" }
+    defaults = { arn = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/edge/origin-secret-AbCdEf" }
   }
 }
 
@@ -32,32 +32,32 @@ mock_provider "random" {}
 
 override_resource {
   target = aws_lb_target_group.this["web-8080"]
-  values = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-web-8080/0000000000000001" }
+  values = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-web-8080/0000000000000001" }
 }
 
 override_resource {
   target = aws_lb_target_group.this["users-8080"]
-  values = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-users-8080/0000000000000002" }
+  values = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-users-8080/0000000000000002" }
 }
 
 override_resource {
   target = aws_lb_target_group.this["transactions-8080"]
-  values = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-transactions-8080/0000000000000003" }
+  values = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-transactions-8080/0000000000000003" }
 }
 
 override_resource {
   target = aws_lb_target_group.this["disputes-8080"]
-  values = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-disputes-8080/0000000000000004" }
+  values = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-disputes-8080/0000000000000004" }
 }
 
 override_resource {
   target = aws_lb_target_group.this["users-8081"]
-  values = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-users-8081/0000000000000005" }
+  values = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-users-8081/0000000000000005" }
 }
 
 override_resource {
   target = aws_lb_target_group.this["disputes-8081"]
-  values = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-disputes-8081/0000000000000006" }
+  values = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-disputes-8081/0000000000000006" }
 }
 
 variables {
@@ -66,7 +66,7 @@ variables {
   public_subnet_ids  = ["subnet-0000000000000000a", "subnet-0000000000000000b"]
   private_subnet_ids = ["subnet-0000000000000000c", "subnet-0000000000000000d"]
   security_group_id  = "sg-0123456789abcdef0"
-  data_kms_key_arn   = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  data_kms_key_arn   = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
 }
 
 run "vpc_origin" {

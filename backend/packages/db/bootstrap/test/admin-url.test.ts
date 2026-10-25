@@ -5,7 +5,7 @@ import { resolveAdminUrl } from '../admin-url.ts';
 import { ROLES } from '../bootstrap.ts';
 
 const parts = {
-  DB_ADMIN_HOST: 'aurora.cluster-x.af-south-1.rds.amazonaws.com',
+  DB_ADMIN_HOST: 'aurora.cluster-x.eu-north-1.rds.amazonaws.com',
   DB_ADMIN_PORT: '5432',
   DB_ADMIN_USER: 'cd admin',
   DB_ADMIN_PASSWORD: 'p@ss:w/rd?#%&=+ ',

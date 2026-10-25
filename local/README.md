@@ -21,7 +21,7 @@ Ports avoid common tools (54322 is taken by another project). Everything shares 
 containers reach each other as `postgres:5432`, `moto:5000`, `mock-issuer:55900`.
 
 moto-init (one-shot) creates buckets `cd-evidence-quarantine` and `cd-evidence`, queue `dispute-notifications`
-and its DLQ `dispute-notifications-dlq` (redrive after 5 receives). Credentials are dummies (`test`/`test`), region `af-south-1`.
+and its DLQ `dispute-notifications-dlq` (redrive after 5 receives). Credentials are dummies (`test`/`test`), region `eu-north-1`.
 
 ## Lambdas and the driver (L-07)
 

@@ -1,6 +1,6 @@
 mock_provider "aws" {
   mock_data "aws_region" {
-    defaults = { region = "af-south-1", name = "af-south-1" }
+    defaults = { region = "eu-north-1", name = "eu-north-1" }
   }
   mock_data "aws_caller_identity" {
     defaults = { account_id = "123456789012" }
@@ -9,13 +9,13 @@ mock_provider "aws" {
     defaults = { partition = "aws" }
   }
   mock_resource "aws_cloudwatch_log_group" {
-    defaults = { arn = "arn:aws:logs:af-south-1:123456789012:log-group:/cd/dev/tools/tool" }
+    defaults = { arn = "arn:aws:logs:eu-north-1:123456789012:log-group:/cd/dev/tools/tool" }
   }
   mock_resource "aws_iam_role" {
     defaults = { arn = "arn:aws:iam::123456789012:role/cd/cd-tool-role" }
   }
   mock_resource "aws_ecs_task_definition" {
-    defaults = { arn = "arn:aws:ecs:af-south-1:123456789012:task-definition/cd-tool:1" }
+    defaults = { arn = "arn:aws:ecs:eu-north-1:123456789012:task-definition/cd-tool:1" }
   }
 }
 
@@ -24,40 +24,40 @@ variables {
   permissions_boundary_arn = "arn:aws:iam::123456789012:policy/cd-workload-boundary"
   iam_path                 = "/cd/"
   log_retention_days       = 7
-  logs_kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  data_kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  cluster_arn              = "arn:aws:ecs:af-south-1:123456789012:cluster/cd"
-  image_uri                = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-dev-tools:initial"
+  logs_kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  data_kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  cluster_arn              = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd"
+  image_uri                = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-dev-tools:initial"
   subnet_ids               = ["subnet-private-a", "subnet-private-b"]
   security_group_id        = "sg-dev-tools"
   aurora = {
-    endpoint          = "cd-aurora.cluster-abc.af-south-1.rds.amazonaws.com"
+    endpoint          = "cd-aurora.cluster-abc.eu-north-1.rds.amazonaws.com"
     port              = 5432
     database_name     = "disputes"
-    master_secret_arn = "arn:aws:secretsmanager:af-south-1:123456789012:secret:rds!cluster-0000-AbCdEf"
+    master_secret_arn = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:rds!cluster-0000-AbCdEf"
     role_secret_arns = {
-      auth_migrator         = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/auth_migrator-A1b2C3"
-      auth_app              = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/auth_app-A1b2C3"
-      users_migrator        = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/users_migrator-A1b2C3"
-      users_app             = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/users_app-A1b2C3"
-      transactions_migrator = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/transactions_migrator-A1b2C3"
-      transactions_app      = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/transactions_app-A1b2C3"
-      disputes_migrator     = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_migrator-A1b2C3"
-      disputes_app          = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_app-A1b2C3"
-      disputes_retention    = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_retention-A1b2C3"
+      auth_migrator         = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/auth_migrator-A1b2C3"
+      auth_app              = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/auth_app-A1b2C3"
+      users_migrator        = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/users_migrator-A1b2C3"
+      users_app             = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/users_app-A1b2C3"
+      transactions_migrator = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/transactions_migrator-A1b2C3"
+      transactions_app      = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/transactions_app-A1b2C3"
+      disputes_migrator     = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_migrator-A1b2C3"
+      disputes_app          = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_app-A1b2C3"
+      disputes_retention    = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_retention-A1b2C3"
     }
   }
-  cognito_user_pool_arn        = "arn:aws:cognito-idp:af-south-1:123456789012:userpool/af-south-1_AbCdEfGhI"
-  cognito_user_pool_id         = "af-south-1_AbCdEfGhI"
+  cognito_user_pool_arn        = "arn:aws:cognito-idp:eu-north-1:123456789012:userpool/eu-north-1_AbCdEfGhI"
+  cognito_user_pool_id         = "eu-north-1_AbCdEfGhI"
   seed_user_secret_name_prefix = "cd/dev/seed-users/"
   probe_environment = {
-    SERVICE_PORT_BASE_URL = "http://internal-cd-alb-123.af-south-1.elb.amazonaws.com:8081"
-    TOKEN_URL             = "https://cd-dev.auth.af-south-1.amazoncognito.com/oauth2/token"
+    SERVICE_PORT_BASE_URL = "http://internal-cd-alb-123.eu-north-1.elb.amazonaws.com:8081"
+    TOKEN_URL             = "https://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/token"
     E2E_CLIENT_ID         = "e2eclientid"
     SERVICE_CLIENT_ID     = "notifierclientid"
   }
   probe_secrets = {
-    SERVICE_CLIENT_SECRET = { secret_arn = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-notifier-GhIjKl" }
+    SERVICE_CLIENT_SECRET = { secret_arn = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-notifier-GhIjKl" }
   }
 }
 
@@ -165,7 +165,7 @@ run "seed_uses_migrator_urls_and_cognito_env" {
     condition = (
       { for e in jsondecode(aws_ecs_task_definition.this["dev-seed"].container_definitions)[0].environment : e.name => e.value }["SEED_TARGET"] == "aws" &&
       { for e in jsondecode(aws_ecs_task_definition.this["dev-seed"].container_definitions)[0].environment : e.name => e.value }["COGNITO_USER_POOL_ID"] == var.cognito_user_pool_id &&
-      { for e in jsondecode(aws_ecs_task_definition.this["dev-seed"].container_definitions)[0].environment : e.name => e.value }["AWS_REGION"] == "af-south-1"
+      { for e in jsondecode(aws_ecs_task_definition.this["dev-seed"].container_definitions)[0].environment : e.name => e.value }["AWS_REGION"] == "eu-north-1"
     )
     error_message = "seed must run with SEED_TARGET=aws, AWS_REGION and the pool id."
   }
@@ -228,7 +228,7 @@ run "secrets_access_limited_to_referenced_arns" {
 
   assert {
     condition = alltrue(flatten([for p in aws_iam_role_policy.execution : [
-      for s in jsondecode(p.policy).Statement : s.Condition.StringEquals["kms:ViaService"] == "secretsmanager.af-south-1.amazonaws.com"
+      for s in jsondecode(p.policy).Statement : s.Condition.StringEquals["kms:ViaService"] == "secretsmanager.eu-north-1.amazonaws.com"
       if contains(s.Action, "kms:Decrypt")
     ]]))
     error_message = "Execution roles decrypt only via Secrets Manager."
@@ -237,7 +237,7 @@ run "secrets_access_limited_to_referenced_arns" {
   assert {
     condition = alltrue(flatten([for p in aws_iam_role_policy.task : [
       for s in jsondecode(p.policy).Statement : alltrue([
-        for r in s.Resource : startswith(r, "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/seed-users/")
+        for r in s.Resource : startswith(r, "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/")
       ]) if anytrue([for a in s.Action : startswith(a, "secretsmanager:")])
     ]]))
     error_message = "Task roles touch only seed-user secrets."
@@ -251,7 +251,7 @@ run "secrets_access_limited_to_referenced_arns" {
   }
 
   assert {
-    condition     = one([for s in jsondecode(aws_iam_role_policy.task["net-probe"].policy).Statement : s.Resource if s.Sid == "ReadProbeUserPassword"]) == ["arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/seed-users/thandi.nkosi-??????"]
+    condition     = one([for s in jsondecode(aws_iam_role_policy.task["net-probe"].policy).Statement : s.Resource if s.Sid == "ReadProbeUserPassword"]) == ["arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/thandi.nkosi-??????"]
     error_message = "probe reads only persona A's seed-user secret."
   }
 }
@@ -275,7 +275,7 @@ run "no_wildcards_except_documented" {
 
   assert {
     condition = alltrue(flatten([for p in concat(values(aws_iam_role_policy.execution), values(aws_iam_role_policy.task)) : [
-      for s in jsondecode(p.policy).Statement : [for r in s.Resource : r == "*" || !endswith(r, "*") || r == "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/seed-users/*" || endswith(r, ":log-stream:*")]
+      for s in jsondecode(p.policy).Statement : [for r in s.Resource : r == "*" || !endswith(r, "*") || r == "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/*" || endswith(r, ":log-stream:*")]
     ]]))
     error_message = "Partial wildcards are only the seed-user prefix and own log streams."
   }
@@ -302,7 +302,7 @@ run "image_must_be_dev_tools_repo" {
   command = plan
 
   variables {
-    image_uri = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-svc-disputes:initial"
+    image_uri = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-disputes:initial"
   }
 
   expect_failures = [var.image_uri]

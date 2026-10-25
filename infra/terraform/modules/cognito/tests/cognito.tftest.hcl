@@ -1,15 +1,15 @@
 mock_provider "aws" {
   mock_data "aws_region" {
-    defaults = { region = "af-south-1" }
+    defaults = { region = "eu-north-1" }
   }
   mock_resource "aws_cognito_user_pool" {
     defaults = {
-      id  = "af-south-1_TestPool1"
-      arn = "arn:aws:cognito-idp:af-south-1:123456789012:userpool/af-south-1_TestPool1"
+      id  = "eu-north-1_TestPool1"
+      arn = "arn:aws:cognito-idp:eu-north-1:123456789012:userpool/eu-north-1_TestPool1"
     }
   }
   mock_resource "aws_secretsmanager_secret" {
-    defaults = { arn = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/x-AbCdEf" }
+    defaults = { arn = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/x-AbCdEf" }
   }
 }
 
@@ -20,7 +20,7 @@ variables {
   callback_urls       = ["https://d111111abcdef8.cloudfront.net/callback"]
   logout_urls         = ["https://d111111abcdef8.cloudfront.net/"]
   enable_e2e_client   = false
-  secrets_kms_key_arn = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  secrets_kms_key_arn = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
   domain_suffix       = "a1b2c3"
 }
 
@@ -50,12 +50,12 @@ run "pool_and_resource_servers" {
   }
 
   assert {
-    condition     = output.issuer_url == "https://cognito-idp.af-south-1.amazonaws.com/af-south-1_TestPool1"
+    condition     = output.issuer_url == "https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_TestPool1"
     error_message = "issuer_url must be the cognito-idp pool URL."
   }
 
   assert {
-    condition     = output.token_url == "https://cd-dev-a1b2c3.auth.af-south-1.amazoncognito.com/oauth2/token"
+    condition     = output.token_url == "https://cd-dev-a1b2c3.auth.eu-north-1.amazoncognito.com/oauth2/token"
     error_message = "token_url must be the hosted domain token endpoint."
   }
 }

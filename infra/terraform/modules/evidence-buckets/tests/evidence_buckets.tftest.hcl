@@ -8,7 +8,7 @@ mock_provider "aws" {
   }
 
   mock_data "aws_region" {
-    defaults = { region = "af-south-1", name = "af-south-1" }
+    defaults = { region = "eu-north-1", name = "eu-north-1" }
   }
 }
 
@@ -39,14 +39,14 @@ override_resource {
 override_resource {
   target = aws_cloudwatch_event_rule.scan_result
   values = {
-    arn = "arn:aws:events:af-south-1:123456789012:rule/cd-evidence-scan-result"
+    arn = "arn:aws:events:eu-north-1:123456789012:rule/cd-evidence-scan-result"
   }
 }
 
 override_resource {
   target = aws_guardduty_malware_protection_plan.quarantine
   values = {
-    arn = "arn:aws:guardduty:af-south-1:123456789012:malware-protection-plan/0000000000000000000000000000000000000000"
+    arn = "arn:aws:guardduty:eu-north-1:123456789012:malware-protection-plan/0000000000000000000000000000000000000000"
   }
 }
 
@@ -54,12 +54,12 @@ variables {
   name_prefix              = "cd"
   permissions_boundary_arn = "arn:aws:iam::123456789012:policy/cd-workload-boundary"
   iam_path                 = "/cd/"
-  kms_key_arn              = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  kms_key_arn              = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
   allowed_upload_origin    = "https://d111111abcdef8.cloudfront.net"
   enable_intake_target     = true
   intake_function_name     = "cd-evidence-intake"
-  intake_alias_arn         = "arn:aws:lambda:af-south-1:123456789012:function:cd-evidence-intake:live"
-  intake_dlq_arn           = "arn:aws:sqs:af-south-1:123456789012:cd-evidence-intake-dlq"
+  intake_alias_arn         = "arn:aws:lambda:eu-north-1:123456789012:function:cd-evidence-intake:live"
+  intake_dlq_arn           = "arn:aws:sqs:eu-north-1:123456789012:cd-evidence-intake-dlq"
 }
 
 run "quarantine_bucket" {
@@ -253,7 +253,7 @@ run "guardduty_plan_and_role" {
   assert {
     condition = jsondecode(aws_iam_role.guardduty.assume_role_policy).Statement[0].Principal == { Service = "malware-protection-plan.guardduty.amazonaws.com" } && jsondecode(aws_iam_role.guardduty.assume_role_policy).Statement[0].Condition == {
       StringEquals = { "aws:SourceAccount" = "123456789012" }
-      ArnLike      = { "aws:SourceArn" = "arn:aws:guardduty:af-south-1:123456789012:malware-protection-plan/*" }
+      ArnLike      = { "aws:SourceArn" = "arn:aws:guardduty:eu-north-1:123456789012:malware-protection-plan/*" }
     }
     error_message = "Only GuardDuty malware protection plans in this account may assume the role."
   }
@@ -275,7 +275,7 @@ run "guardduty_plan_and_role" {
       alltrue([for r in s.Resource :
         startswith(r, "arn:aws:s3:::cd-dev-quarantine-123456789012") ||
         r == var.kms_key_arn ||
-    r == "arn:aws:events:af-south-1:123456789012:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*"])])
+    r == "arn:aws:events:eu-north-1:123456789012:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*"])])
     error_message = "The GuardDuty role may touch only the quarantine bucket, the evidence key and its managed rule."
   }
 }
@@ -310,7 +310,7 @@ run "scan_result_rule_targets_intake" {
   assert {
     condition = (
       aws_lambda_permission.scan_result[0].principal == "events.amazonaws.com" &&
-      aws_lambda_permission.scan_result[0].source_arn == "arn:aws:events:af-south-1:123456789012:rule/cd-evidence-scan-result" &&
+      aws_lambda_permission.scan_result[0].source_arn == "arn:aws:events:eu-north-1:123456789012:rule/cd-evidence-scan-result" &&
       aws_lambda_permission.scan_result[0].qualifier == "live" &&
       aws_lambda_permission.scan_result[0].function_name == "cd-evidence-intake" &&
       aws_lambda_permission.scan_result[0].action == "lambda:InvokeFunction"
@@ -319,8 +319,8 @@ run "scan_result_rule_targets_intake" {
   }
 
   assert {
-    condition     = output.quarantine_bucket_regional_origin == "https://cd-dev-quarantine-123456789012.s3.af-south-1.amazonaws.com"
-    error_message = "The regional origin must be https://<bucket>.s3.af-south-1.amazonaws.com."
+    condition     = output.quarantine_bucket_regional_origin == "https://cd-dev-quarantine-123456789012.s3.eu-north-1.amazonaws.com"
+    error_message = "The regional origin must be https://<bucket>.s3.eu-north-1.amazonaws.com."
   }
 }
 
@@ -344,7 +344,7 @@ run "target_requires_intake_function" {
 
   variables {
     intake_function_name = null
-    intake_alias_arn     = "arn:aws:lambda:af-south-1:123456789012:function:cd-evidence-intake"
+    intake_alias_arn     = "arn:aws:lambda:eu-north-1:123456789012:function:cd-evidence-intake"
   }
 
   expect_failures = [var.intake_function_name, var.intake_alias_arn]

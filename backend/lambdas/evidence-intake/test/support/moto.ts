@@ -11,7 +11,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { inject } from 'vitest';
 
-export const REGION = 'af-south-1';
+export const REGION = 'eu-north-1';
 const ENDPOINT = inject('motoEndpoint');
 
 export const s3 = new S3Client({

@@ -4,7 +4,7 @@ mock_provider "aws" {
   }
 
   mock_data "aws_region" {
-    defaults = { region = "af-south-1" }
+    defaults = { region = "eu-north-1" }
   }
 
   mock_data "aws_partition" {
@@ -14,7 +14,7 @@ mock_provider "aws" {
 
 variables {
   name_prefix = "cd"
-  kms_key_arn = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  kms_key_arn = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
 }
 
 run "repositories_are_immutable_scanned_and_encrypted" {
@@ -89,7 +89,7 @@ run "only_lambda_repos_have_a_source_arn_scoped_pull_policy" {
       s.Effect == "Allow" &&
       s.Principal == { Service = "lambda.amazonaws.com" } &&
       toset(s.Action) == toset(["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]) &&
-      s.Condition.StringLike["aws:sourceArn"] == "arn:aws:lambda:af-south-1:123456789012:function:cd-*"
+      s.Condition.StringLike["aws:sourceArn"] == "arn:aws:lambda:eu-north-1:123456789012:function:cd-*"
     ])])
     error_message = "The Lambda pull policy must allow only lambda.amazonaws.com to pull, scoped by aws:sourceArn to this account's cd- functions."
   }

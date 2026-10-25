@@ -1,6 +1,6 @@
 mock_provider "aws" {
   mock_data "aws_region" {
-    defaults = { region = "af-south-1", name = "af-south-1" }
+    defaults = { region = "eu-north-1", name = "eu-north-1" }
   }
   mock_data "aws_caller_identity" {
     defaults = { account_id = "123456789012" }
@@ -9,16 +9,16 @@ mock_provider "aws" {
     defaults = { partition = "aws" }
   }
   mock_resource "aws_cloudwatch_log_group" {
-    defaults = { arn = "arn:aws:logs:af-south-1:123456789012:log-group:/cd/dev/ecs/disputes" }
+    defaults = { arn = "arn:aws:logs:eu-north-1:123456789012:log-group:/cd/dev/ecs/disputes" }
   }
   mock_resource "aws_iam_role" {
     defaults = { arn = "arn:aws:iam::123456789012:role/cd/cd-disputes-role" }
   }
   mock_resource "aws_ecs_task_definition" {
-    defaults = { arn = "arn:aws:ecs:af-south-1:123456789012:task-definition/cd-disputes:1" }
+    defaults = { arn = "arn:aws:ecs:eu-north-1:123456789012:task-definition/cd-disputes:1" }
   }
   mock_resource "aws_service_discovery_service" {
-    defaults = { arn = "arn:aws:servicediscovery:af-south-1:123456789012:service/srv-abc" }
+    defaults = { arn = "arn:aws:servicediscovery:eu-north-1:123456789012:service/srv-abc" }
   }
 }
 
@@ -28,39 +28,39 @@ variables {
   permissions_boundary_arn = "arn:aws:iam::123456789012:policy/cd-workload-boundary"
   iam_path                 = "/cd/"
   log_retention_days       = 7
-  logs_kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  data_kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  cluster_arn              = "arn:aws:ecs:af-south-1:123456789012:cluster/cd"
-  namespace_arn            = "arn:aws:servicediscovery:af-south-1:123456789012:namespace/ns-abc"
+  logs_kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  data_kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  cluster_arn              = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd"
+  namespace_arn            = "arn:aws:servicediscovery:eu-north-1:123456789012:namespace/ns-abc"
   namespace_id             = "ns-abc"
-  image_uri                = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-svc-disputes:initial"
+  image_uri                = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-disputes:initial"
   subnet_ids               = ["subnet-private-a", "subnet-private-b"]
   security_group_id        = "sg-disputes"
   service_connect_server   = true
   health_check_path        = "/health"
   target_groups = {
-    "8080" = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-disputes-8080/abc", container_port = 8080 }
-    "8081" = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-disputes-8081/def", container_port = 8081 }
+    "8080" = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-disputes-8080/abc", container_port = 8080 }
+    "8081" = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-disputes-8081/def", container_port = 8081 }
   }
   environment = {
     QUARANTINE_BUCKET = "cd-dev-quarantine-123456789012"
   }
   secrets = {
-    DATABASE_URL          = { secret_arn = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_app-AbCdEf", json_key = "url" }
-    SERVICE_CLIENT_SECRET = { secret_arn = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-disputes-GhIjKl" }
+    DATABASE_URL          = { secret_arn = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_app-AbCdEf", json_key = "url" }
+    SERVICE_CLIENT_SECRET = { secret_arn = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-disputes-GhIjKl" }
   }
   migrate = {
     command     = ["migrate"]
     environment = {}
     secrets = {
-      MIGRATOR_DATABASE_URL = { secret_arn = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_migrator-MnOpQr", json_key = "url" }
+      MIGRATOR_DATABASE_URL = { secret_arn = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_migrator-MnOpQr", json_key = "url" }
     }
   }
   task_role_statements = [{
     Sid      = "SendNotifications"
     Effect   = "Allow"
     Action   = ["sqs:SendMessage"]
-    Resource = ["arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"]
+    Resource = ["arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"]
   }]
 }
 
@@ -120,7 +120,7 @@ run "environment_contract" {
       AUTH_URL                 = "http://auth:8081"
       USERS_SERVICE_URL        = "http://users:8081"
       TRANSACTIONS_SERVICE_URL = "http://transactions:8081"
-      AWS_REGION               = "af-south-1"
+      AWS_REGION               = "eu-north-1"
       QUARANTINE_BUCKET        = "cd-dev-quarantine-123456789012"
     }
     error_message = "disputes env must be the documented defaults plus caller values."
@@ -128,8 +128,8 @@ run "environment_contract" {
 
   assert {
     condition = { for s in jsondecode(aws_ecs_task_definition.service.container_definitions)[0].secrets : s.name => s.valueFrom } == {
-      DATABASE_URL          = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_app-AbCdEf:url::"
-      SERVICE_CLIENT_SECRET = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-disputes-GhIjKl"
+      DATABASE_URL          = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_app-AbCdEf:url::"
+      SERVICE_CLIENT_SECRET = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-disputes-GhIjKl"
     }
     error_message = "Secrets render as <arn>:<json_key>:: (or the bare ARN for raw-string secrets)."
   }
@@ -196,9 +196,9 @@ run "execution_role_reads_only_given_secrets" {
 
   assert {
     condition = toset(one([for s in jsondecode(aws_iam_role_policy.execution.policy).Statement : s.Resource if s.Sid == "ReadOwnSecrets"])) == toset([
-      "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_app-AbCdEf",
-      "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-disputes-GhIjKl",
-      "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_migrator-MnOpQr",
+      "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_app-AbCdEf",
+      "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-disputes-GhIjKl",
+      "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_migrator-MnOpQr",
     ])
     error_message = "GetSecretValue must be scoped to exactly the service and migrate secret ARNs."
   }
@@ -222,13 +222,13 @@ run "execution_role_reads_only_given_secrets" {
       Effect    = "Allow"
       Action    = ["kms:Decrypt"]
       Resource  = [var.data_kms_key_arn]
-      Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.af-south-1.amazonaws.com" } }
+      Condition = { StringEquals = { "kms:ViaService" = "secretsmanager.eu-north-1.amazonaws.com" } }
     }
     error_message = "kms:Decrypt only on cd-data via Secrets Manager."
   }
 
   assert {
-    condition     = one([for s in jsondecode(aws_iam_role_policy.execution.policy).Statement : s.Resource if s.Sid == "EcrPullOwnRepository"]) == ["arn:aws:ecr:af-south-1:123456789012:repository/cd-svc-disputes"]
+    condition     = one([for s in jsondecode(aws_iam_role_policy.execution.policy).Statement : s.Resource if s.Sid == "EcrPullOwnRepository"]) == ["arn:aws:ecr:eu-north-1:123456789012:repository/cd-svc-disputes"]
     error_message = "Image pull must be scoped to the service's own repository."
   }
 
@@ -238,7 +238,7 @@ run "execution_role_reads_only_given_secrets" {
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role_policy.task[0].policy).Statement == [{ Sid = "SendNotifications", Effect = "Allow", Action = ["sqs:SendMessage"], Resource = ["arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"] }]
+    condition     = jsondecode(aws_iam_role_policy.task[0].policy).Statement == [{ Sid = "SendNotifications", Effect = "Allow", Action = ["sqs:SendMessage"], Resource = ["arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"] }]
     error_message = "The task role policy is exactly the caller statements, without null Condition keys."
   }
 }
@@ -265,7 +265,7 @@ run "migrate_family_with_db" {
   assert {
     condition = jsondecode(aws_ecs_task_definition.migrate[0].container_definitions)[0].secrets == [{
       name      = "MIGRATOR_DATABASE_URL"
-      valueFrom = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_migrator-MnOpQr:url::"
+      valueFrom = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_migrator-MnOpQr:url::"
     }]
     error_message = "migrate gets only MIGRATOR_DATABASE_URL from the migrator secret key url."
   }
@@ -281,23 +281,23 @@ run "web_without_db_or_service_port" {
 
   variables {
     service_name           = "web"
-    image_uri              = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-web:initial"
+    image_uri              = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-web:initial"
     service_connect_server = false
     health_check_path      = "/healthz"
     migrate                = null
     secrets                = {}
     task_role_statements   = []
     target_groups = {
-      "8080" = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-web-8080/abc", container_port = 8080 }
+      "8080" = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-web-8080/abc", container_port = 8080 }
     }
     environment = {
-      OIDC_ISSUER          = "https://cognito-idp.af-south-1.amazonaws.com/af-south-1_example"
+      OIDC_ISSUER          = "https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_example"
       OIDC_CLIENT_ID       = "spa-client"
       OIDC_REDIRECT_URI    = "https://d111111abcdef8.cloudfront.net/callback"
-      OIDC_LOGOUT_URL      = "https://cd-example.auth.af-south-1.amazoncognito.com/logout"
+      OIDC_LOGOUT_URL      = "https://cd-example.auth.eu-north-1.amazoncognito.com/logout"
       OIDC_POST_LOGOUT_URI = "https://d111111abcdef8.cloudfront.net/"
-      OIDC_TOKEN_ORIGIN    = "https://cd-example.auth.af-south-1.amazoncognito.com"
-      UPLOAD_ORIGIN        = "https://cd-dev-quarantine-123456789012.s3.af-south-1.amazonaws.com"
+      OIDC_TOKEN_ORIGIN    = "https://cd-example.auth.eu-north-1.amazoncognito.com"
+      UPLOAD_ORIGIN        = "https://cd-dev-quarantine-123456789012.s3.eu-north-1.amazonaws.com"
     }
   }
 
@@ -337,10 +337,10 @@ run "lb_8081_only_when_requested" {
 
   variables {
     service_name = "transactions"
-    image_uri    = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-svc-transactions:initial"
+    image_uri    = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-transactions:initial"
     environment  = {}
     target_groups = {
-      "8080" = { arn = "arn:aws:elasticloadbalancing:af-south-1:123456789012:targetgroup/cd-transactions-8080/abc", container_port = 8080 }
+      "8080" = { arn = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:targetgroup/cd-transactions-8080/abc", container_port = 8080 }
     }
   }
 
@@ -364,7 +364,7 @@ run "lb_8081_rejected_for_transactions" {
 
   variables {
     service_name = "transactions"
-    image_uri    = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-svc-transactions:initial"
+    image_uri    = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-transactions:initial"
     environment  = {}
   }
 
@@ -429,36 +429,36 @@ run "mixed_condition_statements" {
         Sid      = "SendNotifications"
         Effect   = "Allow"
         Action   = ["sqs:SendMessage"]
-        Resource = ["arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"]
+        Resource = ["arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"]
       },
       {
         Sid       = "EncryptNotifications"
         Effect    = "Allow"
         Action    = ["kms:GenerateDataKey"]
-        Resource  = ["arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"]
-        Condition = { StringEquals = { "kms:ViaService" = ["sqs.af-south-1.amazonaws.com"] } }
+        Resource  = ["arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"]
+        Condition = { StringEquals = { "kms:ViaService" = ["sqs.eu-north-1.amazonaws.com"] } }
       },
       {
         Sid       = "PutQuarantine"
         Effect    = "Allow"
         Action    = ["s3:PutObject"]
         Resource  = ["arn:aws:s3:::cd-dev-quarantine-123456789012/*"]
-        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:ecs:af-south-1:123456789012:task/cd/*", "arn:aws:ecs:af-south-1:123456789012:service/cd/*"] } }
+        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:ecs:eu-north-1:123456789012:task/cd/*", "arn:aws:ecs:eu-north-1:123456789012:service/cd/*"] } }
       },
     ]
   }
 
   assert {
     condition = jsondecode(aws_iam_role_policy.task[0].policy).Statement == [
-      { Sid = "SendNotifications", Effect = "Allow", Action = ["sqs:SendMessage"], Resource = ["arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"] },
+      { Sid = "SendNotifications", Effect = "Allow", Action = ["sqs:SendMessage"], Resource = ["arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"] },
       {
         Sid       = "EncryptNotifications", Effect = "Allow", Action = ["kms:GenerateDataKey"]
-        Resource  = ["arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"]
-        Condition = { StringEquals = { "kms:ViaService" = ["sqs.af-south-1.amazonaws.com"] } }
+        Resource  = ["arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"]
+        Condition = { StringEquals = { "kms:ViaService" = ["sqs.eu-north-1.amazonaws.com"] } }
       },
       {
         Sid       = "PutQuarantine", Effect = "Allow", Action = ["s3:PutObject"], Resource = ["arn:aws:s3:::cd-dev-quarantine-123456789012/*"]
-        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:ecs:af-south-1:123456789012:task/cd/*", "arn:aws:ecs:af-south-1:123456789012:service/cd/*"] } }
+        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:ecs:eu-north-1:123456789012:task/cd/*", "arn:aws:ecs:eu-north-1:123456789012:service/cd/*"] } }
       },
     ]
     error_message = "A list mixing no Condition, StringEquals and ArnLike renders as given; no null Condition key."

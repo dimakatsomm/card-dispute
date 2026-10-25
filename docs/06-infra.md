@@ -1,6 +1,6 @@
 # 06 — Infrastructure
 
-Terraform, region **af-south-1** (opt-in region — must be enabled on the account first), one env `dev`.
+Terraform, region **eu-north-1** (default-enabled; moved from af-south-1 on 2026-10-25 so the account can stay on the AWS Free plan, ADR-069), one env `dev`.
 Versions: see the verified table below (filled by verify-claims).
 
 ## Layout
@@ -38,6 +38,7 @@ infra/terraform/
 | ADR-064 | No back-office Cognito clients or scopes in AWS |
 | ADR-065 | `edge_origin_mode = vpc_origin`; `svc-*` tokens 60 min, spa/e2e 15 min; task size per service (default 0.25 vCPU / 0.5 GB); park procedure; GitHub Environment `dev` deployment branches `main` only |
 | ADR-066 | Lambda roles, log groups and the sweeper scheduler role exist in phase A; only function-level resources wait for images. Container health check `/health`; ALB target health `/ready` with lenient thresholds |
+| ADR-069 | Region moved from af-south-1 to **eu-north-1** (owner, 2026-10-25) so the account can stay on the AWS Free plan (af-south-1 is an opt-in region). Dev holds mock data only; real customer data in the EU would need a POPIA cross-border transfer review first. Prices and GuardDuty/Free plan eligibility re-verified in V-M3b |
 | ADR-068 | CloudFront on the default `*.cloudfront.net` certificate (no custom domain, ADR-046) forces viewer TLS minimum `TLSv1`; accepted because dev holds mock data only. A domain + ACM certificate (us-east-1) enabling `TLSv1.2_2021` and HTTPS on the internal hop are required before real data. WAF label rule blocks oversize bodies outside `/api/dispute*` (+$1/month). `PriceClass_All` |
 
 Tracing: X-Ray is dropped (ADR-063). Correlation ids in structured logs are the tracing story; Lambda tracing is PassThrough.
@@ -71,18 +72,18 @@ Checked against primary sources on 2026-10-09. Sources are in `orchestration/ver
 | Item | Value | Note |
 |---|---|---|
 | Node.js | **24** (Active LTS) | Node 26 becomes LTS on 2026-10-28; stay on 24 for dev |
-| Lambda runtime | **container image on `public.ecr.aws/lambda/nodejs:24`** (ADR-030; managed `nodejs24.x` no longer used) | `nodejs26.x` is preview only. arm64 in af-south-1 is documented but the container-image package type is not stated for the region: runbook phase B proves it |
+| Lambda runtime | **container image on `public.ecr.aws/lambda/nodejs:24`** (ADR-030; managed `nodejs24.x` no longer used) | `nodejs26.x` is preview only. arm64 in eu-north-1 is documented but the container-image package type is not stated for the region: runbook phase B proves it |
 | Aurora PostgreSQL | **18.x** Serverless v2 | Native `uuidv7()` exists in PG 18, so we use it (no app-side UUIDs) |
-| Aurora min ACU | 0.5 budgeted. 0 (auto-pause) needs PG 16.3+ and is likely but **unconfirmed** on PG 18 in af-south-1 | 24x7 task connections stop it from pausing; the park procedure sets `aurora_min_acu = 0` |
-| CloudFront VPC origin to an internal ALB | available in af-south-1 (V-M3), no extra charge on pay-as-you-go | `edge_origin_mode = vpc_origin`; flat-rate plans are not used (VPC origins need Business, $200) |
+| Aurora min ACU | 0.5 budgeted. 0 (auto-pause) needs PG 16.3+ and is likely but **unconfirmed** on PG 18 in eu-north-1 | 24x7 task connections stop it from pausing; the park procedure sets `aurora_min_acu = 0` |
+| CloudFront VPC origin to an internal ALB | available in eu-north-1 (AWS VPC origins Region table, checked 2026-10-25), no extra charge on pay-as-you-go | `edge_origin_mode = vpc_origin`; flat-rate plans are not used (VPC origins need Business, $200) |
 | Cognito M2M | $0.00225 per token request, no per-client fee (removed 2025-11-03) | `svc-*` access tokens 60 min |
-| ECS Fargate ARM64 + Service Connect | available in af-south-1 | Service Connect has no extra charge |
+| ECS Fargate ARM64 + Service Connect | available in eu-north-1 | Service Connect has no extra charge |
 | Cognito | M2M + custom scopes on every plan | $0.00225 per token request, no free tier, so tokens must be cached |
-| SES | **API only**, SMTP not in af-south-1 | Use `@aws-sdk/client-sesv2`. Sandbox: 200 per day, 1 per second, verified recipients only |
+| SES | **API only** (SMTP exists in eu-north-1 but is not used) | Use `@aws-sdk/client-sesv2`. Sandbox: 200 per day, 1 per second, verified recipients only |
 | Terraform / hashicorp/aws | >= 1.10 (1.16.5 verified) / **~> 6.68** | S3 backend uses `use_lockfile`, which needs >= 1.10 |
 | TypeScript | **6.0.3** (not 7.x) | typescript-eslint 8.72 supports TS < 6.1 (F-01, 2026-10-19) |
 | Lambda base image | `public.ecr.aws/lambda/nodejs:24` (arm64) | build with `--provenance=false` |
-| GuardDuty Malware Protection for S3 | available in af-south-1 | $0.099/GB + $0.000237/object after the free tier; 100 GB max object size |
+| GuardDuty Malware Protection for S3 | eu-north-1 availability and Free plan eligibility **unverified** (V-M3b) | $0.099/GB + $0.000237/object after the free tier; 100 GB max object size |
 | fastify / zod / vitest | 5.12.5 / 4.6.5 / 5.0.3 | zod **4** API |
 | @testcontainers/postgresql | 12.2.0 | |
 | pino / aws-jwt-verify | 10.4.0 / 5.2.1 | migrations use a custom SQL runner in @cd/db (ADR-047) |
@@ -93,7 +94,7 @@ Checked against primary sources on 2026-10-09. Sources are in `orchestration/ver
 
 Cognito token and JWKS endpoints are public, so tasks and Lambdas need NAT egress (or PrivateLink support, which is unverified).
 
-## Cost estimate (af-south-1, 730 h/month, corrected in V-M3 on 2026-10-21)
+## Cost estimate (af-south-1 prices from V-M3 on 2026-10-21; eu-north-1 re-price pending, V-M3b)
 
 Unit prices are from the AWS Price List API (orchestration/verify-m3.md, item 11). Assumptions: 24x7, one task per service, Service Connect proxy fits inside 0.25 vCPU / 0.5 GB, `svc-*` token validity 60 min, about 20 GB NAT traffic, WAF = web ACL + 3 rules, 19 secrets, 3 KMS keys.
 

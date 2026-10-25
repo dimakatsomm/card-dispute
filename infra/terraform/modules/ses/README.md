@@ -14,5 +14,5 @@ sandbox is a separate AWS request and is not part of `dev`.
 
 `terraform apply` creates the identity in the *pending* state and SES emails a verification link to the address.
 The owner clicks it (OWN-6). Until then every send fails with `MessageRejected` and no event reaches `cd-ses-events`.
-Check the state with `aws sesv2 get-email-identity --email-identity dimakatsomm@icloud.com --region af-south-1`
+Check the state with `aws sesv2 get-email-identity --email-identity dimakatsomm@icloud.com --region eu-north-1`
 (`VerifiedForSendingStatus: true`).

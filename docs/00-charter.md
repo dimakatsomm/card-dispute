@@ -14,7 +14,7 @@ In:
 - Dispute PII erased 1 year after closure (interim POPIA policy, ADR-017).
 - Customer is emailed (SES) on every dispute status change.
 - Mock accounts, cards and transactions seeded in Aurora.
-- Deployed to AWS af-south-1, single `dev` environment, via Terraform and CI/CD.
+- Deployed to AWS eu-north-1, single `dev` environment, via Terraform and CI/CD.
 
 Out (deferred, with reason):
 - Back-office UI — the internal API is enough to prove resolution; UI is separate product work.
@@ -26,7 +26,7 @@ Out (deferred, with reason):
 1. All requested endpoints behave as specified in `02-api.md`, including negative cases.
 2. No customer can read or dispute another customer's data (e2e negative tests prove it).
 3. A dispute moves SUBMITTED → UNDER_REVIEW via the event path and is resolved by an agent; each transition is audited and emailed.
-4. The whole stack deploys from Terraform into af-south-1, and the e2e suite passes against it.
+4. The whole stack deploys from Terraform into eu-north-1, and the e2e suite passes against it.
 
 ## Decisions log
 See `orchestration/state.json` → `decisions`.

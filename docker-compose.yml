@@ -45,7 +45,7 @@ services:
         condition: service_healthy
     environment:
       AWS_ENDPOINT_URL: http://moto:5000
-      AWS_DEFAULT_REGION: ${AWS_REGION:-af-south-1}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-north-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
       MOTO_BUCKETS: ${MOTO_BUCKETS:-cd-evidence-quarantine,cd-evidence}

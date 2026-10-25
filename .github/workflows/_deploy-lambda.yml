@@ -35,7 +35,7 @@ jobs:
       FUNCTION_KEY: ${{ inputs.function-key }}
       NAME_PREFIX: ${{ inputs.name-prefix }}
       IMAGE_TAG: ${{ inputs.sha }}
-      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
     steps:
       - name: Validate inputs and mask account

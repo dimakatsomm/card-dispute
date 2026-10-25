@@ -4,11 +4,11 @@ mock_provider "aws" {
   }
 
   mock_data "aws_region" {
-    defaults = { region = "af-south-1" }
+    defaults = { region = "eu-north-1" }
   }
 
   mock_resource "aws_sns_topic" {
-    defaults = { arn = "arn:aws:sns:af-south-1:123456789012:cd-alarms" }
+    defaults = { arn = "arn:aws:sns:eu-north-1:123456789012:cd-alarms" }
   }
 }
 
@@ -16,7 +16,7 @@ variables {
   name_prefix = "cd"
   alert_email = "dimakatsomm@icloud.com"
   budget_usd  = 200
-  kms_key_arn = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  kms_key_arn = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
   dlq_names = {
     notifications         = "cd-dispute-notifications-dlq"
     "evidence-intake"     = "cd-evidence-intake-dlq"
@@ -172,7 +172,7 @@ run "alarms_topic_and_budget" {
   assert {
     condition = alltrue([
       for s in jsondecode(aws_sns_topic_policy.alarms.policy).Statement :
-      s.Action == ["sns:Publish"] && s.Condition.StringEquals["aws:SourceAccount"] == "123456789012" && s.Resource == ["arn:aws:sns:af-south-1:123456789012:cd-alarms"]
+      s.Action == ["sns:Publish"] && s.Condition.StringEquals["aws:SourceAccount"] == "123456789012" && s.Resource == ["arn:aws:sns:eu-north-1:123456789012:cd-alarms"]
     ])
     error_message = "Topic policy statements must be sns:Publish on the topic with aws:SourceAccount."
   }

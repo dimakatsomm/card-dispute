@@ -2,7 +2,7 @@ mock_provider "aws" {
   override_during = plan
 
   mock_data "aws_region" {
-    defaults = { region = "af-south-1", name = "af-south-1" }
+    defaults = { region = "eu-north-1", name = "eu-north-1" }
   }
   mock_data "aws_caller_identity" {
     defaults = { account_id = "123456789012" }
@@ -22,40 +22,40 @@ variables {
   github_repo              = "acme/card-dispute"
   github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
   ecr_repository_arns = {
-    svc-auth                 = "arn:aws:ecr:af-south-1:123456789012:repository/cd-svc-auth"
-    svc-users                = "arn:aws:ecr:af-south-1:123456789012:repository/cd-svc-users"
-    svc-transactions         = "arn:aws:ecr:af-south-1:123456789012:repository/cd-svc-transactions"
-    svc-disputes             = "arn:aws:ecr:af-south-1:123456789012:repository/cd-svc-disputes"
-    web                      = "arn:aws:ecr:af-south-1:123456789012:repository/cd-web"
-    lambda-evidence-intake   = "arn:aws:ecr:af-south-1:123456789012:repository/cd-lambda-evidence-intake"
-    lambda-dispute-notifier  = "arn:aws:ecr:af-south-1:123456789012:repository/cd-lambda-dispute-notifier"
-    lambda-retention-sweeper = "arn:aws:ecr:af-south-1:123456789012:repository/cd-lambda-retention-sweeper"
-    dev-tools                = "arn:aws:ecr:af-south-1:123456789012:repository/cd-dev-tools"
+    svc-auth                 = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-svc-auth"
+    svc-users                = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-svc-users"
+    svc-transactions         = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-svc-transactions"
+    svc-disputes             = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-svc-disputes"
+    web                      = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-web"
+    lambda-evidence-intake   = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-evidence-intake"
+    lambda-dispute-notifier  = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-dispute-notifier"
+    lambda-retention-sweeper = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-retention-sweeper"
+    dev-tools                = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-dev-tools"
   }
-  ecs_cluster_arn = "arn:aws:ecs:af-south-1:123456789012:cluster/cd-cluster"
+  ecs_cluster_arn = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd-cluster"
   ecs_deployables = {
     auth = {
-      service_arn              = "arn:aws:ecs:af-south-1:123456789012:service/cd-cluster/cd-auth"
+      service_arn              = "arn:aws:ecs:eu-north-1:123456789012:service/cd-cluster/cd-auth"
       task_definition_families = ["cd-auth", "cd-auth-migrate"]
       pass_role_arns           = ["arn:aws:iam::123456789012:role/cd/cd-auth-task", "arn:aws:iam::123456789012:role/cd/cd-auth-exec"]
     }
     users = {
-      service_arn              = "arn:aws:ecs:af-south-1:123456789012:service/cd-cluster/cd-users"
+      service_arn              = "arn:aws:ecs:eu-north-1:123456789012:service/cd-cluster/cd-users"
       task_definition_families = ["cd-users", "cd-users-migrate"]
       pass_role_arns           = ["arn:aws:iam::123456789012:role/cd/cd-users-task", "arn:aws:iam::123456789012:role/cd/cd-users-exec"]
     }
     transactions = {
-      service_arn              = "arn:aws:ecs:af-south-1:123456789012:service/cd-cluster/cd-transactions"
+      service_arn              = "arn:aws:ecs:eu-north-1:123456789012:service/cd-cluster/cd-transactions"
       task_definition_families = ["cd-transactions", "cd-transactions-migrate"]
       pass_role_arns           = ["arn:aws:iam::123456789012:role/cd/cd-transactions-task", "arn:aws:iam::123456789012:role/cd/cd-transactions-exec"]
     }
     disputes = {
-      service_arn              = "arn:aws:ecs:af-south-1:123456789012:service/cd-cluster/cd-disputes"
+      service_arn              = "arn:aws:ecs:eu-north-1:123456789012:service/cd-cluster/cd-disputes"
       task_definition_families = ["cd-disputes", "cd-disputes-migrate"]
       pass_role_arns           = ["arn:aws:iam::123456789012:role/cd/cd-disputes-task", "arn:aws:iam::123456789012:role/cd/cd-disputes-exec"]
     }
     web = {
-      service_arn              = "arn:aws:ecs:af-south-1:123456789012:service/cd-cluster/cd-web"
+      service_arn              = "arn:aws:ecs:eu-north-1:123456789012:service/cd-cluster/cd-web"
       task_definition_families = ["cd-web"]
       pass_role_arns           = ["arn:aws:iam::123456789012:role/cd/cd-web-task", "arn:aws:iam::123456789012:role/cd/cd-web-exec"]
     }
@@ -73,11 +73,11 @@ variables {
       "arn:aws:iam::123456789012:role/cd/cd-net-probe-task", "arn:aws:iam::123456789012:role/cd/cd-net-probe-exec",
     ]
   }
-  cognito_user_pool_arn        = "arn:aws:cognito-idp:af-south-1:123456789012:userpool/af-south-1_AbCdEf123"
+  cognito_user_pool_arn        = "arn:aws:cognito-idp:eu-north-1:123456789012:userpool/eu-north-1_AbCdEf123"
   seed_user_secret_name_prefix = "cd/dev/seed-users/"
-  ses_events_queue_arn         = "arn:aws:sqs:af-south-1:123456789012:cd-ses-events"
+  ses_events_queue_arn         = "arn:aws:sqs:eu-north-1:123456789012:cd-ses-events"
   evidence_bucket_arns         = ["arn:aws:s3:::cd-dev-quarantine-123456789012", "arn:aws:s3:::cd-dev-evidence-123456789012"]
-  data_kms_key_arn             = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  data_kms_key_arn             = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
 }
 
 run "roles_match_the_contract" {
@@ -155,7 +155,7 @@ run "no_role_reaches_another_deployable" {
   }
 
   assert {
-    condition     = alltrue([for k in ["deploy-auth", "deploy-users", "deploy-transactions", "deploy-disputes", "deploy-web"] : contains(one([for s in jsondecode(aws_iam_role_policy.this[k].policy).Statement : s if s.Sid == "UpdateOwnService"]).Resource, "arn:aws:ecs:af-south-1:123456789012:service/cd-cluster/cd-${trimprefix(k, "deploy-")}")])
+    condition     = alltrue([for k in ["deploy-auth", "deploy-users", "deploy-transactions", "deploy-disputes", "deploy-web"] : contains(one([for s in jsondecode(aws_iam_role_policy.this[k].policy).Statement : s if s.Sid == "UpdateOwnService"]).Resource, "arn:aws:ecs:eu-north-1:123456789012:service/cd-cluster/cd-${trimprefix(k, "deploy-")}")])
     error_message = "Each ECS deploy role must update exactly its own service."
   }
 
@@ -163,7 +163,7 @@ run "no_role_reaches_another_deployable" {
     condition = alltrue(flatten([
       for k, pol in aws_iam_role_policy.this : [
         for s in jsondecode(pol.policy).Statement :
-        s.Condition == { ArnEquals = { "ecs:cluster" = "arn:aws:ecs:af-south-1:123456789012:cluster/cd-cluster" } }
+        s.Condition == { ArnEquals = { "ecs:cluster" = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd-cluster" } }
         if length(setintersection(s.Action, ["ecs:RunTask", "ecs:DescribeTasks", "ecs:UpdateService", "ecs:DescribeServices"])) > 0
       ]
     ]))
@@ -171,7 +171,7 @@ run "no_role_reaches_another_deployable" {
   }
 
   assert {
-    condition     = one([for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : s.Resource if s.Sid == "RunNetProbe"]) == ["arn:aws:ecs:af-south-1:123456789012:task-definition/cd-net-probe:*"]
+    condition     = one([for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : s.Resource if s.Sid == "RunNetProbe"]) == ["arn:aws:ecs:eu-north-1:123456789012:task-definition/cd-net-probe:*"]
     error_message = "e2e may run only the net-probe task family."
   }
 

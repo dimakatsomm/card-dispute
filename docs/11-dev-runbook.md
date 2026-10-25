@@ -1,4 +1,4 @@
-# 11 — Dev runbook (af-south-1, environment `dev`)
+# 11 — Dev runbook (eu-north-1, environment `dev`)
 
 Ordered, copy-pasteable steps to take an empty AWS account to a running `dev`, plus the operations you will need
 afterwards. Design background: docs/06 (infra), docs/09 (pipelines), docs/05 (security).
@@ -17,15 +17,15 @@ approval click in steps 4 to 11). OWN-2, the $200 budget, is already decided (AD
 
 ```bash
 export AWS_PROFILE=<owner-sso-admin-profile>
-export AWS_REGION=af-south-1
-export AWS_DEFAULT_REGION=af-south-1
+export AWS_REGION=eu-north-1
+export AWS_DEFAULT_REGION=eu-north-1
 aws sso login
 
 export REPO=<owner>/<repo>
 export ENV=infra/terraform/envs/dev
 export B=infra/terraform/bootstrap
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-export ECR=$AWS_ACCOUNT_ID.dkr.ecr.af-south-1.amazonaws.com
+export ECR=$AWS_ACCOUNT_ID.dkr.ecr.eu-north-1.amazonaws.com
 export TF_STATE_BUCKET=cd-tfstate-$AWS_ACCOUNT_ID
 export TF_STATE_KMS_KEY_ARN=$(aws kms describe-key --key-id alias/cd-tfstate --query KeyMetadata.Arn --output text 2>/dev/null)
 ```
@@ -50,12 +50,9 @@ Do once, in the AWS console and CLI.
 3. Give that admin access to Billing (Billing and Cost Management, "IAM user and role access to Billing information").
 4. Install Terraform >= 1.10, AWS CLI v2, `gh`, Docker and Node 24.
 
-Enable af-south-1 (an opt-in region; takes a few minutes) and check the tools:
+eu-north-1 is enabled by default (not an opt-in region). Check the tools:
 
 ```bash
-aws account enable-region --region-name af-south-1
-aws account get-region-opt-status --region-name af-south-1   # wait for ENABLED
-
 terraform version        # >= 1.10
 aws --version
 gh --version && gh auth status
@@ -68,18 +65,18 @@ Read-only preflight. **Paste the output of this block back to the orchestrator**
 ```bash
 aws sts get-caller-identity
 
-aws rds describe-orderable-db-instance-options --region af-south-1 \
+aws rds describe-orderable-db-instance-options --region eu-north-1 \
   --engine aurora-postgresql --db-instance-class db.serverless \
   --query "OrderableDBInstanceOptions[?starts_with(EngineVersion, '18.')].EngineVersion" --output text
 
-aws sesv2 list-email-identities --region af-south-1
-aws guardduty list-detectors --region af-south-1
-aws scheduler list-schedule-groups --region af-south-1 --query 'ScheduleGroups[].Name'
+aws sesv2 list-email-identities --region eu-north-1
+aws guardduty list-detectors --region eu-north-1
+aws scheduler list-schedule-groups --region eu-north-1 --query 'ScheduleGroups[].Name'
 
-aws lambda get-account-settings --region af-south-1 \
+aws lambda get-account-settings --region eu-north-1 \
   --query '{ConcurrentExecutions:AccountLimit.ConcurrentExecutions,Unreserved:AccountLimit.UnreservedConcurrentExecutions}'
 
-aws service-quotas get-service-quota --region af-south-1 \
+aws service-quotas get-service-quota --region eu-north-1 \
   --service-code fargate --quota-code L-3032A538 --query Quota.Value
 ```
 
@@ -253,7 +250,7 @@ git add $B/backend.tf && git commit -m "chore(infra): bootstrap remote state" &&
 Publish the outputs (step 2.5 explains the split). Repository variables:
 
 ```bash
-for kv in AWS_REGION=af-south-1 AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID TF_STATE_BUCKET=$TF_STATE_BUCKET \
+for kv in AWS_REGION=eu-north-1 AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID TF_STATE_BUCKET=$TF_STATE_BUCKET \
           TF_STATE_KMS_KEY_ARN=$TF_STATE_KMS_KEY_ARN AWS_INFRA_PLAN_ROLE_ARN=$INFRA_PLAN_ROLE_ARN; do
   gh variable set "${kv%%=*}" --body "${kv#*=}" --repo "$REPO"
 done
@@ -298,7 +295,7 @@ Initialise the `dev` root against the new backend (you need this for local `terr
 terraform -chdir=$ENV init \
   -backend-config="bucket=$TF_STATE_BUCKET" \
   -backend-config="key=envs/dev/terraform.tfstate" \
-  -backend-config="region=af-south-1" \
+  -backend-config="region=eu-north-1" \
   -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN"
 ```
 
@@ -355,7 +352,7 @@ What to expect:
   then the ALB SG ingress from `CloudFront-VPCOrigins-Service-SG`. If the SG-rule step fails on the first run
   because the service SG does not exist yet, run the apply again once the origin is `Deployed`.
 - **OWN-5.** If the GuardDuty malware-protection plan errors because GuardDuty was never enabled in the account, enable it once and re-apply:
-  `aws guardduty create-detector --enable --region af-south-1`
+  `aws guardduty create-detector --enable --region eu-north-1`
 - If `gha-infra-apply` returns `AccessDenied` for an action a module needs, add that action to
   `infra/terraform/bootstrap`, scoped to the `cd-` name (never `*`), re-run step 3's `apply` with your own
   credentials, then retry (docs: `infra/terraform/bootstrap/README.md`).
@@ -404,7 +401,7 @@ paths are under `infra/terraform/`.
 |---|---|---|
 | VPC-origin SG | `aws ec2 describe-security-groups --filters Name=group-name,Values=CloudFront-VPCOrigins-Service-SG` returns a group once the VPC origin exists | `modules/edge` (SG lookup and ingress rule); re-apply after the origin is `Deployed` |
 | GuardDuty malware plan | The malware-protection plan for the quarantine bucket is created (OWN-5 covers a missing detector) | `bootstrap/apply_policies.tf` (guardduty actions); `bootstrap/boundary.tf` if the plan's role is refused |
-| Aurora PG 18.3 | `aws rds describe-orderable-db-instance-options --engine aurora-postgresql --engine-version 18.3 --db-instance-class db.serverless --region af-south-1` is non-empty | `modules/aurora` (engine version); pick the nearest orderable 18.x |
+| Aurora PG 18.3 | `aws rds describe-orderable-db-instance-options --engine aurora-postgresql --engine-version 18.3 --db-instance-class db.serverless --region eu-north-1` is non-empty | `modules/aurora` (engine version); pick the nearest orderable 18.x |
 | Performance Insights key | The cluster accepts the `cd-data` key for Performance Insights | `modules/aurora` (`performance_insights_kms_key_id`); `bootstrap/apply_policies.tf` if `AccessDenied` on `pi:*` or `kms:` |
 | `wait function-updated-v2` | A deploy-lambda role can run `aws lambda wait function-updated-v2` (polls `GetFunction`, which the role has) | `modules/ci-roles` (deploy-lambda policy) |
 | ECS run-task with tags | `aws ecs run-task --tags ...` from `run-tools` is not refused; tagging at launch needs `ecs:TagResource` | `modules/ci-roles` (run-tools policy) |
@@ -452,14 +449,14 @@ Every line must print the tag. If a path filter skipped a workflow for this comm
 
 Phase B passes the three published Lambda image URIs. Terraform then creates the functions, the alias `live`, the SQS
 event source mapping, the EventBridge rule target for evidence-intake and the nightly schedule. This is also the first
-proof that arm64 container-image Lambdas work in af-south-1 (R-2).
+proof that arm64 container-image Lambdas work in eu-north-1 (R-2).
 
 ```bash
 gh workflow run infra.yml --ref main --repo "$REPO" -f lambda_image_uris="{\"evidence-intake\":\"$ECR/cd-lambda-evidence-intake:$SHA\",\"dispute-notifier\":\"$ECR/cd-lambda-dispute-notifier:$SHA\",\"retention-sweeper\":\"$ECR/cd-lambda-retention-sweeper:$SHA\"}"
 ```
 
 The plan job rejects the input before touching AWS unless it is a JSON object with exactly these three keys, each
-`<AWS_ACCOUNT_ID>.dkr.ecr.af-south-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>`. All three are required because the
+`<AWS_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>`. All three are required because the
 input replaces the whole `dev.tfvars` map, so an omitted key would destroy that function.
 
 Read the plan summary in the run (only creates and updates of the Lambda-dependent resources; no destroys), then approve
@@ -574,13 +571,13 @@ e2e uses at most 3 transactions per run, which gives roughly 20 runs for user A.
 ## 10. OWN-6 — SES and SNS confirmation clicks
 
 Two emails arrive at `dimakatsomm@icloud.com` after phase A (check spam):
-1. **Amazon SES** "Email Address Verification Request" for `dimakatsomm@icloud.com` in af-south-1. The link expires after **24 hours**.
+1. **Amazon SES** "Email Address Verification Request" for `dimakatsomm@icloud.com` in eu-north-1. The link expires after **24 hours**.
 2. **AWS Notifications** "Subscription Confirmation" for the SNS topic `cd-alarms`. The link is valid for 3 days.
 
-Click both. If the SES link expired, delete and re-create the identity (`aws sesv2 delete-email-identity --email-identity dimakatsomm@icloud.com --region af-south-1`, then re-run the infra apply) and click the new one. If you would rather not wait for step 10, you can click both as soon as they arrive.
+Click both. If the SES link expired, delete and re-create the identity (`aws sesv2 delete-email-identity --email-identity dimakatsomm@icloud.com --region eu-north-1`, then re-run the infra apply) and click the new one. If you would rather not wait for step 10, you can click both as soon as they arrive.
 
 ```bash
-aws sesv2 get-email-identity --email-identity dimakatsomm@icloud.com --region af-south-1 \
+aws sesv2 get-email-identity --email-identity dimakatsomm@icloud.com --region eu-north-1 \
   --query VerifiedForSendingStatus                                   # true
 
 TOPIC=$(aws sns list-topics --query "Topics[?contains(TopicArn,':cd-alarms')].TopicArn" --output text)
@@ -633,7 +630,7 @@ aws ecs wait services-stable --cluster "$CLUSTER" --services cd-auth cd-users cd
 3. Optional, for parks longer than a few days: let Aurora pause. Through a PR set `aurora_min_acu = 0` in
    `infra/terraform/envs/dev/dev.tfvars`, merge, and approve the infra apply. Aurora then pauses after its idle timeout
    (about 5 minutes) once no connection is open, and resumes on the first connection (the first query waits
-   roughly 15 seconds). If the apply is rejected with an invalid minimum capacity, PG 18 does not accept 0 in af-south-1
+   roughly 15 seconds). If the apply is rejected with an invalid minimum capacity, PG 18 does not accept 0 in eu-north-1
    (unconfirmed in V-M3): revert to `0.5` and rely on step 2 only.
 
 Parking leaves the Lambdas in place. The nightly retention-sweeper (02:00 Africa/Johannesburg) connects to the
@@ -684,7 +681,7 @@ Fix the cause first (read the failing Lambda's log), then redrive. Redrive needs
 `redrive_operator_arns` in the messaging module (your SSO admin permission set); it will not work from other principals.
 
 **`cd-dispute-notifications-dlq`** (notification emails that failed 5 times):
-1. AWS Console, region **Africa (Cape Town)**, then **SQS** > `cd-dispute-notifications-dlq`.
+1. AWS Console, region **Europe (Stockholm)**, then **SQS** > `cd-dispute-notifications-dlq`.
 2. Click **Start DLQ redrive**.
 3. Choose **Redrive to source queue** (`cd-dispute-notifications`), keep the default velocity, click **DLQ redrive**.
 4. Watch **Message movement status** until it finishes; the DLQ depth returns to 0 and the alarm clears.
@@ -702,7 +699,7 @@ Scheduler delivery failures and Lambda async failure records), so "redrive to so
 
 ## Alarms: what each means and what to check first
 
-Alarms and the dashboard `cd-dev` are in CloudWatch (region af-south-1); alarm emails come from the SNS topic
+Alarms and the dashboard `cd-dev` are in CloudWatch (region eu-north-1); alarm emails come from the SNS topic
 `cd-alarms` to `dimakatsomm@icloud.com`. Log groups: ECS `/cd/dev/ecs/<svc>`, Lambda `/aws/lambda/cd-<key>`,
 tools `/cd/dev/tools/<task>`. Tail one with `aws logs tail <group> --since 30m --format short`.
 

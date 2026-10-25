@@ -47,8 +47,8 @@ override_data {
 
 variables {
   name_prefix           = "cd"
-  alb_arn               = "arn:aws:elasticloadbalancing:af-south-1:123456789012:loadbalancer/app/cd-alb/0123456789abcdef"
-  alb_dns_name          = "internal-cd-alb-123456789.af-south-1.elb.amazonaws.com"
+  alb_arn               = "arn:aws:elasticloadbalancing:eu-north-1:123456789012:loadbalancer/app/cd-alb/0123456789abcdef"
+  alb_dns_name          = "internal-cd-alb-123456789.eu-north-1.elb.amazonaws.com"
   alb_security_group_id = "sg-0aaaaaaaaaaaaaaa1"
 }
 
@@ -250,7 +250,7 @@ run "public_alb" {
 
   variables {
     edge_origin_mode           = "public_alb"
-    alb_dns_name               = "cd-alb-123456789.af-south-1.elb.amazonaws.com"
+    alb_dns_name               = "cd-alb-123456789.eu-north-1.elb.amazonaws.com"
     origin_secret_header_value = "0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopq"
     waf_rate_limit             = 500
   }

@@ -1,7 +1,7 @@
 # 08 — Project Plan: Card Dispute Platform
 
 **Status:** 2026-10-11. Planning (M0) is complete, including a lint-clean OpenAPI contract. No application code yet.
-**Owner:** dimakatsomm@icloud.com · **Region:** AWS af-south-1 · **Environment:** single `dev`.
+**Owner:** dimakatsomm@icloud.com · **Region:** AWS eu-north-1 · **Environment:** single `dev`.
 This document is the complete plan. The detailed contracts it summarises live in docs 00–07 and 09,
 `docs/openapi/` and `orchestration/backlog.md`. If this summary and a detailed contract disagree, the detailed contract wins.
 
@@ -44,7 +44,7 @@ Built to **production patterns**:
 - Everything in §4.
 - Mock customers, accounts, cards and transactions (ZAR).
 - Local stack in containers.
-- Terraform-built dev in af-south-1.
+- Terraform-built dev in eu-north-1.
 - Per-deployable CI/CD.
 
 **Out (deferred, with reason)**
@@ -365,7 +365,7 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | E-02a async-flow e2e via RIE + moto, plus V-10 (service-port 401/403 inside the compose network) 🔒 · E-02b Playwright for evidence status | test-engineer |
 | Fallback if GuardDuty S3 is unavailable (V-03): intake runs without the scan and flags "not scanned"; owner decides | — |
 
-### M3 — Infrastructure & delivery (af-south-1)
+### M3 — Infrastructure & delivery (eu-north-1)
 **Outcome:**
 - Everything in M1 + M2 passes against the deployed `dev` environment, with a real Cognito user, a real SES email and real S3/GuardDuty.
 - Every deployable ships through its own pipeline with manual approval.
@@ -384,7 +384,7 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | CI-02 deploy stages: approvals, migrations task, rollout/rollback, Lambda alias, infra apply on main only (ADR-060), dev-tools, e2e-dev and oidc-negative workflows | implementer |
 | X-01 dev seeding + Cognito provisioning (users A–D, `auth_identity.cognito_sub`) · DOC-M3 docs + docs/11-dev-runbook.md | implementer |
 | Owner tasks OWN-1…OWN-7 (AWS account, GitHub settings, bootstrap apply, SES/SNS clicks, approvals): docs/11-dev-runbook.md | owner |
-| E-03 e2e + Playwright against dev; evidence controls on real S3; first: confirm the Lambda Node 24 image in af-south-1 | test-engineer |
+| E-03 e2e + Playwright against dev; evidence controls on real S3; first: confirm the Lambda Node 24 image in eu-north-1 | test-engineer |
 
 ### M4 — Hardening
 | Task |
@@ -406,7 +406,7 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 
 ---
 
-## 9. Cost (dev, af-south-1, monthly, corrected in V-M3)
+## 9. Cost (dev, monthly; af-south-1 prices from V-M3, eu-north-1 re-price pending, V-M3b)
 | Item | $ |
 |---|---|
 | Aurora Serverless v2 @ 0.5 ACU + storage + I/O | 63 |
@@ -429,8 +429,8 @@ Budget is $200 (ADR-063), so a 24x7 run is about $22 over; the forecast-100% and
 ## 10. Risks
 | Id | Risk | Mitigation |
 |---|---|---|
-| R-1 | GuardDuty S3 malware scanning not in af-south-1 | V-03 first. Fallback: magic-byte/checksum checks only, files flagged "not scanned"; owner decides |
-| R-2 | Lambda Node 24 container image issues in af-south-1 | Runbook phase B proves it |
+| R-1 | GuardDuty S3 malware scanning not in eu-north-1 | V-03 first. Fallback: magic-byte/checksum checks only, files flagged "not scanned"; owner decides |
+| R-2 | Lambda Node 24 container image issues in eu-north-1 | Runbook phase B proves it |
 | R-3 | Best-effort events lose an email | Timeline is the truth; `EventPublishFailed` alarm; reinstate the outbox if emails become legal notices |
 | R-4 | GitHub required reviewers need a paid plan on private repos | V-04. Fallback: a public repo, or an approval job gated on a protected-branch PR |
 | R-5 | moto fidelity for S3 policies | Evidence controls re-tested on real S3 (E-03) |
@@ -461,8 +461,8 @@ All ADRs, with superseded ones marked, are in `orchestration/state.json`. The on
 | Id | Item | Type | Needed by |
 |---|---|---|---|
 | Q-17 | Back-office access path — **deferred** with back-office | deferred | — |
-| V-03 | Presigned PUT can sign `x-amz-checksum-sha256`; GuardDuty S3 in af-south-1 + price; presigner version | verification | before P-01 |
+| V-03 | Presigned PUT can sign `x-amz-checksum-sha256`; GuardDuty S3 in eu-north-1 + price; presigner version | verification | before P-01 |
 | V-04 | GitHub required reviewers on a private repo (plan?); Actions minutes; Lambda Node 24 base image; frontend library versions | verification | before CI-01 / W-01 |
-| V-06 | CloudFront VPC origins in af-south-1 + pricing: **closed by V-M3**, `edge_origin_mode = vpc_origin`, no extra charge | closed | — |
+| V-06 | CloudFront VPC origins in eu-north-1 + pricing: **closed by V-M3**, `edge_origin_mode = vpc_origin`, no extra charge | closed | — |
 
 The project folder is not yet a git repository. On "go M1": `git init` → initial commit → V-03/V-04/V-05 → wave 0.

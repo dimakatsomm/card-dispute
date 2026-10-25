@@ -5,7 +5,7 @@ import type { Fetch } from '../src/probe.ts';
 
 const ENV = {
   SERVICE_PORT_BASE_URL: 'http://internal-cd-alb.example.com:8081',
-  COGNITO_USER_POOL_ID: 'af-south-1_FAKEPOOL',
+  COGNITO_USER_POOL_ID: 'eu-north-1_FAKEPOOL',
   PROBE_USER_SECRET_ID: 'cd/dev/seed-users/thandi.nkosi',
   E2E_CLIENT_ID: 'fake-e2e-client',
   SERVICE_CLIENT_ID: 'fake-svc-notifier',

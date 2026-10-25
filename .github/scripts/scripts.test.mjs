@@ -5,7 +5,7 @@ import { rewriteTaskDefinition } from './rewrite-taskdef.mjs';
 import { evaluateTasks } from './task-result.mjs';
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
-const IMAGE = '111111111111.dkr.ecr.af-south-1.amazonaws.com/cd-svc-users:0123456789abcdef0123456789abcdef01234567';
+const IMAGE = '111111111111.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-users:0123456789abcdef0123456789abcdef01234567';
 
 test('image swap changes only the matching container image', () => {
   const source = fixture('taskdef-service.json');
@@ -35,7 +35,7 @@ test('migrate task definition keeps its command', () => {
 });
 
 test('rewrite fails when no container uses the repository', () => {
-  const other = '1.dkr.ecr.af-south-1.amazonaws.com/cd-svc-auth:abc';
+  const other = '1.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-auth:abc';
   assert.equal(rewriteTaskDefinition(fixture('taskdef-service.json'), other).ok, false);
 });
 

@@ -17,13 +17,13 @@ mock_provider "aws" {
 
   mock_data "aws_region" {
     defaults = {
-      region = "af-south-1"
+      region = "eu-north-1"
     }
   }
 
   mock_resource "aws_kms_key" {
     defaults = {
-      arn    = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+      arn    = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
       key_id = "00000000-0000-0000-0000-000000000000"
     }
   }
@@ -182,8 +182,8 @@ run "apply_role_guardrails" {
     condition = [
       for s in jsondecode(aws_iam_policy.infra_apply["guardrails"].policy).Statement : s.Condition
       if s.Sid == "DenyOutsideAllowedRegions"
-    ] == [{ StringNotEquals = { "aws:RequestedRegion" = ["af-south-1", "us-east-1"] } }]
-    error_message = "Requests outside af-south-1 and us-east-1 must be denied."
+    ] == [{ StringNotEquals = { "aws:RequestedRegion" = ["eu-north-1", "us-east-1"] } }]
+    error_message = "Requests outside eu-north-1 and us-east-1 must be denied."
   }
 
   assert {
@@ -239,9 +239,9 @@ run "apply_role_log_groups_are_prefix_scoped" {
       for s in jsondecode(aws_iam_policy.infra_apply["compute"].policy).Statement : s.Resource
       if s.Effect == "Allow" && contains(lookup(s, "Action", []), "logs:CreateLogGroup")
       ] == [[
-        "arn:aws:logs:af-south-1:123456789012:log-group:/cd/*",
-        "arn:aws:logs:af-south-1:123456789012:log-group:/aws/lambda/cd-*",
-        "arn:aws:logs:af-south-1:123456789012:log-group:/aws/rds/cluster/cd-*",
+        "arn:aws:logs:eu-north-1:123456789012:log-group:/cd/*",
+        "arn:aws:logs:eu-north-1:123456789012:log-group:/aws/lambda/cd-*",
+        "arn:aws:logs:eu-north-1:123456789012:log-group:/aws/rds/cluster/cd-*",
     ]]
     error_message = "gha-infra-apply may create log groups only under /cd/*, /aws/lambda/cd-* and /aws/rds/cluster/cd-*."
   }
@@ -261,8 +261,8 @@ run "boundary_caps_workloads" {
       if s.Effect == "Allow" && contains(lookup(s, "Action", []), "ec2:CreateTags")
       ] == [{
         Resource = [
-          "arn:aws:ec2:af-south-1:123456789012:network-insights-analysis/*",
-          "arn:aws:ec2:af-south-1:123456789012:network-insights-path/*",
+          "arn:aws:ec2:eu-north-1:123456789012:network-insights-analysis/*",
+          "arn:aws:ec2:eu-north-1:123456789012:network-insights-path/*",
         ]
         Condition = { StringEquals = { "ec2:CreateAction" = ["CreateNetworkInsightsPath", "StartNetworkInsightsAnalysis"] } }
     }]
@@ -274,8 +274,8 @@ run "boundary_caps_workloads" {
       for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Resource
       if s.Effect == "Allow" && length(setintersection(["ec2:DeleteNetworkInsightsPath", "ec2:DeleteNetworkInsightsAnalysis"], lookup(s, "Action", []))) > 0
       ] == [[
-        "arn:aws:ec2:af-south-1:123456789012:network-insights-analysis/*",
-        "arn:aws:ec2:af-south-1:123456789012:network-insights-path/*",
+        "arn:aws:ec2:eu-north-1:123456789012:network-insights-analysis/*",
+        "arn:aws:ec2:eu-north-1:123456789012:network-insights-path/*",
     ]]
     error_message = "Reachability Analyzer deletes must be scoped to path/analysis ARNs, not *."
   }
@@ -392,7 +392,7 @@ run "plan_role_state_access" {
     condition = [
       for s in jsondecode(aws_iam_role_policy.infra_plan.policy).Statement : s.Resource
       if s.Sid == "StateKey"
-    ] == [["arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"]]
+    ] == [["arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"]]
     error_message = "gha-infra-plan must use the state key by ARN."
   }
 
@@ -443,7 +443,7 @@ run "state_bucket_is_locked_down" {
   assert {
     condition = alltrue([
       for r in aws_s3_bucket_server_side_encryption_configuration.state.rule :
-      one(r.apply_server_side_encryption_by_default).sse_algorithm == "aws:kms" && one(r.apply_server_side_encryption_by_default).kms_master_key_id == "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+      one(r.apply_server_side_encryption_by_default).sse_algorithm == "aws:kms" && one(r.apply_server_side_encryption_by_default).kms_master_key_id == "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
     ])
     error_message = "State bucket must default to SSE-KMS with the state key."
   }

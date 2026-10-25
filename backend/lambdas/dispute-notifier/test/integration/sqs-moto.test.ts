@@ -21,7 +21,7 @@ const MAX_RECEIVE_COUNT = 5;
 
 const sqs = new SQSClient({
   endpoint: ENDPOINT,
-  region: 'af-south-1',
+  region: 'eu-north-1',
   credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
 });
 const ses = mockClient(SESv2Client);

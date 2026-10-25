@@ -197,7 +197,7 @@ describe('initialisation', () => {
       .on(GetSecretValueCommand)
       .rejectsOnce(sesError('InternalServiceError', 'unavailable'))
       .resolves({ SecretString: 'from-secrets-manager' });
-    const { handler } = setup({ SERVICE_CLIENT_SECRET: '', SERVICE_CLIENT_SECRET_ARN: 'arn:aws:secretsmanager:af-south-1:1:secret:n' });
+    const { handler } = setup({ SERVICE_CLIENT_SECRET: '', SERVICE_CLIENT_SECRET_ARN: 'arn:aws:secretsmanager:eu-north-1:1:secret:n' });
     const batch = sqsEvent([['m-1', body(storedEvent(3))], ['m-2', body(storedEvent(3))]]);
 
     expect((await handler(batch)).batchItemFailures).toEqual([{ itemIdentifier: 'm-1' }, { itemIdentifier: 'm-2' }]);

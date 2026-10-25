@@ -185,7 +185,7 @@ resource "aws_s3_bucket" "quarantine" {
   #checkov:skip=CKV_AWS_18:Access logs need a separate log bucket; deferred for dev with mock data only.
   #checkov:skip=CKV_AWS_21:Unversioned on purpose: untrusted bytes live at most a day and are deleted after intake.
   #checkov:skip=CKV2_AWS_62:GuardDuty enables the EventBridge notification it needs; nothing else consumes object events.
-  #checkov:skip=CKV_AWS_144:Single-region dev (af-south-1); quarantine objects are transient.
+  #checkov:skip=CKV_AWS_144:Single-region dev (eu-north-1); quarantine objects are transient.
   bucket = local.quarantine_bucket_name
   tags   = { component = "evidence-buckets" }
 }
@@ -270,7 +270,7 @@ resource "aws_s3_bucket_policy" "quarantine" {
 resource "aws_s3_bucket" "evidence" {
   #checkov:skip=CKV_AWS_18:Access logs need a separate log bucket; deferred for dev with mock data only.
   #checkov:skip=CKV2_AWS_62:No consumer for evidence-object events; the DB records every promotion.
-  #checkov:skip=CKV_AWS_144:Single-region dev (af-south-1); versioning covers accidental loss.
+  #checkov:skip=CKV_AWS_144:Single-region dev (eu-north-1); versioning covers accidental loss.
   bucket = local.evidence_bucket_name
   tags   = { component = "evidence-buckets" }
 }

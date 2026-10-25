@@ -10,7 +10,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { CreateQueueCommand, DeleteQueueCommand, SQSClient } from '@aws-sdk/client-sqs';
 
-export const REGION = 'af-south-1';
+export const REGION = 'eu-north-1';
 const ENDPOINT = process.env['MOTO_ENDPOINT'] ?? 'http://localhost:55000';
 const credentials = { accessKeyId: 'test', secretAccessKey: 'test' };
 

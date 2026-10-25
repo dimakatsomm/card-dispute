@@ -2,14 +2,14 @@ mock_provider "aws" {
   override_data {
     target = data.aws_availability_zones.available
     values = {
-      names = ["af-south-1a", "af-south-1b", "af-south-1c"]
+      names = ["eu-north-1a", "eu-north-1b", "eu-north-1c"]
     }
   }
 
   override_data {
     target = data.aws_region.current
     values = {
-      region = "af-south-1"
+      region = "eu-north-1"
     }
   }
 
@@ -29,7 +29,7 @@ mock_provider "aws" {
 
   mock_resource "aws_cloudwatch_log_group" {
     defaults = {
-      arn = "arn:aws:logs:af-south-1:123456789012:log-group:/cd/dev/vpc/flow-logs"
+      arn = "arn:aws:logs:eu-north-1:123456789012:log-group:/cd/dev/vpc/flow-logs"
     }
   }
 
@@ -133,8 +133,8 @@ run "s3_gateway_endpoint_on_private_route_tables_only" {
   command = apply
 
   assert {
-    condition     = aws_vpc_endpoint.s3.vpc_endpoint_type == "Gateway" && aws_vpc_endpoint.s3.service_name == "com.amazonaws.af-south-1.s3"
-    error_message = "S3 endpoint must be a Gateway endpoint for af-south-1."
+    condition     = aws_vpc_endpoint.s3.vpc_endpoint_type == "Gateway" && aws_vpc_endpoint.s3.service_name == "com.amazonaws.eu-north-1.s3"
+    error_message = "S3 endpoint must be a Gateway endpoint for eu-north-1."
   }
 
   assert {
@@ -185,7 +185,7 @@ run "flow_logs_enabled_are_scoped" {
 
   variables {
     enable_flow_logs         = true
-    logs_kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+    logs_kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
     permissions_boundary_arn = "arn:aws:iam::123456789012:policy/cd-workload-boundary"
   }
 
@@ -195,7 +195,7 @@ run "flow_logs_enabled_are_scoped" {
   }
 
   assert {
-    condition     = aws_cloudwatch_log_group.flow_logs[0].name == "/cd/dev/vpc/flow-logs" && aws_cloudwatch_log_group.flow_logs[0].retention_in_days == 7 && aws_cloudwatch_log_group.flow_logs[0].kms_key_id == "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+    condition     = aws_cloudwatch_log_group.flow_logs[0].name == "/cd/dev/vpc/flow-logs" && aws_cloudwatch_log_group.flow_logs[0].retention_in_days == 7 && aws_cloudwatch_log_group.flow_logs[0].kms_key_id == "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
     error_message = "Flow log group must follow naming, retention and KMS conventions."
   }
 
@@ -209,7 +209,7 @@ run "flow_logs_enabled_are_scoped" {
       for s in jsondecode(aws_iam_role_policy.flow_logs[0].policy).Statement :
       s.Effect == "Allow" &&
       length(setsubtract(s.Action, ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"])) == 0 &&
-      s.Resource == ["arn:aws:logs:af-south-1:123456789012:log-group:/cd/dev/vpc/flow-logs:*"]
+      s.Resource == ["arn:aws:logs:eu-north-1:123456789012:log-group:/cd/dev/vpc/flow-logs:*"]
     ])
     error_message = "Flow log role may only write to its own log group."
   }

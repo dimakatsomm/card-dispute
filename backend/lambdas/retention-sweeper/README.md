@@ -27,4 +27,4 @@ Metrics (EMF, namespace `METRICS_NAMESPACE`): `EvidenceExpired`, `RetentionErase
 | `SWEEP_BATCH_SIZE` | `500` | Batch cap per step |
 | `DB_CONNECT_TIMEOUT_MS` / `DB_STATEMENT_TIMEOUT_MS` | `5000` / `30000` | |
 | `METRICS_NAMESPACE` | `cd/retention-sweeper` | |
-| `AWS_REGION`, `LOG_LEVEL` | `af-south-1`, `info` | |
+| `AWS_REGION`, `LOG_LEVEL` | `eu-north-1`, `info` | |

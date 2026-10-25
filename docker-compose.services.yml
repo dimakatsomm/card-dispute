@@ -155,7 +155,7 @@ services:
       SERVICE_CLIENT_ID: svc-disputes
       USERS_SERVICE_URL: http://users:8081
       TRANSACTIONS_SERVICE_URL: http://transactions:8081
-      AWS_REGION: ${AWS_REGION:-af-south-1}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?set in local/.env.example}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?set in local/.env.example}
       S3_ENDPOINT: http://moto:5000

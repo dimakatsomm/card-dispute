@@ -2,7 +2,7 @@
 # and the local driver standing in for GuardDuty/EventBridge, the SQS event-source mapping, the schedule and SES.
 # Emulation only: AWS behaviour is proven in E-03. Published ports are loopback only; 8081 is never published.
 x-aws-local: &aws-local
-  AWS_REGION: ${AWS_REGION:-af-south-1}
+  AWS_REGION: ${AWS_REGION:-eu-north-1}
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?set in local/.env.example}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?set in local/.env.example}
 
@@ -89,7 +89,7 @@ services:
       dockerfile: backend/lambdas/retention-sweeper/Dockerfile
     image: cd-retention-sweeper:local
     environment:
-      AWS_REGION: ${AWS_REGION:-af-south-1}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
       DATABASE_URL: postgres://disputes_retention:${DB_PASSWORD_DISPUTES_RETENTION:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
       LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
     ports:

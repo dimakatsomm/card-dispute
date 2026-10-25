@@ -78,8 +78,8 @@ variable "image_uri" {
   type        = string
 
   validation {
-    condition     = can(regex("^[0-9]{12}\\.dkr\\.ecr\\.af-south-1\\.amazonaws\\.com/[a-z0-9._/-]+(:[A-Za-z0-9._-]{1,128}|@sha256:[a-f0-9]{64})$", var.image_uri))
-    error_message = "image_uri must be an af-south-1 ECR image URI with a tag or sha256 digest."
+    condition     = can(regex("^[0-9]{12}\\.dkr\\.ecr\\.eu-north-1\\.amazonaws\\.com/[a-z0-9._/-]+(:[A-Za-z0-9._-]{1,128}|@sha256:[a-f0-9]{64})$", var.image_uri))
+    error_message = "image_uri must be an eu-north-1 ECR image URI with a tag or sha256 digest."
   }
 }
 

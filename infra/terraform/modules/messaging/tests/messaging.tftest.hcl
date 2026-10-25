@@ -11,42 +11,42 @@ mock_provider "aws" {
 override_resource {
   target = aws_sqs_queue.notifications
   values = {
-    arn = "arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"
-    id  = "https://sqs.af-south-1.amazonaws.com/123456789012/cd-dispute-notifications"
-    url = "https://sqs.af-south-1.amazonaws.com/123456789012/cd-dispute-notifications"
+    arn = "arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"
+    id  = "https://sqs.eu-north-1.amazonaws.com/123456789012/cd-dispute-notifications"
+    url = "https://sqs.eu-north-1.amazonaws.com/123456789012/cd-dispute-notifications"
   }
 }
 
 override_resource {
   target = aws_sqs_queue.notifications_dlq
   values = {
-    arn = "arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications-dlq"
-    id  = "https://sqs.af-south-1.amazonaws.com/123456789012/cd-dispute-notifications-dlq"
+    arn = "arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications-dlq"
+    id  = "https://sqs.eu-north-1.amazonaws.com/123456789012/cd-dispute-notifications-dlq"
   }
 }
 
 override_resource {
   target = aws_sqs_queue.evidence_intake_dlq
   values = {
-    arn = "arn:aws:sqs:af-south-1:123456789012:cd-evidence-intake-dlq"
-    id  = "https://sqs.af-south-1.amazonaws.com/123456789012/cd-evidence-intake-dlq"
+    arn = "arn:aws:sqs:eu-north-1:123456789012:cd-evidence-intake-dlq"
+    id  = "https://sqs.eu-north-1.amazonaws.com/123456789012/cd-evidence-intake-dlq"
   }
 }
 
 override_resource {
   target = aws_sqs_queue.retention_scheduler_dlq
   values = {
-    arn = "arn:aws:sqs:af-south-1:123456789012:cd-retention-scheduler-dlq"
-    id  = "https://sqs.af-south-1.amazonaws.com/123456789012/cd-retention-scheduler-dlq"
+    arn = "arn:aws:sqs:eu-north-1:123456789012:cd-retention-scheduler-dlq"
+    id  = "https://sqs.eu-north-1.amazonaws.com/123456789012/cd-retention-scheduler-dlq"
   }
 }
 
 variables {
   name_prefix                   = "cd"
-  kms_key_arn                   = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  kms_key_arn                   = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
   allowed_sender_role_arns      = ["arn:aws:iam::123456789012:role/cd/cd-disputes-task"]
   allowed_consumer_role_arns    = ["arn:aws:iam::123456789012:role/cd/cd-dispute-notifier-fn"]
-  evidence_scan_rule_arn        = "arn:aws:events:af-south-1:123456789012:rule/cd-evidence-scan-result"
+  evidence_scan_rule_arn        = "arn:aws:events:eu-north-1:123456789012:rule/cd-evidence-scan-result"
   evidence_intake_role_arns     = ["arn:aws:iam::123456789012:role/cd/cd-evidence-intake-fn"]
   retention_scheduler_role_arns = ["arn:aws:iam::123456789012:role/cd/cd-retention-sweeper-scheduler"]
 }

@@ -8,7 +8,7 @@ const ABC_SHA256 = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f200
 const instructionFor = (file: Blob, overrides: Partial<UploadInstruction['headers']> = {}): UploadInstruction => ({
   evidenceId: '0192f0c1-0000-7000-8000-0000000000e1',
   method: 'PUT',
-  url: 'https://quarantine.s3.af-south-1.amazonaws.com/key?X-Amz-Signature=abc',
+  url: 'https://quarantine.s3.eu-north-1.amazonaws.com/key?X-Amz-Signature=abc',
   headers: {
     'Content-Type': 'application/pdf',
     'Content-Length': String(file.size),

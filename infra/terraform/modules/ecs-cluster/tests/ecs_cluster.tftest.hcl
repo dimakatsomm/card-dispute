@@ -1,14 +1,14 @@
 mock_provider "aws" {
   mock_resource "aws_service_discovery_private_dns_namespace" {
     defaults = {
-      arn = "arn:aws:servicediscovery:af-south-1:123456789012:namespace/ns-abcdefghijklmnop"
+      arn = "arn:aws:servicediscovery:eu-north-1:123456789012:namespace/ns-abcdefghijklmnop"
       id  = "ns-abcdefghijklmnop"
     }
   }
 
   mock_resource "aws_ecs_cluster" {
     defaults = {
-      arn = "arn:aws:ecs:af-south-1:123456789012:cluster/cd-cluster"
+      arn = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd-cluster"
     }
   }
 }

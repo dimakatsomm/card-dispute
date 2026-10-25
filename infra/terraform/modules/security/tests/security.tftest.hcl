@@ -4,7 +4,7 @@ mock_provider "aws" {
   }
 
   mock_data "aws_region" {
-    defaults = { region = "af-south-1" }
+    defaults = { region = "eu-north-1" }
   }
 
   mock_data "aws_partition" {
@@ -12,7 +12,7 @@ mock_provider "aws" {
   }
 
   mock_resource "aws_kms_key" {
-    defaults = { arn = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000" }
+    defaults = { arn = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000" }
   }
 }
 
@@ -192,15 +192,15 @@ run "vpc_origin" {
     condition = toset([
       for s in jsondecode(aws_kms_key.this["data"].policy).Statement : s.Principal.Service
       if can(s.Principal.Service) && try(s.Condition.StringEquals["aws:SourceAccount"], "") == "123456789012"
-    ]) == toset(["logs.af-south-1.amazonaws.com", "events.amazonaws.com", "cloudwatch.amazonaws.com", "budgets.amazonaws.com"])
+    ]) == toset(["logs.eu-north-1.amazonaws.com", "events.amazonaws.com", "cloudwatch.amazonaws.com", "budgets.amazonaws.com"])
     error_message = "data key service principals must be logs, events, cloudwatch and budgets, each bound to aws:SourceAccount."
   }
 
   assert {
     condition = toset(one([for s in jsondecode(aws_kms_key.this["data"].policy).Statement : s.Condition.ArnLike["kms:EncryptionContext:aws:logs:arn"] if s.Sid == "CloudWatchLogs"])) == toset([
-      "arn:aws:logs:af-south-1:123456789012:log-group:/cd/*",
-      "arn:aws:logs:af-south-1:123456789012:log-group:/aws/lambda/cd-*",
-      "arn:aws:logs:af-south-1:123456789012:log-group:/aws/rds/cluster/cd-*",
+      "arn:aws:logs:eu-north-1:123456789012:log-group:/cd/*",
+      "arn:aws:logs:eu-north-1:123456789012:log-group:/aws/lambda/cd-*",
+      "arn:aws:logs:eu-north-1:123456789012:log-group:/aws/rds/cluster/cd-*",
     ])
     error_message = "Logs may use cd-data for /cd/*, /aws/lambda/cd-* and the Aurora export groups /aws/rds/cluster/cd-*, nothing else."
   }

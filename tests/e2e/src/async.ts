@@ -41,7 +41,7 @@ export const sha256Hex = (bytes: Uint8Array): string => createHash('sha256').upd
 export const sha256Base64 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('base64');
 
 const awsAuth = (service: 's3' | 'sqs'): Record<string, string> => ({
-  authorization: `AWS4-HMAC-SHA256 Credential=test/20260101/af-south-1/${service}/aws4_request, SignedHeaders=host, Signature=local`,
+  authorization: `AWS4-HMAC-SHA256 Credential=test/20260101/eu-north-1/${service}/aws4_request, SignedHeaders=host, Signature=local`,
 });
 
 // moto accepts any credentials but treats an unsigned request as anonymous, which the bucket policy denies.
@@ -217,7 +217,7 @@ export const driverInvoke = (fn: 'evidence-intake' | 'dispute-notifier' | 'reten
       env: {
         ...process.env,
         AWS_ENDPOINT_URL: MOTO,
-        AWS_REGION: 'af-south-1',
+        AWS_REGION: 'eu-north-1',
         INTAKE_URL: rie(process.env['INTAKE_HOST_PORT'] ?? '58091'),
         NOTIFIER_URL: rie(process.env['NOTIFIER_HOST_PORT'] ?? '58092'),
         SWEEPER_URL: rie(process.env['SWEEPER_HOST_PORT'] ?? '58093'),

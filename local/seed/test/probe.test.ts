@@ -142,7 +142,7 @@ describe('probe token sources', () => {
     const token = await userTokenVia({
       cognito: aws.cognito,
       secrets: aws.secretsManager,
-      userPoolId: 'af-south-1_FAKEPOOL',
+      userPoolId: 'eu-north-1_FAKEPOOL',
       clientId: 'e2e-client',
       secretId: 'cd/dev/seed-users/thandi.nkosi',
     })();
@@ -150,7 +150,7 @@ describe('probe token sources', () => {
     expect(aws.calls.find((c) => c.command === 'AdminInitiateAuthCommand')?.input).toMatchObject({
       AuthFlow: 'ADMIN_USER_PASSWORD_AUTH',
       ClientId: 'e2e-client',
-      UserPoolId: 'af-south-1_FAKEPOOL',
+      UserPoolId: 'eu-north-1_FAKEPOOL',
     });
   });
 
@@ -162,7 +162,7 @@ describe('probe token sources', () => {
     }) as typeof fetch;
     const token = await serviceTokenVia({
       fetch: fakeFetch,
-      tokenUrl: 'https://cd-dev.auth.af-south-1.amazoncognito.com/oauth2/token',
+      tokenUrl: 'https://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/token',
       clientId: 'svc-notifier-id',
       clientSecret: 'fake-secret',
       timeoutMs: 50,
@@ -174,7 +174,7 @@ describe('probe token sources', () => {
     );
   });
 
-  it.each(['http://cd-dev.auth.af-south-1.amazoncognito.com/oauth2/token', 'not a url'])(
+  it.each(['http://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/token', 'not a url'])(
     'refuses to send the client secret to a non-https TOKEN_URL (%s)',
     async (tokenUrl) => {
       const calls: string[] = [];

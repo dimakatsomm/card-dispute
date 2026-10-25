@@ -22,7 +22,7 @@ disputes ─(after commit, best-effort)─► SQS dispute-notifications (+DLQ) �
 Evidence (ADR-028, presigned — disputes never touches file bytes):
   client ─PUT (presigned, signed type/length/sha256)─► S3 quarantine bucket, key intake/{transactionId}/{evidenceId}
                                                        (private, SSE-KMS, 1-day lifecycle)
-     ─► malware scan (GuardDuty Malware Protection for S3 — ⚠ af-south-1 availability unverified)
+     ─► malware scan (GuardDuty Malware Protection for S3 — ⚠ eu-north-1 availability unverified)
      ─► EventBridge scan-result event ─► evidence-intake Lambda (EventBridge async invoke: 2 retries, then an async DLQ)
            reads the verdict from the event; facts from HeadObject + a ranged GET (magic bytes), never from the file name
          ─► disputes PUT /dispute/{transactionId}/evidence/{evidenceId} (service port, via internal ALB)

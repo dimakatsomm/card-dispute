@@ -93,7 +93,7 @@ The owner dropped the custom domain, so AWS default hostnames are used:
 | Hostname | What | Purpose |
 |---|---|---|
 | `https://<id>.cloudfront.net` | CloudFront distribution (default TLS certificate) | web app + API under `/api/*` |
-| `https://<prefix>.auth.af-south-1.amazoncognito.com` | Cognito prefix domain | hosted login (PKCE) |
+| `https://<prefix>.auth.eu-north-1.amazoncognito.com` | Cognito prefix domain | hosted login (PKCE) |
 
 **Routing**
 | Path | CloudFront behaviour | Target |

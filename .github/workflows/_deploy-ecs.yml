@@ -41,7 +41,7 @@ jobs:
       NAME_PREFIX: ${{ inputs.name-prefix }}
       IMAGE_TAG: ${{ inputs.sha }}
       HAS_MIGRATE: ${{ inputs.has-migrate }}
-      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
     steps:

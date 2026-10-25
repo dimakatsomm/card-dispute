@@ -83,7 +83,7 @@ variable "backup_retention_days" {
 }
 
 variable "engine_version" {
-  description = "Aurora PostgreSQL 18 engine version (availability in af-south-1 is verified by V-M3)."
+  description = "Aurora PostgreSQL 18 engine version (availability in eu-north-1 is verified by V-M3)."
   type        = string
   default     = "18.3"
 

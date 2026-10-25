@@ -48,9 +48,9 @@ variable "lambda_image_uris" {
   validation {
     condition = alltrue([
       for uri in values(var.lambda_image_uris) :
-      can(regex("^[0-9]{12}\\.dkr\\.ecr\\.af-south-1\\.amazonaws\\.com/[a-z0-9._/-]+(:[A-Za-z0-9._-]{1,128}|@sha256:[a-f0-9]{64})$", uri))
+      can(regex("^[0-9]{12}\\.dkr\\.ecr\\.eu-north-1\\.amazonaws\\.com/[a-z0-9._/-]+(:[A-Za-z0-9._-]{1,128}|@sha256:[a-f0-9]{64})$", uri))
     ])
-    error_message = "lambda_image_uris values must be af-south-1 ECR image URIs with a tag or sha256 digest."
+    error_message = "lambda_image_uris values must be eu-north-1 ECR image URIs with a tag or sha256 digest."
   }
 }
 

@@ -8,7 +8,7 @@ locals {
 }
 
 provider "aws" {
-  region = "af-south-1"
+  region = "eu-north-1"
 
   default_tags {
     tags = local.default_tags

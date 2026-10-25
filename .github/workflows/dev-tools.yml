@@ -58,7 +58,7 @@ jobs:
       TOOL: ${{ inputs.tool }}
       IMAGE_TAG: ${{ inputs.sha || github.sha }}
       NAME_PREFIX: cd
-      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       SUBNET_IDS: ${{ vars.DEV_TOOLS_SUBNET_IDS }}
       TOOLS_SG_ID: ${{ vars.DEV_TOOLS_SG_ID }}

@@ -6,7 +6,7 @@ import { generatePassword } from '../src/password.ts';
 import { parseSeedUserSecret } from '../src/seed-user-secret.ts';
 import { fakeAws, MUTATING, type FakeAws } from './fake-aws.ts';
 
-const KMS = 'arn:aws:kms:af-south-1:111122223333:key/0b7c9a3e-1111-4222-8333-444455556666';
+const KMS = 'arn:aws:kms:eu-north-1:111122223333:key/0b7c9a3e-1111-4222-8333-444455556666';
 const PREFIX = 'cd/dev/seed-users/';
 const data = generateSeedData({ seed: DEFAULT_SEED, now: new Date('2026-10-19T09:30:00Z') });
 const users = seedUsers(data);
@@ -14,7 +14,7 @@ const users = seedUsers(data);
 const deps = (aws: FakeAws, overrides: Partial<ProvisionDeps> = {}): ProvisionDeps => ({
   cognito: aws.cognito,
   secrets: aws.secretsManager,
-  userPoolId: 'af-south-1_FAKEPOOL',
+  userPoolId: 'eu-north-1_FAKEPOOL',
   secretPrefix: PREFIX,
   kmsKeyId: KMS,
   rotatePasswords: false,
@@ -44,7 +44,7 @@ describe('provisionSeedUsers (Cognito + Secrets Manager behind an SDK stub)', ()
 
     const create = aws.calls.find((c) => c.command === 'AdminCreateUserCommand' && c.input.Username === 'thandi.nkosi');
     expect(create?.input).toMatchObject({
-      UserPoolId: 'af-south-1_FAKEPOOL',
+      UserPoolId: 'eu-north-1_FAKEPOOL',
       MessageAction: 'SUPPRESS',
       UserAttributes: [
         { Name: 'email', Value: 'thandi.nkosi@example.com' },
@@ -181,12 +181,12 @@ describe('auth_identity mapping', () => {
 
 describe('resolveAwsSeedConfig', () => {
   const url = (svc: string, query = '?sslmode=verify-full'): string =>
-    `postgres://${svc}_migrator:fake-pass@cd-dev.cluster-x.af-south-1.rds.amazonaws.com:5432/disputes${query}`;
+    `postgres://${svc}_migrator:fake-pass@cd-dev.cluster-x.eu-north-1.rds.amazonaws.com:5432/disputes${query}`;
   const env = {
-    COGNITO_USER_POOL_ID: 'af-south-1_FAKEPOOL',
+    COGNITO_USER_POOL_ID: 'eu-north-1_FAKEPOOL',
     SEED_USER_SECRET_PREFIX: PREFIX,
     SEED_USER_SECRET_KMS_KEY_ID: KMS,
-    DB_HOST: 'cd-dev.cluster-x.af-south-1.rds.amazonaws.com',
+    DB_HOST: 'cd-dev.cluster-x.eu-north-1.rds.amazonaws.com',
     DB_PORT: '5432',
     DB_NAME: 'disputes',
     MIGRATOR_DATABASE_URL_AUTH: url('auth'),
@@ -239,16 +239,16 @@ describe('resolveAwsSeedConfig', () => {
 describe('SEED_A_EMAIL', () => {
   const CUSTOM = 'thandi.owner@example.test';
   const env = {
-    COGNITO_USER_POOL_ID: 'af-south-1_FAKEPOOL',
+    COGNITO_USER_POOL_ID: 'eu-north-1_FAKEPOOL',
     SEED_USER_SECRET_PREFIX: PREFIX,
     SEED_USER_SECRET_KMS_KEY_ID: KMS,
-    DB_HOST: 'cd-dev.cluster-x.af-south-1.rds.amazonaws.com',
+    DB_HOST: 'cd-dev.cluster-x.eu-north-1.rds.amazonaws.com',
     DB_PORT: '5432',
     DB_NAME: 'disputes',
     ...Object.fromEntries(
       ['auth', 'users', 'transactions', 'disputes'].map((svc) => [
         `MIGRATOR_DATABASE_URL_${svc.toUpperCase()}`,
-        `postgres://${svc}_migrator:fake-pass@cd-dev.cluster-x.af-south-1.rds.amazonaws.com:5432/disputes?sslmode=verify-full`,
+        `postgres://${svc}_migrator:fake-pass@cd-dev.cluster-x.eu-north-1.rds.amazonaws.com:5432/disputes?sslmode=verify-full`,
       ]),
     ),
   };
@@ -301,7 +301,7 @@ describe('SEED_A_EMAIL', () => {
     expect(changed.ok && changed.value.counts).toMatchObject({ cognito_email_updated: 1, cognito_user_created: 0, cognito_password_set: 0 });
     expect(aws.calls.filter((c) => c.command === 'AdminUpdateUserAttributesCommand').map((c) => c.input)).toEqual([
       {
-        UserPoolId: 'af-south-1_FAKEPOOL',
+        UserPoolId: 'eu-north-1_FAKEPOOL',
         Username: 'thandi.nkosi',
         UserAttributes: [
           { Name: 'email', Value: CUSTOM },

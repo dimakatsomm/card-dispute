@@ -1,6 +1,6 @@
 mock_provider "aws" {
   mock_data "aws_region" {
-    defaults = { region = "af-south-1", name = "af-south-1" }
+    defaults = { region = "eu-north-1", name = "eu-north-1" }
   }
   mock_data "aws_caller_identity" {
     defaults = { account_id = "123456789012" }
@@ -9,19 +9,19 @@ mock_provider "aws" {
     defaults = { partition = "aws" }
   }
   mock_resource "aws_cloudwatch_log_group" {
-    defaults = { arn = "arn:aws:logs:af-south-1:123456789012:log-group:/aws/lambda/cd-fn" }
+    defaults = { arn = "arn:aws:logs:eu-north-1:123456789012:log-group:/aws/lambda/cd-fn" }
   }
   mock_resource "aws_iam_role" {
     defaults = { arn = "arn:aws:iam::123456789012:role/cd/cd-fn-role" }
   }
   mock_resource "aws_lambda_function" {
-    defaults = { arn = "arn:aws:lambda:af-south-1:123456789012:function:cd-fn", version = "1" }
+    defaults = { arn = "arn:aws:lambda:eu-north-1:123456789012:function:cd-fn", version = "1" }
   }
   mock_resource "aws_lambda_alias" {
-    defaults = { arn = "arn:aws:lambda:af-south-1:123456789012:function:cd-fn:live" }
+    defaults = { arn = "arn:aws:lambda:eu-north-1:123456789012:function:cd-fn:live" }
   }
   mock_resource "aws_scheduler_schedule" {
-    defaults = { arn = "arn:aws:scheduler:af-south-1:123456789012:schedule/default/cd-fn" }
+    defaults = { arn = "arn:aws:scheduler:eu-north-1:123456789012:schedule/default/cd-fn" }
   }
 }
 
@@ -31,15 +31,15 @@ variables {
   permissions_boundary_arn = "arn:aws:iam::123456789012:policy/cd-workload-boundary"
   iam_path                 = "/cd/"
   log_retention_days       = 7
-  logs_kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  data_kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  image_uri                = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-lambda-evidence-intake:initial"
+  logs_kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  data_kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  image_uri                = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-intake:initial"
   timeout_seconds          = 60
   subnet_ids               = ["subnet-private-a", "subnet-private-b"]
   security_group_id        = "sg-evidence-intake"
   environment = {
     QUARANTINE_BUCKET        = "cd-dev-quarantine-123456789012"
-    SERVICE_CLIENT_SECRET_ID = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-evidence-intake-AbCdEf"
+    SERVICE_CLIENT_SECRET_ID = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-evidence-intake-AbCdEf"
   }
   policy_statements = [{
     Sid      = "ReadDeleteQuarantine"
@@ -47,7 +47,7 @@ variables {
     Action   = ["s3:GetObject", "s3:DeleteObject"]
     Resource = ["arn:aws:s3:::cd-dev-quarantine-123456789012/intake/*"]
   }]
-  async_on_failure_arn = "arn:aws:sqs:af-south-1:123456789012:cd-evidence-intake-dlq"
+  async_on_failure_arn = "arn:aws:sqs:eu-north-1:123456789012:cd-evidence-intake-dlq"
 }
 
 run "no_function_without_image" {
@@ -157,11 +157,11 @@ run "image_uri_is_ignored_after_create" {
   command = apply
 
   variables {
-    image_uri = "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-lambda-evidence-intake:other"
+    image_uri = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-intake:other"
   }
 
   assert {
-    condition     = aws_lambda_function.this[0].image_uri == "123456789012.dkr.ecr.af-south-1.amazonaws.com/cd-lambda-evidence-intake:initial"
+    condition     = aws_lambda_function.this[0].image_uri == "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-intake:initial"
     error_message = "ignore_changes = [image_uri]: the pipeline owns the image after create."
   }
 }
@@ -174,12 +174,12 @@ run "role_policies_have_no_wildcards_but_eni" {
     timeout_seconds      = 300
     async_on_failure_arn = null
     environment = {
-      DATABASE_SECRET_ID = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_retention-AbCdEf"
+      DATABASE_SECRET_ID = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_retention-AbCdEf"
     }
     schedule = {
       expression = "cron(0 2 * * ? *)"
       timezone   = "Africa/Johannesburg"
-      dlq_arn    = "arn:aws:sqs:af-south-1:123456789012:cd-retention-scheduler-dlq"
+      dlq_arn    = "arn:aws:sqs:eu-north-1:123456789012:cd-retention-scheduler-dlq"
     }
   }
 
@@ -207,7 +207,7 @@ run "role_policies_have_no_wildcards_but_eni" {
 
   assert {
     condition = one([for s in jsondecode(aws_iam_role_policy.function.policy).Statement : s.Resource if s.Sid == "WriteOwnLogGroup"]) == [
-      "arn:aws:logs:af-south-1:123456789012:log-group:/aws/lambda/cd-fn:log-stream:*",
+      "arn:aws:logs:eu-north-1:123456789012:log-group:/aws/lambda/cd-fn:log-stream:*",
     ]
     error_message = "Logs are written only to the function's own log group."
   }
@@ -226,12 +226,12 @@ run "sweeper_schedule" {
     timeout_seconds      = 300
     async_on_failure_arn = null
     environment = {
-      DATABASE_SECRET_ID = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/db/disputes_retention-AbCdEf"
+      DATABASE_SECRET_ID = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_retention-AbCdEf"
     }
     schedule = {
       expression = "cron(0 2 * * ? *)"
       timezone   = "Africa/Johannesburg"
-      dlq_arn    = "arn:aws:sqs:af-south-1:123456789012:cd-retention-scheduler-dlq"
+      dlq_arn    = "arn:aws:sqs:eu-north-1:123456789012:cd-retention-scheduler-dlq"
     }
   }
 
@@ -263,7 +263,7 @@ run "sweeper_schedule" {
       Action    = ["sts:AssumeRole"]
       Condition = {
         StringEquals = { "aws:SourceAccount" = "123456789012" }
-        ArnEquals    = { "aws:SourceArn" = "arn:aws:scheduler:af-south-1:123456789012:schedule/default/cd-retention-sweeper" }
+        ArnEquals    = { "aws:SourceArn" = "arn:aws:scheduler:eu-north-1:123456789012:schedule/default/cd-retention-sweeper" }
       }
     }]
     error_message = "Only Scheduler, from this account and this schedule, may assume the role."
@@ -271,7 +271,7 @@ run "sweeper_schedule" {
 
   assert {
     condition = toset([for s in jsondecode(aws_iam_role_policy.scheduler[0].policy).Statement : jsonencode([s.Action, s.Resource]) if s.Sid != "EncryptScheduleFailures"]) == toset([
-      jsonencode([["lambda:InvokeFunction"], ["arn:aws:lambda:af-south-1:123456789012:function:cd-retention-sweeper:live"]]),
+      jsonencode([["lambda:InvokeFunction"], ["arn:aws:lambda:eu-north-1:123456789012:function:cd-retention-sweeper:live"]]),
       jsonencode([["sqs:SendMessage"], [var.schedule.dlq_arn]]),
     ])
     error_message = "The scheduler role may only invoke the alias and send to its DLQ."
@@ -294,7 +294,7 @@ run "scheduler_role_exists_before_function" {
     schedule = {
       expression = "cron(0 2 * * ? *)"
       timezone   = "Africa/Johannesburg"
-      dlq_arn    = "arn:aws:sqs:af-south-1:123456789012:cd-retention-scheduler-dlq"
+      dlq_arn    = "arn:aws:sqs:eu-north-1:123456789012:cd-retention-scheduler-dlq"
     }
   }
 
@@ -318,14 +318,14 @@ run "notifier_event_source" {
     async_on_failure_arn = null
     environment = {
       SES_SENDER                = "noreply@example.com"
-      SERVICE_CLIENT_SECRET_ARN = "arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-notifier-AbCdEf"
+      SERVICE_CLIENT_SECRET_ARN = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-notifier-AbCdEf"
     }
-    sqs_event_source = { queue_arn = "arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications" }
+    sqs_event_source = { queue_arn = "arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications" }
     policy_statements = [{
       Sid      = "ConsumeNotifications"
       Effect   = "Allow"
       Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ChangeMessageVisibility"]
-      Resource = ["arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"]
+      Resource = ["arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"]
     }]
   }
 
@@ -357,7 +357,7 @@ run "caller_condition_is_kept" {
       Sid       = "SendFromSender"
       Effect    = "Allow"
       Action    = ["ses:SendEmail"]
-      Resource  = ["arn:aws:ses:af-south-1:123456789012:identity/noreply@example.com"]
+      Resource  = ["arn:aws:ses:eu-north-1:123456789012:identity/noreply@example.com"]
       Condition = { StringEquals = { "ses:FromAddress" = ["noreply@example.com"] } }
     }]
   }
@@ -395,7 +395,7 @@ run "rejects_reserved_lambda_variable" {
   command = plan
 
   variables {
-    environment = { AWS_REGION = "af-south-1" }
+    environment = { AWS_REGION = "eu-north-1" }
   }
 
   expect_failures = [var.environment]
@@ -421,7 +421,7 @@ run "rejects_esm_without_consume_permissions" {
 
   variables {
     function_key      = "dispute-notifier"
-    sqs_event_source  = { queue_arn = "arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications" }
+    sqs_event_source  = { queue_arn = "arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications" }
     policy_statements = []
   }
 
@@ -441,21 +441,21 @@ run "mixed_condition_statements" {
         Sid      = "ConsumeNotifications"
         Effect   = "Allow"
         Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"]
-        Resource = ["arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"]
+        Resource = ["arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"]
       },
       {
         Sid       = "SendFromSender"
         Effect    = "Allow"
         Action    = ["ses:SendEmail"]
-        Resource  = ["arn:aws:ses:af-south-1:123456789012:identity/noreply@example.com"]
+        Resource  = ["arn:aws:ses:eu-north-1:123456789012:identity/noreply@example.com"]
         Condition = { StringEquals = { "ses:FromAddress" = ["noreply@example.com"] } }
       },
       {
         Sid       = "ReadClientSecret"
         Effect    = "Allow"
         Action    = ["secretsmanager:GetSecretValue"]
-        Resource  = ["arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-notifier-AbCdEf"]
-        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:lambda:af-south-1:123456789012:function:cd-dispute-notifier", "arn:aws:lambda:af-south-1:123456789012:function:cd-dispute-notifier:*"] } }
+        Resource  = ["arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-notifier-AbCdEf"]
+        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:lambda:eu-north-1:123456789012:function:cd-dispute-notifier", "arn:aws:lambda:eu-north-1:123456789012:function:cd-dispute-notifier:*"] } }
       },
     ]
   }
@@ -464,17 +464,17 @@ run "mixed_condition_statements" {
     condition = [for s in jsondecode(aws_iam_role_policy.function.policy).Statement : s if contains(["ConsumeNotifications", "SendFromSender", "ReadClientSecret"], s.Sid)] == [
       {
         Sid      = "ConsumeNotifications", Effect = "Allow", Action = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"]
-        Resource = ["arn:aws:sqs:af-south-1:123456789012:cd-dispute-notifications"]
+        Resource = ["arn:aws:sqs:eu-north-1:123456789012:cd-dispute-notifications"]
       },
       {
         Sid       = "SendFromSender", Effect = "Allow", Action = ["ses:SendEmail"]
-        Resource  = ["arn:aws:ses:af-south-1:123456789012:identity/noreply@example.com"]
+        Resource  = ["arn:aws:ses:eu-north-1:123456789012:identity/noreply@example.com"]
         Condition = { StringEquals = { "ses:FromAddress" = ["noreply@example.com"] } }
       },
       {
         Sid       = "ReadClientSecret", Effect = "Allow", Action = ["secretsmanager:GetSecretValue"]
-        Resource  = ["arn:aws:secretsmanager:af-south-1:123456789012:secret:cd/dev/cognito/svc-notifier-AbCdEf"]
-        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:lambda:af-south-1:123456789012:function:cd-dispute-notifier", "arn:aws:lambda:af-south-1:123456789012:function:cd-dispute-notifier:*"] } }
+        Resource  = ["arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/cognito/svc-notifier-AbCdEf"]
+        Condition = { ArnLike = { "aws:SourceArn" = ["arn:aws:lambda:eu-north-1:123456789012:function:cd-dispute-notifier", "arn:aws:lambda:eu-north-1:123456789012:function:cd-dispute-notifier:*"] } }
       },
     ]
     error_message = "A list mixing no Condition, StringEquals and ArnLike renders as given; no null Condition key."

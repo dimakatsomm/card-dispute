@@ -4,7 +4,7 @@ mock_provider "aws" {
   }
 
   mock_data "aws_region" {
-    defaults = { region = "af-south-1" }
+    defaults = { region = "eu-north-1" }
   }
 
   mock_data "aws_partition" {
@@ -13,21 +13,21 @@ mock_provider "aws" {
 
   mock_resource "aws_sqs_queue" {
     defaults = {
-      arn = "arn:aws:sqs:af-south-1:123456789012:cd-ses-events"
-      id  = "https://sqs.af-south-1.amazonaws.com/123456789012/cd-ses-events"
-      url = "https://sqs.af-south-1.amazonaws.com/123456789012/cd-ses-events"
+      arn = "arn:aws:sqs:eu-north-1:123456789012:cd-ses-events"
+      id  = "https://sqs.eu-north-1.amazonaws.com/123456789012/cd-ses-events"
+      url = "https://sqs.eu-north-1.amazonaws.com/123456789012/cd-ses-events"
     }
   }
 
   mock_resource "aws_cloudwatch_event_rule" {
-    defaults = { arn = "arn:aws:events:af-south-1:123456789012:rule/cd-ses-events" }
+    defaults = { arn = "arn:aws:events:eu-north-1:123456789012:rule/cd-ses-events" }
   }
 }
 
 variables {
   name_prefix  = "cd"
   sender_email = "dimakatsomm@icloud.com"
-  kms_key_arn  = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  kms_key_arn  = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
 }
 
 run "identity_uses_the_configuration_set" {
@@ -53,7 +53,7 @@ run "destination_targets_the_default_event_bus" {
   command = apply
 
   assert {
-    condition     = aws_sesv2_configuration_set_event_destination.eventbridge.event_destination[0].event_bridge_destination[0].event_bus_arn == "arn:aws:events:af-south-1:123456789012:event-bus/default"
+    condition     = aws_sesv2_configuration_set_event_destination.eventbridge.event_destination[0].event_bridge_destination[0].event_bus_arn == "arn:aws:events:eu-north-1:123456789012:event-bus/default"
     error_message = "Events must go to the default EventBridge bus."
   }
 
@@ -90,7 +90,7 @@ run "queue_is_short_lived_encrypted_and_rule_only" {
       source_arn = s.Condition.ArnEquals["aws:SourceArn"]
       } if s.Effect == "Allow"] == [{
       principal  = { Service = "events.amazonaws.com" }
-      source_arn = "arn:aws:events:af-south-1:123456789012:rule/cd-ses-events"
+      source_arn = "arn:aws:events:eu-north-1:123456789012:rule/cd-ses-events"
     }]
     error_message = "The only Allow must be EventBridge for the ses-events rule."
   }

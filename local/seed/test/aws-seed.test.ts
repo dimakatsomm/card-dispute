@@ -39,9 +39,9 @@ const seedDeps = (aws: FakeAws): AwsSeedDeps => ({
   provision: {
     cognito: aws.cognito,
     secrets: aws.secretsManager,
-    userPoolId: 'af-south-1_FAKEPOOL',
+    userPoolId: 'eu-north-1_FAKEPOOL',
     secretPrefix: 'cd/dev/seed-users/',
-    kmsKeyId: 'arn:aws:kms:af-south-1:111122223333:key/0b7c9a3e-1111-4222-8333-444455556666',
+    kmsKeyId: 'arn:aws:kms:eu-north-1:111122223333:key/0b7c9a3e-1111-4222-8333-444455556666',
     rotatePasswords: false,
     newPassword: () => generatePassword(),
   },

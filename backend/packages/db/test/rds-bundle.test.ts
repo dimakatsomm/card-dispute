@@ -8,10 +8,10 @@ const certs = (bundle.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFI
 );
 
 describe('RDS CA bundle', () => {
-  it('parses into currently valid CA certificates including the af-south-1 roots', () => {
+  it('parses into currently valid CA certificates including the eu-north-1 roots', () => {
     expect(certs.length).toBeGreaterThan(0);
     expect(certs.every((c) => c.ca)).toBe(true);
     expect(certs.every((c) => new Date(c.validTo).getTime() > Date.now())).toBe(true);
-    expect(certs.some((c) => c.subject.includes('CN=Amazon RDS af-south-1 Root CA'))).toBe(true);
+    expect(certs.some((c) => c.subject.includes('CN=Amazon RDS eu-north-1 Root CA'))).toBe(true);
   });
 });

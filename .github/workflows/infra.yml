@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       lambda_image_uris:
-        description: 'Optional JSON object {"evidence-intake","dispute-notifier","retention-sweeper"} -> <account>.dkr.ecr.af-south-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>; replaces the dev.tfvars value'
+        description: 'Optional JSON object {"evidence-intake","dispute-notifier","retention-sweeper"} -> <account>.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>; replaces the dev.tfvars value'
         required: false
         type: string
         default: ""
@@ -109,7 +109,7 @@ jobs:
       plan_version_id: ${{ steps.store.outputs.version_id }}
       plan_sha256: ${{ steps.store.outputs.sha256 }}
     env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
@@ -128,10 +128,10 @@ jobs:
           echo "::add-mask::$TF_STATE_KMS_KEY_ARN"
           echo "::add-mask::${TF_STATE_KMS_KEY_ARN##*/}"
           echo "::add-mask::$ROLE_ARN"
-          [ "$AWS_REGION" = "af-south-1" ] || { echo "::error::AWS_REGION must be af-south-1"; exit 1; }
+          [ "$AWS_REGION" = "eu-north-1" ] || { echo "::error::AWS_REGION must be eu-north-1"; exit 1; }
           [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || { echo "::error::AWS_ACCOUNT_ID must be 12 digits"; exit 1; }
           [[ "$ROLE_ARN" == "arn:aws:iam::${AWS_ACCOUNT_ID}:role/gha-infra-plan" ]] || { echo "::error::AWS_INFRA_PLAN_ROLE_ARN must be gha-infra-plan in AWS_ACCOUNT_ID"; exit 1; }
-          [[ "$TF_STATE_KMS_KEY_ARN" =~ ^arn:aws:kms:af-south-1:${AWS_ACCOUNT_ID}:key/[0-9a-f-]{36}$ ]] || { echo "::error::TF_STATE_KMS_KEY_ARN must be a key ARN in af-south-1"; exit 1; }
+          [[ "$TF_STATE_KMS_KEY_ARN" =~ ^arn:aws:kms:eu-north-1:${AWS_ACCOUNT_ID}:key/[0-9a-f-]{36}$ ]] || { echo "::error::TF_STATE_KMS_KEY_ARN must be a key ARN in eu-north-1"; exit 1; }
           [[ "$TF_STATE_BUCKET" =~ ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$ ]] || { echo "::error::TF_STATE_BUCKET is not a bucket name"; exit 1; }
 
       # All three keys are required: the input replaces the whole map, so an omitted key would destroy that Lambda.
@@ -140,15 +140,15 @@ jobs:
         run: |
           printf '%s' "$LAMBDA_IMAGE_URIS" | jq -ce --arg acct "$AWS_ACCOUNT_ID" --arg p "$NAME_PREFIX" '
             def ok: .key as $k | (.value | type) == "string"
-              and (.value | test("^[0-9]{12}\\.dkr\\.ecr\\.af-south-1\\.amazonaws\\.com/[a-z0-9-]+:[0-9a-f]{40}\\z"))
+              and (.value | test("^[0-9]{12}\\.dkr\\.ecr\\.eu-north-1\\.amazonaws\\.com/[a-z0-9-]+:[0-9a-f]{40}\\z"))
               and (.value | length) < 200
-              and (.value | startswith($acct + ".dkr.ecr.af-south-1.amazonaws.com/" + $p + "-lambda-" + $k + ":"));
+              and (.value | startswith($acct + ".dkr.ecr.eu-north-1.amazonaws.com/" + $p + "-lambda-" + $k + ":"));
             if type == "object"
               and keys == ["dispute-notifier", "evidence-intake", "retention-sweeper"]
               and (to_entries | all(.[]; ok))
             then { lambda_image_uris: . } else false end
           ' > "$LAMBDA_VAR_FILE" || {
-            echo "::error::lambda_image_uris must be a JSON object with exactly evidence-intake, dispute-notifier and retention-sweeper, each <AWS_ACCOUNT_ID>.dkr.ecr.af-south-1.amazonaws.com/${NAME_PREFIX}-lambda-<key>:<40-hex sha>"
+            echo "::error::lambda_image_uris must be a JSON object with exactly evidence-intake, dispute-notifier and retention-sweeper, each <AWS_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/${NAME_PREFIX}-lambda-<key>:<40-hex sha>"
             exit 1
           }
           echo "LAMBDA_VAR_ARGS=-var-file=$LAMBDA_VAR_FILE" >> "$GITHUB_ENV"
@@ -252,7 +252,7 @@ jobs:
       id-token: write
       contents: read
     env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'af-south-1' }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       TF_STATE_KMS_KEY_ARN: ${{ vars.TF_STATE_KMS_KEY_ARN }}
@@ -272,10 +272,10 @@ jobs:
           echo "::add-mask::$TF_STATE_KMS_KEY_ARN"
           echo "::add-mask::${TF_STATE_KMS_KEY_ARN##*/}"
           echo "::add-mask::$ROLE_ARN"
-          [ "$AWS_REGION" = "af-south-1" ] || { echo "::error::AWS_REGION must be af-south-1"; exit 1; }
+          [ "$AWS_REGION" = "eu-north-1" ] || { echo "::error::AWS_REGION must be eu-north-1"; exit 1; }
           [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || { echo "::error::AWS_ACCOUNT_ID must be 12 digits"; exit 1; }
           [[ "$ROLE_ARN" == "arn:aws:iam::${AWS_ACCOUNT_ID}:role/gha-infra-apply" ]] || { echo "::error::AWS_INFRA_APPLY_ROLE_ARN must be gha-infra-apply in AWS_ACCOUNT_ID"; exit 1; }
-          [[ "$TF_STATE_KMS_KEY_ARN" =~ ^arn:aws:kms:af-south-1:${AWS_ACCOUNT_ID}:key/[0-9a-f-]{36}$ ]] || { echo "::error::TF_STATE_KMS_KEY_ARN must be a key ARN in af-south-1"; exit 1; }
+          [[ "$TF_STATE_KMS_KEY_ARN" =~ ^arn:aws:kms:eu-north-1:${AWS_ACCOUNT_ID}:key/[0-9a-f-]{36}$ ]] || { echo "::error::TF_STATE_KMS_KEY_ARN must be a key ARN in eu-north-1"; exit 1; }
           [[ "$PLAN_KEY" =~ ^plans/${GITHUB_SHA}/[0-9]+\.tfplan$ ]] || { echo "::error::plan key does not belong to this commit"; exit 1; }
           [[ "$PLAN_VERSION_ID" =~ ^[A-Za-z0-9._-]{1,1024}$ ]] || { echo "::error::plan VersionId missing or malformed"; exit 1; }
           [[ "$PLAN_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::plan sha256 missing or malformed"; exit 1; }

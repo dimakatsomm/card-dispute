@@ -3,7 +3,7 @@ import { loadConfig } from './config';
 
 const valid = {
   apiBase: '/api',
-  oidcIssuer: 'https://cognito-idp.af-south-1.amazonaws.com/af-south-1_pool',
+  oidcIssuer: 'https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_pool',
   oidcClientId: 'web-client',
   oidcRedirectUri: 'https://disputes.innocentia32.co.za/auth/callback',
   oidcLogoutUrl: 'https://auth.disputes.innocentia32.co.za/logout',

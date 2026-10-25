@@ -4,7 +4,7 @@ import { configSchema } from '../src/main.ts';
 
 const base = {
   DATABASE_URL: 'postgres://auth_app:fake@db:5432/cd',
-  AUTH_ISSUER_URL: 'https://cognito-idp.af-south-1.amazonaws.com/af-south-1_pool',
+  AUTH_ISSUER_URL: 'https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_pool',
   AUTH_USER_CLIENT_IDS: 'spa',
   AUTH_SERVICE_CLIENT_IDS: 'svc-users,svc-disputes',
 };

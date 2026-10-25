@@ -1,12 +1,12 @@
 mock_provider "aws" {
   mock_resource "aws_rds_cluster" {
     defaults = {
-      arn                 = "arn:aws:rds:af-south-1:123456789012:cluster:cd-aurora"
-      endpoint            = "cd-aurora.cluster-abc123.af-south-1.rds.amazonaws.com"
+      arn                 = "arn:aws:rds:eu-north-1:123456789012:cluster:cd-aurora"
+      endpoint            = "cd-aurora.cluster-abc123.eu-north-1.rds.amazonaws.com"
       cluster_resource_id = "cluster-ABCDEFGHIJKLMNOP"
       master_user_secret = [{
-        secret_arn    = "arn:aws:secretsmanager:af-south-1:123456789012:secret:rds!cluster-abc-AbCdEf"
-        kms_key_id    = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+        secret_arn    = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:rds!cluster-abc-AbCdEf"
+        kms_key_id    = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
         secret_status = "active"
       }]
     }
@@ -19,11 +19,11 @@ variables {
   name_prefix         = "cd"
   subnet_ids          = ["subnet-private-a", "subnet-private-b"]
   security_group_id   = "sg-aurora"
-  kms_key_arn         = "arn:aws:kms:af-south-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+  kms_key_arn         = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
   min_acu             = 0.5
   max_acu             = 2
   deletion_protection = true
-  logs_kms_key_arn    = "arn:aws:kms:af-south-1:123456789012:key/11111111-1111-1111-1111-111111111111"
+  logs_kms_key_arn    = "arn:aws:kms:eu-north-1:123456789012:key/11111111-1111-1111-1111-111111111111"
 }
 
 run "cluster_is_private_encrypted_and_tls_only" {
@@ -133,7 +133,7 @@ run "nine_role_secrets_match_bootstrap_roles" {
 
   assert {
     condition = alltrue([for k, v in aws_secretsmanager_secret_version.role :
-      jsondecode(v.secret_string).url == "postgres://${k}:${random_password.role[k].result}@cd-aurora.cluster-abc123.af-south-1.rds.amazonaws.com:5432/disputes?sslmode=verify-full"
+      jsondecode(v.secret_string).url == "postgres://${k}:${random_password.role[k].result}@cd-aurora.cluster-abc123.eu-north-1.rds.amazonaws.com:5432/disputes?sslmode=verify-full"
     ])
     error_message = "Each url must be postgres://<role>:<pw>@<host>:5432/disputes?sslmode=verify-full."
   }

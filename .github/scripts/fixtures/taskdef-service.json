@@ -1,6 +1,6 @@
 {
   "taskDefinition": {
-    "taskDefinitionArn": "arn:aws:ecs:af-south-1:111111111111:task-definition/cd-users:3",
+    "taskDefinitionArn": "arn:aws:ecs:eu-north-1:111111111111:task-definition/cd-users:3",
     "family": "cd-users",
     "revision": 3,
     "status": "ACTIVE",
@@ -19,12 +19,12 @@
     "containerDefinitions": [
       {
         "name": "users",
-        "image": "111111111111.dkr.ecr.af-south-1.amazonaws.com/cd-svc-users:initial",
+        "image": "111111111111.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-users:initial",
         "essential": true,
         "user": "10001",
         "readonlyRootFilesystem": true,
         "environment": [{ "name": "LOG_LEVEL", "value": "info" }],
-        "secrets": [{ "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:af-south-1:111111111111:secret:cd/dev/db/users_app:url::" }],
+        "secrets": [{ "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:eu-north-1:111111111111:secret:cd/dev/db/users_app:url::" }],
         "portMappings": [{ "name": "public", "containerPort": 8080, "protocol": "tcp" }],
         "healthCheck": { "command": ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"] }
       },

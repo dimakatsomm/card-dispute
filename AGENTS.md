@@ -7,7 +7,7 @@ The contract every contributor and agent works under. Read before touching code.
 A card dispute platform. Authenticated customers see their accounts and masked cards, query their
 card transactions, and raise, update or view a dispute against a transaction. Disputes wait in a
 review queue and are reviewed and resolved only by a human back-office agent (no automation changes
-status), and the customer is emailed on every status change. Delivered to AWS af-south-1 (environment `dev`), built to
+status), and the customer is emailed on every status change. Delivered to AWS eu-north-1 (environment `dev`), built to
 production patterns.
 
 The one thing it must get right: **a customer can only ever see or dispute their own data**, and
@@ -25,14 +25,14 @@ every dispute state change is valid, auditable and never lost.
 | Database | Aurora PostgreSQL 18 Serverless v2 — one cluster, one schema + DB role per service |
 | Async | Publish to SQS after DB commit (best-effort) → Lambda; DB is the source of truth |
 | Files | Presigned PUT straight to an S3 quarantine bucket → scan → evidence-intake Lambda → evidence bucket (SSE-KMS). Disputes never handles file bytes |
-| Email | SES via API (`@aws-sdk/client-sesv2`) — SMTP not available in af-south-1 |
+| Email | SES via API (`@aws-sdk/client-sesv2`) |
 | IaC | Terraform |
 | Monorepo | pnpm workspaces: backend/* (Node 24), frontend (React + Vite); infra/ (Terraform) separate |
 | Frontend | React + Vite + TypeScript SPA, nginx container on ECS; OIDC PKCE against Cognito |
 | Containers | Everything is a container: services, frontend, migrations, **Lambdas (container images)**; ARM64; tag = git SHA |
 | CI/CD | GitHub Actions, one pipeline per deployable, OIDC to AWS, **manual approval on every deploy** |
 | Tests | vitest, testcontainers (Postgres 18), moto server for SQS/S3 locally (LocalStack needs a licence — Q-11); SES mocked at SDK boundary |
-| Region | af-south-1, single `dev` environment |
+| Region | eu-north-1, single `dev` environment |
 
 Hard rules the stack implies:
 - No secret, credential or DB password in code, tfvars, images or logs. Secrets Manager only.

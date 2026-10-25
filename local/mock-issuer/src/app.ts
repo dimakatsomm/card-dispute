@@ -16,7 +16,7 @@ const CORS_PATHS: ReadonlyArray<string> = [
   '/.well-known/jwks.json',
   '/oauth2/token',
 ];
-const OTHER_POOL_ISSUER = 'https://cognito-idp.af-south-1.amazonaws.com/af-south-1_otherpool';
+const OTHER_POOL_ISSUER = 'https://cognito-idp.eu-north-1.amazonaws.com/eu-north-1_otherpool';
 
 type AuthCode = {
   readonly clientId: string;

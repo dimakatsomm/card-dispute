@@ -27,8 +27,8 @@ export const scanResultEvent = (
   source: 'aws.guardduty',
   account: '111122223333',
   time: '2026-10-20T10:00:00Z',
-  region: 'af-south-1',
-  resources: ['arn:aws:guardduty:af-south-1:111122223333:malware-protection-plan/b4c7f464ab3a4EXAMPLE'],
+  region: 'eu-north-1',
+  resources: ['arn:aws:guardduty:eu-north-1:111122223333:malware-protection-plan/b4c7f464ab3a4EXAMPLE'],
   detail: {
     schemaVersion: '1.0',
     scanStatus,
@@ -65,8 +65,8 @@ export const driverScanEvent = (object: ObjectRef, verdict: 'NO_THREATS_FOUND' |
   source: 'aws.guardduty',
   account: '000000000000',
   time: '2026-10-20T10:00:00.000Z',
-  region: 'af-south-1',
-  resources: ['arn:aws:guardduty:af-south-1:000000000000:malware-protection-plan/local-stub'],
+  region: 'eu-north-1',
+  resources: ['arn:aws:guardduty:eu-north-1:000000000000:malware-protection-plan/local-stub'],
   detail: {
     schemaVersion: '1.0',
     scanStatus: 'COMPLETED',
@@ -87,7 +87,7 @@ export const objectCreatedEvent = (object: ObjectRef) => ({
   source: 'aws.s3',
   account: '111122223333',
   time: '2026-10-20T10:00:00Z',
-  region: 'af-south-1',
+  region: 'eu-north-1',
   resources: [`arn:aws:s3:::${object.bucket}`],
   detail: {
     version: '0',

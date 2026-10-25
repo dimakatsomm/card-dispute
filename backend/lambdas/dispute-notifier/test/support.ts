@@ -16,7 +16,7 @@ const USERS_URL = 'http://users.test:8081';
 const DISPUTES_URL = 'http://disputes.test:8081';
 
 export const BASE_ENV = {
-  AWS_REGION: 'af-south-1',
+  AWS_REGION: 'eu-north-1',
   TOKEN_URL,
   SERVICE_CLIENT_ID: 'svc-notifier',
   SERVICE_CLIENT_SECRET: 'local-dev-client-secret',

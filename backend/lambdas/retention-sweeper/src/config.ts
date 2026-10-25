@@ -15,7 +15,7 @@ export const configSchema = z
     DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).max(300_000).default(30_000),
     SWEEP_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(500),
     METRICS_NAMESPACE: z.string().min(1).default('cd/retention-sweeper'),
-    AWS_REGION: z.string().min(1).default('af-south-1'),
+    AWS_REGION: z.string().min(1).default('eu-north-1'),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   })
   .refine((c) => (c.DATABASE_URL === undefined) !== (c.DATABASE_SECRET_ID === undefined), {
