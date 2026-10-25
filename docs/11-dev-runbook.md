@@ -44,12 +44,14 @@ Those alerts are expected, not incidents. Use "Park and unpark" below to stay un
 
 Do once, in the AWS console and CLI.
 
-Sign up on the **Free plan** (ADR-069). Do not join AWS Organizations or Control Tower: either upgrades the account to the Paid plan.
-Watch the credit balance in Billing and Cost Management; the account closes when credits run out or after 6 months.
+Use the **Paid plan** (ADR-069): the Free plan's AWS-managed SCP denies GuardDuty and IAM OIDC providers. Upgrade in
+Billing and Cost Management ("Upgrade plan"; also "Activate advanced AWS features" if offered), then re-run the preflight below:
+`guardduty list-detectors` and `iam list-open-id-connect-providers` must no longer fail with "explicit deny in a service control policy".
+Credits still apply. Close the account after the presentation ("Teardown and account closure").
 
 1. Root user: enable MFA, delete any root access keys, and stop using root.
 2. Create an admin through IAM Identity Center (SSO) and `aws configure sso` for profile `<owner-sso-admin-profile>`.
-   If Identity Center is not offered on the Free plan, create an IAM user with console access and MFA only (no access keys)
+   If Identity Center is not offered, create an IAM user with console access and MFA only (no access keys)
    and use `aws login --profile <owner-sso-admin-profile>` for short-lived CLI credentials.
    Use short-lived credentials only, no IAM user access keys.
 3. Give that admin access to Billing (Billing and Cost Management, "IAM user and role access to Billing information").
@@ -89,8 +91,8 @@ Accept when:
 - the Aurora query lists `18.3` or higher (an empty list means PG 18 is not orderable here: stop and report);
 - the Fargate On-Demand vCPU quota is **>= 3** (request an increase otherwise);
 - `UnreservedConcurrentExecutions` is not tiny (a new account may be low; the plan uses no reserved concurrency);
-- the SES and GuardDuty calls return without `AccessDenied` or "not available in region". A GuardDuty refusal on the Free plan
-  means evidence can never be scanned and promoted: stop and report, the owner decides (upgrade or a scan fallback).
+- the SES and GuardDuty calls return without `AccessDenied` or "not available in region". A GuardDuty refusal means evidence can never
+  be scanned and promoted: stop and report.
 
 ## 2. OWN-3 — GitHub repository, settings, Environment `dev`
 
@@ -660,6 +662,24 @@ aws ecs wait services-stable --cluster "$CLUSTER" --services cd-auth cd-users cd
 
 Unpark before an e2e run, and re-park afterwards. Deploy pipelines also move a service from 0 to 1 (only when it is 0),
 so a deploy to a parked service starts it.
+
+## Teardown and account closure (OWN-8, after the presentation)
+
+The account exists only for the presentation (ADR-069). Destroy first so billing stops at once, then close the account.
+
+1. In `dev.tfvars` set `deletion_protection = false`, then apply locally (break-glass). Destroy leaves the
+   `cd-aurora-final` snapshot; delete it in the RDS console or let account closure remove it.
+2. Empty the quarantine and evidence buckets (all versions), then destroy the environment:
+
+   ```bash
+   terraform -chdir=$ENV destroy -var-file=dev.tfvars
+   ```
+
+3. Leave `bootstrap/` (its `prevent_destroy` state bucket and KMS key cost cents); account closure removes it.
+4. Billing and Cost Management: check no running charges in Cost Explorer for today.
+5. Account (top-right menu) > **Close account**. AWS keeps the account suspended for 90 days, then deletes everything.
+6. On GitHub delete the repository variables `AWS_ACCOUNT_ID`, `AWS_INFRA_PLAN_ROLE_ARN`, `TF_STATE_*` and the
+   `dev` / `dev-infra` environment variables so no pipeline targets a closed account.
 
 ## Redeploy after a config-only Terraform change
 
