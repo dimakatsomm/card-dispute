@@ -44,8 +44,13 @@ Those alerts are expected, not incidents. Use "Park and unpark" below to stay un
 
 Do once, in the AWS console and CLI.
 
+Sign up on the **Free plan** (ADR-069). Do not join AWS Organizations or Control Tower: either upgrades the account to the Paid plan.
+Watch the credit balance in Billing and Cost Management; the account closes when credits run out or after 6 months.
+
 1. Root user: enable MFA, delete any root access keys, and stop using root.
 2. Create an admin through IAM Identity Center (SSO) and `aws configure sso` for profile `<owner-sso-admin-profile>`.
+   If Identity Center is not offered on the Free plan, create an IAM user with console access and MFA only (no access keys)
+   and use `aws login --profile <owner-sso-admin-profile>` for short-lived CLI credentials.
    Use short-lived credentials only, no IAM user access keys.
 3. Give that admin access to Billing (Billing and Cost Management, "IAM user and role access to Billing information").
 4. Install Terraform >= 1.10, AWS CLI v2, `gh`, Docker and Node 24.
@@ -84,7 +89,8 @@ Accept when:
 - the Aurora query lists `18.3` or higher (an empty list means PG 18 is not orderable here: stop and report);
 - the Fargate On-Demand vCPU quota is **>= 3** (request an increase otherwise);
 - `UnreservedConcurrentExecutions` is not tiny (a new account may be low; the plan uses no reserved concurrency);
-- the SES and GuardDuty calls return without `AccessDenied` or "not available in region".
+- the SES and GuardDuty calls return without `AccessDenied` or "not available in region". A GuardDuty refusal on the Free plan
+  means evidence can never be scanned and promoted: stop and report, the owner decides (upgrade or a scan fallback).
 
 ## 2. OWN-3 — GitHub repository, settings, Environment `dev`
 
