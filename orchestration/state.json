@@ -1,7 +1,7 @@
 {
   "_comment": "Orchestrator memory across sessions. Read at session start, written after every task transition. Statuses: todo | in_progress | in_review | done | blocked. This file must reflect reality — a task with a failing test is not done.",
   "milestone": "M1-walking-skeleton",
-  "updatedAt": "2026-10-19T00:00:00Z",
+  "updatedAt": "2026-10-25",
   "milestones": {
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
@@ -380,9 +380,10 @@
       "blockedBy": []
     },
     "OWN-3": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "repo dimakatsomm/card-dispute public; secret scanning + push protection; branch protection; dev and dev-infra environments; AWS_REGION var (2026-10-22). AWS_ACCOUNT_ID etc. pending OWN-1/OWN-4."
     },
     "OWN-4": {
       "status": "todo",
@@ -407,11 +408,12 @@
       ]
     },
     "I-00": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-01": {
       "status": "done",
@@ -422,32 +424,36 @@
       "notes": "VPC 2 AZs, 1 NAT, S3 gateway endpoint, no interface endpoints, empty default SG, optional flow logs. 9 tftest runs; checkov/tfsec clean with 2 justified inline skips."
     },
     "I-02": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-03": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-03t": {
-      "status": "todo",
+      "status": "done",
       "agent": "test-engineer",
       "blockedBy": [
         "I-03"
-      ]
+      ],
+      "notes": "grants-parity test (8cd5c3c)"
     },
     "I-04": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-05": {
       "status": "done",
@@ -466,53 +472,60 @@
       "notes": "cd-cluster (Fargate only, Container Insights off), cd.internal namespace as Service Connect default."
     },
     "I-06b": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-07": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "V-M3"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-08": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-09": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-10": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-11": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-12": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-13": {
       "status": "done",
@@ -523,19 +536,21 @@
       "notes": "SNS cd-alarms (KMS), 20 alarms incl. DLQs, Lambda errors/throttles, EMF metrics (EventPublishFailed via Metrics Insights over all eventType), ALB 5xx/p95/unhealthy, Aurora max ACU; budget $200 forecast 100 / actual 80,100; dashboard cd-dev. Needs cd-data key statement for budgets.amazonaws.com (I-02 follow-up). Output alarm_arns added."
     },
     "I-14": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-05",
         "I-00"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "I-15": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-ENV"
-      ]
+      ],
+      "notes": "modules built, offline terraform test + checkov/tfsec pass; security gate fixes in 7111de1"
     },
     "DOC-M3": {
       "status": "done",
@@ -546,16 +561,17 @@
       "notes": "docs 01/05/06/08/09 reconciled with ADR-059..068; docs/11-dev-runbook.md (OWN steps, phases, park/unpark, redeploy, DLQ redrive, alarm table). Workflow input names marked (CI-02) pending."
     },
     "X-01": {
-      "status": "todo",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [
         "M3-00",
         "DB-BOOT",
         "DB-TLS"
-      ]
+      ],
+      "notes": "AWS seeding + dev-tools image, gate PASS after F1/F2/F5/F6 (ecce7f5); F4 d4867db"
     },
     "I-WIRE": {
-      "status": "todo",
+      "status": "done",
       "agent": "infra-terraform",
       "blockedBy": [
         "I-00",
@@ -575,59 +591,95 @@
         "I-13",
         "I-14",
         "I-15"
-      ]
+      ],
+      "notes": "envs/dev wired, phase A/B, least-privilege workloads, intake ListBucket gate fix (3de567b)"
     },
     "CI-02a": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "I-14"
-      ]
+      ],
+      "notes": "reusable publish/deploy (5ad3db6)"
     },
     "CI-02b": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "CI-02a"
-      ]
+      ],
+      "notes": "service + web pipelines (cc1e180)"
     },
     "CI-02c": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "CI-02a"
-      ]
+      ],
+      "notes": "Lambda pipelines, LAMBDAS_DEPLOYED gate (cc1e180)"
     },
     "CI-02d": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "I-00",
         "I-WIRE"
-      ]
+      ],
+      "notes": "infra plan/apply, dev-infra, version+sha256 pin (b22b927)"
     },
     "CI-02e": {
-      "status": "todo",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "CI-02a",
         "I-15"
-      ]
+      ],
+      "notes": "dev-tools, e2e-dev, oidc-negative (cc1e180)"
     },
     "E-03a": {
-      "status": "todo",
+      "status": "done",
       "agent": "test-engineer",
       "blockedBy": [
         "X-01",
         "CI-02e",
         "I-WIRE"
-      ]
+      ],
+      "notes": "AWS API e2e suite, gate PASS after M1-M3/L1-L6 (8204a76); written, not yet run against AWS"
     },
     "E-03b": {
-      "status": "todo",
+      "status": "done",
       "agent": "test-engineer",
       "blockedBy": [
         "E-03a"
+      ],
+      "notes": "Playwright vs dev (68cf4fc); not yet run against AWS"
+    },
+    "E-03x": {
+      "agent": "orchestrator",
+      "blockedBy": [],
+      "status": "done",
+      "notes": "SEED_A_EMAIL, probe --hold, tiros perms (7b3fde0, b22b927)"
+    },
+    "DOC-M3b": {
+      "agent": "orchestrator",
+      "blockedBy": [],
+      "status": "done",
+      "notes": "gate residual docs (fdf59fe)"
+    },
+    "CI-FIX": {
+      "agent": "orchestrator",
+      "blockedBy": [],
+      "status": "done",
+      "notes": "first GitHub CI run: lint globals, self-provisioned moto, disputes shared moto, image HIGH findings cleared (1e4bc7d, b2c36f4, b45b83f)"
+    },
+    "M3-gate": {
+      "status": "todo",
+      "agent": "integration-verifier",
+      "blockedBy": [
+        "OWN-1",
+        "OWN-4",
+        "OWN-6",
+        "ROLLOUT"
       ]
     }
   },
