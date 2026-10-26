@@ -1,0 +1,34 @@
+name: oidc-claims-diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  show-safe-claims:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions:
+      id-token: write
+    steps:
+      - name: Print OIDC issuer, audience, and subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          response=$(curl --fail --silent --show-error --max-time 20 \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
+          token=$(jq -er '.value' <<<"$response")
+          echo "::add-mask::$token"
+          OIDC_TOKEN="$token" node <<'NODE'
+          const token = process.env.OIDC_TOKEN;
+          const parts = token?.split('.') ?? [];
+          if (parts.length !== 3) throw new Error('OIDC token is not a JWT');
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+          const claims = { iss: payload.iss, aud: payload.aud, sub: payload.sub };
+          if (Object.values(claims).some((value) => value === undefined)) {
+            throw new Error('OIDC token is missing iss, aud, or sub');
+          }
+          process.stdout.write(`${JSON.stringify(claims, null, 2)}\n`);
+          NODE
