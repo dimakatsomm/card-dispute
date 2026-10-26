@@ -138,13 +138,14 @@ module "evidence_buckets" {
 module "ci_roles" {
   source = "../../modules/ci-roles"
 
-  name_prefix              = var.name_prefix
-  permissions_boundary_arn = local.permissions_boundary_arn
-  iam_path                 = local.iam_path
-  github_repo              = var.github_repo
-  github_oidc_provider_arn = local.github_oidc_provider_arn
-  ecr_repository_arns      = module.ecr.repository_arns
-  ecs_cluster_arn          = module.ecs_cluster.cluster_arn
+  name_prefix                = var.name_prefix
+  permissions_boundary_arn   = local.permissions_boundary_arn
+  iam_path                   = local.iam_path
+  github_repo                = var.github_repo
+  github_oidc_subject_prefix = var.github_oidc_subject_prefix
+  github_oidc_provider_arn   = local.github_oidc_provider_arn
+  ecr_repository_arns        = module.ecr.repository_arns
+  ecs_cluster_arn            = module.ecs_cluster.cluster_arn
   ecs_deployables = {
     for k, s in module.service : k => {
       service_arn              = s.service_arn

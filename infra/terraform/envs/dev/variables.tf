@@ -24,6 +24,17 @@ variable "github_repo" {
   }
 }
 
+variable "github_oidc_subject_prefix" {
+  description = "OIDC sub prefix GitHub issues for this repo; null means classic repo:<github_repo>. Repos with immutable subjects use repo:<owner>@<id>/<repo>@<id>."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.github_oidc_subject_prefix == null || can(regex("^repo:[A-Za-z0-9][A-Za-z0-9-]{0,38}(@[0-9]+)?/[A-Za-z0-9._-]{1,100}(@[0-9]+)?$", var.github_oidc_subject_prefix))
+    error_message = "github_oidc_subject_prefix must be repo:<owner>[@<id>]/<repo>[@<id>] without wildcards."
+  }
+}
+
 variable "edge_origin_mode" {
   description = "vpc_origin: CloudFront VPC origin to an internal ALB. public_alb: CloudFront-only public ALB with a secret origin header (mock data only, ADR-063)."
   type        = string

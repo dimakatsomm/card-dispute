@@ -481,3 +481,29 @@ run "rejects_state_bucket_in_apply_role_namespace" {
 
   expect_failures = [var.state_bucket_name]
 }
+
+run "immutable_subject_prefix_replaces_repo_in_trust" {
+  command = plan
+
+  variables {
+    github_oidc_subject_prefix = "repo:acme@111/card-dispute@222"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_iam_role.infra_plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == "repo:acme@111/card-dispute@222:ref:refs/heads/main"
+      && jsondecode(aws_iam_role.infra_apply.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == "repo:acme@111/card-dispute@222:environment:dev-infra"
+    )
+    error_message = "With an immutable subject prefix the infra roles must trust exactly <prefix>:ref:refs/heads/main and <prefix>:environment:dev-infra."
+  }
+}
+
+run "subject_prefix_wildcard_is_rejected" {
+  command = plan
+
+  variables {
+    github_oidc_subject_prefix = "repo:acme@111/*"
+  }
+
+  expect_failures = [var.github_oidc_subject_prefix]
+}

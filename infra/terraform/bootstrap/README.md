@@ -23,9 +23,10 @@ aws sts get-caller-identity
 
 B=infra/terraform/bootstrap
 REPO=<owner>/<repo>
+SUB=$(gh api repos/$REPO/actions/oidc/customization/sub --jq 'if .use_immutable_subject then .sub_claim_prefix else "repo:" + "'$REPO'" end')
 
 terraform -chdir=$B init
-terraform -chdir=$B apply -var="github_repo=$REPO"
+terraform -chdir=$B apply -var="github_repo=$REPO" -var="github_oidc_subject_prefix=$SUB"
 
 TF_STATE_BUCKET=$(terraform -chdir=$B output -raw state_bucket_name)
 TF_STATE_KMS_KEY_ARN=$(terraform -chdir=$B output -raw state_kms_key_arn)
@@ -37,7 +38,7 @@ cp $B/backend.s3.tf.example $B/backend.tf
 terraform -chdir=$B init -migrate-state \
   -backend-config="bucket=$TF_STATE_BUCKET" \
   -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN"
-terraform -chdir=$B plan -var="github_repo=$REPO"
+terraform -chdir=$B plan -var="github_repo=$REPO" -var="github_oidc_subject_prefix=$SUB"
 rm $B/terraform.tfstate $B/terraform.tfstate.backup
 ```
 

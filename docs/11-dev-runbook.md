@@ -22,6 +22,8 @@ export AWS_DEFAULT_REGION=eu-north-1
 aws sso login
 
 export REPO=<owner>/<repo>
+# GitHub OIDC sub prefix: "repo:$REPO", or sub_claim_prefix when use_immutable_subject is true
+export SUB=$(gh api repos/$REPO/actions/oidc/customization/sub --jq 'if .use_immutable_subject then .sub_claim_prefix else "repo:" + "'$REPO'" end')
 export ENV=infra/terraform/envs/dev
 export B=infra/terraform/bootstrap
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -231,7 +233,7 @@ boundary `cd-workload-boundary`.
 aws sts get-caller-identity
 
 terraform -chdir=$B init
-terraform -chdir=$B apply -var="github_repo=$REPO"
+terraform -chdir=$B apply -var="github_repo=$REPO" -var="github_oidc_subject_prefix=$SUB"
 
 TF_STATE_BUCKET=$(terraform -chdir=$B output -raw state_bucket_name)
 TF_STATE_KMS_KEY_ARN=$(terraform -chdir=$B output -raw state_kms_key_arn)
@@ -242,7 +244,7 @@ cp $B/backend.s3.tf.example $B/backend.tf
 terraform -chdir=$B init -migrate-state \
   -backend-config="bucket=$TF_STATE_BUCKET" \
   -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN"
-terraform -chdir=$B plan -var="github_repo=$REPO"
+terraform -chdir=$B plan -var="github_repo=$REPO" -var="github_oidc_subject_prefix=$SUB"
 ```
 
 Answer `yes` when `init -migrate-state` offers to copy the state. **Always pass `kms_key_id`**: without it the S3
@@ -284,7 +286,7 @@ infra apply; until then the apply job fails at `AssumeRoleWithWebIdentity`:
 terraform -chdir=$B init \
   -backend-config="bucket=$TF_STATE_BUCKET" \
   -backend-config="kms_key_id=$TF_STATE_KMS_KEY_ARN"
-terraform -chdir=$B plan -var="github_repo=$REPO" -out="$TEMP/bootstrap.tfplan"
+terraform -chdir=$B plan -var="github_repo=$REPO" -var="github_oidc_subject_prefix=$SUB" -out="$TEMP/bootstrap.tfplan"
 ```
 
 The plan must show exactly one in-place update: `aws_iam_role.infra_apply` (`assume_role_policy`, sub

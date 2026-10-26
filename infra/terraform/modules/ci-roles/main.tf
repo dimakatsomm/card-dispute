@@ -19,8 +19,9 @@ locals {
 
   github_oidc_host = "token.actions.githubusercontent.com"
   oidc_audience    = "sts.amazonaws.com"
-  main_subject     = "repo:${var.github_repo}:ref:refs/heads/main"
-  env_subject      = "repo:${var.github_repo}:environment:dev"
+  subject_prefix   = coalesce(var.github_oidc_subject_prefix, "repo:${var.github_repo}")
+  main_subject     = "${local.subject_prefix}:ref:refs/heads/main"
+  env_subject      = "${local.subject_prefix}:environment:dev"
 
   arn = {
     ec2     = "arn:${local.partition}:ec2:${local.region}:${local.account}"

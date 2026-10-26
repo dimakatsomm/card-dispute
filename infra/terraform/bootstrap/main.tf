@@ -17,8 +17,9 @@ locals {
   oidc_audience    = "sts.amazonaws.com"
 
   # Infra apply has its own environment: deploy, tools and e2e roles all trust environment:dev.
-  plan_subject  = "repo:${var.github_repo}:ref:refs/heads/main"
-  apply_subject = "repo:${var.github_repo}:environment:dev-infra"
+  subject_prefix = coalesce(var.github_oidc_subject_prefix, "repo:${var.github_repo}")
+  plan_subject   = "${local.subject_prefix}:ref:refs/heads/main"
+  apply_subject  = "${local.subject_prefix}:environment:dev-infra"
 
   state_bucket_name = coalesce(var.state_bucket_name, "${local.p}-tfstate-${local.account}")
   state_bucket_arn  = "arn:${local.partition}:s3:::${local.state_bucket_name}"

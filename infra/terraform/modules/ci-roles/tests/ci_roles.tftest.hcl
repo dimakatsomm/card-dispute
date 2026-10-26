@@ -269,3 +269,29 @@ run "subject_wildcard_is_rejected" {
 
   expect_failures = [var.github_repo]
 }
+
+run "immutable_subject_prefix_replaces_repo_in_trust" {
+  command = plan
+
+  variables {
+    github_oidc_subject_prefix = "repo:acme@111/card-dispute@222"
+  }
+
+  assert {
+    condition = alltrue([
+      for k, r in aws_iam_role.this :
+      jsondecode(r.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == (startswith(k, "publish-") ? "repo:acme@111/card-dispute@222:ref:refs/heads/main" : "repo:acme@111/card-dispute@222:environment:dev")
+    ])
+    error_message = "With an immutable subject prefix every role must trust exactly <prefix>:ref:refs/heads/main (publish) or <prefix>:environment:dev."
+  }
+}
+
+run "subject_prefix_wildcard_is_rejected" {
+  command = plan
+
+  variables {
+    github_oidc_subject_prefix = "repo:acme@111/*"
+  }
+
+  expect_failures = [var.github_oidc_subject_prefix]
+}

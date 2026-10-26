@@ -1,7 +1,9 @@
 name_prefix = "cd"
 
-# Placeholder until the repo is pushed (OWN-3); the variable validation rejects it so no plan runs with it.
 github_repo = "dimakatsomm/card-dispute"
+
+# The repo issues immutable OIDC subjects (public owner and repo ids): gh api repos/<repo>/actions/oidc/customization/sub.
+github_oidc_subject_prefix = "repo:dimakatsomm@47429454/card-dispute@1430222525"
 
 # V-M3 decides; public_alb is the ADR-063 fallback.
 edge_origin_mode = "vpc_origin"
