@@ -182,14 +182,14 @@ The `infra` workflow's apply job is the only job that uses `dev-infra`, and `gha
 (`repo:<repo>:environment:dev-infra`). Keeping it apart from `dev` means approving an app deploy can never approve an
 infra apply, and no deploy, tools or e2e job can present the apply role's sub.
 
-Settings: required reviewer, **prevent self-review ON**, admins cannot bypass, deployment branches = `main` only
+Settings: required reviewer, **prevent self-review OFF** (single owner, 2026-10-27: with it ON nobody can approve), admins cannot bypass, deployment branches = `main` only
 (never `refs/pull/*/merge`).
 
 ```bash
 gh api -X PUT "repos/$REPO/environments/dev-infra" --input - <<JSON
 {
   "reviewers": [ { "type": "User", "id": $REVIEWER_ID } ],
-  "prevent_self_review": true,
+  "prevent_self_review": false,
   "can_admins_bypass": false,
   "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true }
 }
@@ -201,7 +201,7 @@ gh api "repos/$REPO/environments/dev-infra" --jq '{can_admins_bypass, rules: [.p
 gh api "repos/$REPO/environments/dev-infra/deployment-branch-policies" --jq '[.branch_policies[].name]'   # ["main"]
 ```
 
-With prevent self-review ON, whoever triggered the run (the person who merged to `main`, or who ran
+With a second reviewer, turn prevent self-review back ON: then whoever triggered the run (the person who merged to `main`, or who ran
 `gh workflow run infra.yml`) cannot approve it. Add a second reviewer (another `{ "type": "User", "id": ... }` entry in `reviewers`) who approves infra applies. If
 you are the only reviewer, CI cannot apply infra: use the local fallback in step 4 with your SSO admin credentials.
 
