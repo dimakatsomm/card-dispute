@@ -244,13 +244,15 @@ locals {
         {
           Sid    = "NoResourceLevelCreate"
           Effect = "Allow"
-          # These create actions support no resource-level permissions (the resource does not exist yet).
+          # These create actions support no resource-level permissions (the resource does not exist yet);
+          # Cloud Map authorises tag-on-create TagResource before the namespace ARN exists.
           Action = [
             "cognito-idp:CreateUserPool",
             "ecs:DeregisterTaskDefinition",
             "ecs:RegisterTaskDefinition",
             "kms:CreateKey",
             "servicediscovery:CreatePrivateDnsNamespace",
+            "servicediscovery:TagResource",
           ]
           Resource  = "*"
           Condition = local.in_region

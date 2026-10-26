@@ -8,28 +8,6 @@ locals {
   default_event_bus_arn  = "arn:${data.aws_partition.current.partition}:events:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:event-bus/default"
   event_types            = ["SEND", "DELIVERY", "BOUNCE", "COMPLAINT", "REJECT"]
 
-  # Enumerated instead of sqs:* (no service wildcards in Action).
-  all_sqs_actions = [
-    "sqs:AddPermission",
-    "sqs:CancelMessageMoveTask",
-    "sqs:ChangeMessageVisibility",
-    "sqs:DeleteMessage",
-    "sqs:DeleteQueue",
-    "sqs:GetQueueAttributes",
-    "sqs:GetQueueUrl",
-    "sqs:ListDeadLetterSourceQueues",
-    "sqs:ListMessageMoveTasks",
-    "sqs:ListQueueTags",
-    "sqs:PurgeQueue",
-    "sqs:ReceiveMessage",
-    "sqs:RemovePermission",
-    "sqs:SendMessage",
-    "sqs:SetQueueAttributes",
-    "sqs:StartMessageMoveTask",
-    "sqs:TagQueue",
-    "sqs:UntagQueue",
-  ]
-
   ses_events_queue_policy = {
     Version = "2012-10-17"
     Statement = [
@@ -37,7 +15,7 @@ locals {
         Sid       = "DenyNonTls"
         Effect    = "Deny"
         Principal = "*"
-        Action    = local.all_sqs_actions
+        Action    = ["sqs:*"]
         Resource  = [aws_sqs_queue.ses_events.arn]
         Condition = { Bool = { "aws:SecureTransport" = "false" } }
       },

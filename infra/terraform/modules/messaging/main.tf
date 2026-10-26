@@ -13,28 +13,6 @@ locals {
   four_days_seconds     = 4 * 24 * 60 * 60
   fourteen_days_seconds = 14 * 24 * 60 * 60
 
-  # Enumerated instead of sqs:* (no service wildcards in Action).
-  all_sqs_actions = [
-    "sqs:AddPermission",
-    "sqs:CancelMessageMoveTask",
-    "sqs:ChangeMessageVisibility",
-    "sqs:DeleteMessage",
-    "sqs:DeleteQueue",
-    "sqs:GetQueueAttributes",
-    "sqs:GetQueueUrl",
-    "sqs:ListDeadLetterSourceQueues",
-    "sqs:ListMessageMoveTasks",
-    "sqs:ListQueueTags",
-    "sqs:PurgeQueue",
-    "sqs:ReceiveMessage",
-    "sqs:RemovePermission",
-    "sqs:SendMessage",
-    "sqs:SetQueueAttributes",
-    "sqs:StartMessageMoveTask",
-    "sqs:TagQueue",
-    "sqs:UntagQueue",
-  ]
-
   consume_actions = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"]
 
   deny_non_tls = {
@@ -47,7 +25,7 @@ locals {
       Sid       = "DenyNonTls"
       Effect    = "Deny"
       Principal = "*"
-      Action    = local.all_sqs_actions
+      Action    = ["sqs:*"]
       Resource  = [arn]
       Condition = { Bool = { "aws:SecureTransport" = "false" } }
     }

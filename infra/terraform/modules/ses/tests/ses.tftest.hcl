@@ -107,3 +107,12 @@ run "queue_is_short_lived_encrypted_and_rule_only" {
     error_message = "The queue must deny non-TLS access."
   }
 }
+
+run "queue_policy_statements_fit_the_sqs_action_limit" {
+  command = apply
+
+  assert {
+    condition     = alltrue([for s in jsondecode(aws_sqs_queue_policy.ses_events.policy).Statement : length(flatten([s.Action])) <= 7])
+    error_message = "SQS rejects a queue policy statement with more than 7 actions (OverLimit)."
+  }
+}

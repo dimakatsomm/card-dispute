@@ -195,7 +195,7 @@ run "every_queue_denies_non_tls" {
       aws_sqs_queue_policy.retention_scheduler_dlq.policy,
       ] : anytrue([for s in jsondecode(p).Statement :
         s.Effect == "Deny" && s.Principal == "*" && try(s.Condition.Bool["aws:SecureTransport"], null) == "false"
-    && contains(s.Action, "sqs:SendMessage") && contains(s.Action, "sqs:ReceiveMessage")])])
+    && s.Action == ["sqs:*"]])])
     error_message = "Every queue policy must deny non-TLS access."
   }
 }
@@ -274,4 +274,17 @@ run "rejects_out_of_range_timeout" {
   }
 
   expect_failures = [var.notifier_timeout_seconds]
+}
+
+run "queue_policy_statements_fit_the_sqs_action_limit" {
+  command = apply
+
+  assert {
+    condition = alltrue(flatten([
+      for p in [aws_sqs_queue_policy.notifications, aws_sqs_queue_policy.notifications_dlq, aws_sqs_queue_policy.evidence_intake_dlq, aws_sqs_queue_policy.retention_scheduler_dlq] : [
+        for s in jsondecode(p.policy).Statement : length(flatten([s.Action])) <= 7
+      ]
+    ]))
+    error_message = "SQS rejects a queue policy statement with more than 7 actions (OverLimit)."
+  }
 }
