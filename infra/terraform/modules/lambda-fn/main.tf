@@ -15,7 +15,8 @@ locals {
 
   # Built from names so role policies exist before (or without) the function.
   alias_arn_by_name = "arn:${local.partition}:lambda:${local.region}:${local.account_id}:function:${local.name}:${local.alias_name}"
-  schedule_arn      = "arn:${local.partition}:scheduler:${local.region}:${local.account_id}:schedule/default/${local.name}"
+  # Scheduler presents the schedule group ARN as aws:SourceArn, not the schedule ARN.
+  schedule_group_arn = "arn:${local.partition}:scheduler:${local.region}:${local.account_id}:schedule-group/default"
 
   default_environment = {
     evidence-intake   = { LOG_LEVEL = "info", EVIDENCE_REQUIRE_SCAN = "true" }
@@ -89,7 +90,7 @@ locals {
       Action    = ["sts:AssumeRole"]
       Condition = {
         StringEquals = { "aws:SourceAccount" = local.account_id }
-        ArnEquals    = { "aws:SourceArn" = local.schedule_arn }
+        ArnEquals    = { "aws:SourceArn" = local.schedule_group_arn }
       }
     }]
   })

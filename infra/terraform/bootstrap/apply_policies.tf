@@ -524,12 +524,18 @@ locals {
         Effect = "Allow"
         Action = [
           "lambda:DeleteEventSourceMapping",
-          "lambda:TagResource",
-          "lambda:UntagResource",
           "lambda:UpdateEventSourceMapping",
         ]
         Resource  = ["${local.arn.lambda}:event-source-mapping:*"]
         Condition = { ArnLike = { "lambda:FunctionArn" = "${local.arn.lambda}:function:${local.p}-*" } }
+      },
+      {
+        Sid    = "LambdaEventSourceMappingTags"
+        Effect = "Allow"
+        # Tag requests carry no lambda:FunctionArn, so tag-on-create cannot be scoped by function.
+        Action    = ["lambda:TagResource", "lambda:UntagResource"]
+        Resource  = ["${local.arn.lambda}:event-source-mapping:*"]
+        Condition = local.in_region
       },
       {
         Sid    = "EventBridgeRules"

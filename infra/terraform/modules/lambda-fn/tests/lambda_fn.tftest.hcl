@@ -263,7 +263,7 @@ run "sweeper_schedule" {
       Action    = ["sts:AssumeRole"]
       Condition = {
         StringEquals = { "aws:SourceAccount" = "123456789012" }
-        ArnEquals    = { "aws:SourceArn" = "arn:aws:scheduler:eu-north-1:123456789012:schedule/default/cd-retention-sweeper" }
+        ArnEquals    = { "aws:SourceArn" = "arn:aws:scheduler:eu-north-1:123456789012:schedule-group/default" }
       }
     }]
     error_message = "Only Scheduler, from this account and this schedule, may assume the role."
