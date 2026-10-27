@@ -361,6 +361,9 @@ What to expect:
 - **CloudFront VPC origin takes up to 15 minutes** to reach `Deployed`. Order is fixed: ALB active, then VPC origin,
   then the ALB SG ingress from `CloudFront-VPCOrigins-Service-SG`. If the SG-rule step fails on the first run
   because the service SG does not exist yet, run the apply again once the origin is `Deployed`.
+- **ECS service-linked role.** In a new account `CreateCluster` can fail with "ECS Service Linked Role is not ready"
+  (seen 2026-10-27). Create it once before phase A, then dispatch a fresh plan (the stored plan is stale after a
+  partial apply): `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com`
 - **OWN-5.** If the GuardDuty malware-protection plan errors because GuardDuty was never enabled in the account, enable it once and re-apply:
   `aws guardduty create-detector --enable --region eu-north-1`
 - If `gha-infra-apply` returns `AccessDenied` for an action a module needs, add that action to
