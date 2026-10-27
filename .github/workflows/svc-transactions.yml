@@ -18,8 +18,8 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: Full git sha of an already published image to deploy
-        required: true
+        description: Full git sha of an already published image to deploy; empty builds, publishes and deploys this commit
+        required: false
         type: string
   push:
     branches: [main]
@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' || inputs.sha == ''
     uses: ./.github/workflows/_build.yml
     with:
       package-filter: "@cd/transactions"
@@ -54,7 +54,7 @@ jobs:
       image-name: svc-transactions
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.sha == ''))
     needs: build
     permissions:
       id-token: write
@@ -65,7 +65,7 @@ jobs:
       dockerfile: backend/transactions/Dockerfile
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.sha == ''))
     needs: publish
     permissions:
       id-token: write
@@ -76,7 +76,7 @@ jobs:
       sha: ${{ github.sha }}
 
   deploy-sha:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.sha != '' && github.ref == 'refs/heads/main'
     permissions:
       id-token: write
       contents: read

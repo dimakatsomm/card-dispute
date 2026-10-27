@@ -18,7 +18,7 @@ on:
           - dev-seed
           - net-probe
       sha:
-        description: Full git sha of a published dev-tools image (defaults to the dispatched commit)
+        description: Full git sha of a published dev-tools image; empty publishes the dispatched commit first
         required: false
         type: string
 
@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.sha == ''))
     permissions:
       id-token: write
       contents: read
@@ -44,7 +44,8 @@ jobs:
   # DEV_TOOLS_SUBNET_IDS (comma-separated private subnets), DEV_TOOLS_SG_ID, DISPUTE_NOTIFIER_SG_ID.
   # run-tools has no ecs:DescribeServices, so the network comes from variables (terraform output dev_tools_run_task_network).
   run:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: publish
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.sha != '' || needs.publish.result == 'success') }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     environment: dev

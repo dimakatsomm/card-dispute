@@ -436,10 +436,13 @@ export SHA=$(git rev-parse HEAD)
 
 for wf in svc-auth svc-users svc-transactions svc-disputes web \
           lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper; do
-  gh workflow run "$wf.yml" --ref main --repo "$REPO"        # (CI-02) publish stage
+  gh workflow run "$wf.yml" --ref main --repo "$REPO"        # no sha: build, publish, then deploy
 done
-gh workflow run dev-tools.yml --ref main --repo "$REPO"      # (CI-02) publishes the dev-tools image
 ```
+
+A dispatch with `-f sha=<40-hex>` only deploys that already-published image. dev-tools has no publish-only dispatch
+(it needs a `tool`): its image is published by a push that touches its paths, or by a tool dispatch without `sha`,
+which publishes the dispatched commit before running (step 7's `db-bootstrap` does this).
 
 Each service, web and Lambda run publishes, then its deploy job waits at the `dev` approval. **Do not approve those
 yet**: the database is not ready (step 7). Leave them waiting, or cancel them and dispatch the deploy later with this
