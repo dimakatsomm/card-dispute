@@ -16,7 +16,7 @@ RUN pnpm install --offline --frozen-lockfile --ignore-scripts --filter @cd/web \
 
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine3.24 AS runtime
 USER root
-RUN rm -f /etc/nginx/conf.d/default.conf
+RUN apk upgrade --no-cache && rm -f /etc/nginx/conf.d/default.conf
 COPY frontend/nginx.conf /etc/nginx/nginx.conf
 COPY --chmod=0755 frontend/docker-entrypoint.sh /usr/local/bin/app-entrypoint.sh
 COPY --from=build /repo/frontend/dist /usr/share/nginx/html
