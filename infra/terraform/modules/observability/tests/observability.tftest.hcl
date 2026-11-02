@@ -218,6 +218,20 @@ run "alarms_topic_and_budget" {
     ])
     error_message = "Dashboard must cover ALB, ECS CPU, Lambda, SQS, Aurora ACU and the EMF metrics."
   }
+
+  assert {
+    condition = alltrue(flatten([
+      for w in jsondecode(aws_cloudwatch_dashboard.main.dashboard_body).widgets : [for m in w.properties.metrics : can(length(m)) && !can(tostring(m))]
+    ]))
+    error_message = "PutDashboard requires every widget metric to be an array (flatten() is recursive and breaks rows)."
+  }
+
+  assert {
+    condition = length([
+      for w in jsondecode(aws_cloudwatch_dashboard.main.dashboard_body).widgets : w if w.properties.title == "Lambda invocations, errors, throttles"
+    ][0].properties.metrics) == 3 * length([for k, v in var.lambda_function_names : k if v != null])
+    error_message = "The Lambda widget must chart Invocations, Errors and Throttles for each function."
+  }
 }
 
 run "no_lambdas_yet" {

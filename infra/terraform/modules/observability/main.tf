@@ -274,7 +274,7 @@ locals {
         region  = local.region
         stat    = "Sum"
         period  = 300
-        metrics = flatten([for key, fn in local.lambda_functions : [for metric in ["Invocations", "Errors", "Throttles"] : ["AWS/Lambda", metric, "FunctionName", fn]]])
+        metrics = [for p in setproduct(sort(keys(local.lambda_functions)), ["Invocations", "Errors", "Throttles"]) : ["AWS/Lambda", p[1], "FunctionName", local.lambda_functions[p[0]]]]
       }
     }),
   ]
