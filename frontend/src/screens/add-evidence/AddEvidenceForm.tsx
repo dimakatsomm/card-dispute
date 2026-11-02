@@ -10,6 +10,7 @@ import {
   type EvidenceDeps,
   type EvidenceFailure,
 } from '../../components/evidence';
+import { Button, Loading, PageHeader, cardClass, cx, errorBannerClass, linkClass } from '../../components/ui';
 
 type Phase =
   | { readonly kind: 'choosing'; readonly error: string | null }
@@ -57,9 +58,9 @@ export const AddEvidenceForm = ({ transactionId, deps }: AddEvidenceFormProps) =
 
   if (phase.kind === 'uploading') {
     return (
-      <section aria-labelledby={`${id}-title`}>
-        <h1 id={`${id}-title`}>Add evidence</h1>
-        <p role="status">Uploading your files…</p>
+      <section aria-labelledby={`${id}-title`} className="mx-auto max-w-2xl space-y-6">
+        <PageHeader title="Add evidence" titleId={`${id}-title`} />
+        <Loading>Uploading your files…</Loading>
         <UploadProgress
           uploads={uploads.uploads ?? []}
           onRetry={(prepared) => void uploads.retry(prepared)}
@@ -72,16 +73,26 @@ export const AddEvidenceForm = ({ transactionId, deps }: AddEvidenceFormProps) =
   const declaring = phase.kind === 'declaring';
   const error = phase.kind === 'choosing' ? phase.error : null;
   return (
-    <section aria-labelledby={`${id}-title`}>
-      <h1 id={`${id}-title`}>Add evidence</h1>
-      {error ? <p role="alert">{error}</p> : null}
-      <form noValidate onSubmit={(event) => void onSubmit(event)}>
-        <FilePicker label="Files" selection={selection} disabled={declaring} />
-        <button type="submit" disabled={declaring}>
-          {declaring ? 'Adding…' : 'Add files'}
-        </button>
-      </form>
-      <Link to={detailPath}>Back to your dispute</Link>
+    <section aria-labelledby={`${id}-title`} className="mx-auto max-w-2xl">
+      <PageHeader title="Add evidence" titleId={`${id}-title`} />
+      <div className="space-y-6">
+        {error ? (
+          <p role="alert" className={errorBannerClass}>
+            {error}
+          </p>
+        ) : null}
+        <form noValidate onSubmit={(event) => void onSubmit(event)} className={cx(cardClass, 'space-y-6 p-5 sm:p-6')}>
+          <FilePicker label="Files" selection={selection} disabled={declaring} />
+          <div className="flex justify-end border-t border-line pt-5">
+            <Button type="submit" disabled={declaring} className="w-full sm:w-auto">
+              {declaring ? 'Adding…' : 'Add files'}
+            </Button>
+          </div>
+        </form>
+        <Link to={detailPath} className={cx(linkClass, 'inline-block text-sm')}>
+          Back to your dispute
+        </Link>
+      </div>
     </section>
   );
 };

@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import { Button, Loading, cardClass, cx, pageGutterClass } from '../components/ui';
 import type { Auth, AuthUser } from './auth';
+
+const SessionPage = ({ children }: { readonly children: ReactNode }) => (
+  <div className={cx(pageGutterClass, 'py-8 sm:py-10')}>{children}</div>
+);
 
 const AuthContext = createContext<Auth | null>(null);
 
@@ -43,9 +48,17 @@ export const RequireAuth = ({ children }: { readonly children: ReactNode }) => {
     case 'signed-in':
       return <>{children}</>;
     case 'checking':
-      return <p role="status">Checking your session…</p>;
+      return (
+        <SessionPage>
+          <Loading>Checking your session…</Loading>
+        </SessionPage>
+      );
     case 'redirecting':
-      return <p role="status">Redirecting to sign in…</p>;
+      return (
+        <SessionPage>
+          <Loading>Redirecting to sign in…</Loading>
+        </SessionPage>
+      );
   }
 };
 
@@ -72,14 +85,16 @@ export const AuthCallback = () => {
     });
   }, [auth, navigate]);
 
-  return state.status === 'pending' ? (
-    <p role="status">Signing you in…</p>
-  ) : (
-    <div role="alert">
-      <p>We couldn't sign you in.</p>
-      <button type="button" onClick={() => void auth.signIn('/')}>
-        Try again
-      </button>
-    </div>
+  return (
+    <SessionPage>
+      {state.status === 'pending' ? (
+        <Loading>Signing you in…</Loading>
+      ) : (
+        <div role="alert" className={cx(cardClass, 'mx-auto max-w-md space-y-4 p-6')}>
+          <p className="font-medium">We couldn't sign you in.</p>
+          <Button onClick={() => void auth.signIn('/')}>Try again</Button>
+        </div>
+      )}
+    </SessionPage>
   );
 };

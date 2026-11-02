@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router';
 import { routes } from '../../app/routes';
 import { TransactionList } from '../../components/transactions/TransactionList';
+import { PageHeader, linkClass } from '../../components/ui';
 import { CardState, cardExpiry, cardLabel } from '../home/accountDisplay';
 import { findCard, useMe } from '../home/useMe';
 
@@ -12,15 +13,23 @@ export const CardScreen = () => {
   const title = card ? cardLabel(card) : 'Card';
   return (
     <>
-      <h1>
-        {title}
-        {card ? <CardState card={card} /> : null}
-      </h1>
-      {card ? (
-        <p>
-          Expires {cardExpiry(card)} · <Link to={routes.account(card.accountId)}>View account</Link>
-        </p>
-      ) : null}
+      <PageHeader
+        title={
+          <>
+            {title}
+            {card ? <CardState card={card} /> : null}
+          </>
+        }
+      >
+        {card ? (
+          <p className="tabular-nums">
+            Expires {cardExpiry(card)} ·{' '}
+            <Link to={routes.account(card.accountId)} className={linkClass}>
+              View account
+            </Link>
+          </p>
+        ) : null}
+      </PageHeader>
       <TransactionList filter={{ cardId }} caption={`Transactions on ${title}`} />
     </>
   );

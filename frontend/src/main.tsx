@@ -4,6 +4,7 @@ import { createApiClient } from './api/client';
 import { App, ConfigErrorScreen } from './app/App';
 import { createAuth } from './auth/auth';
 import { loadConfig } from './config';
+import './styles.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Missing #root element');

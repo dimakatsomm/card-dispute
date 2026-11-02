@@ -4,8 +4,11 @@ import {
   formatDateTime,
   timelineLabel,
 } from '../disputes/labels';
+import { mutedClass, panelClass, sectionTitleClass } from '../../components/ui';
 import type { TimelineEvent } from './api';
 import { visibleText } from './core';
+
+const eventDetailClass = 'mt-1 text-zinc-600 break-words';
 
 const fieldLabel = { description: 'description', reasonCode: 'reason' } as const;
 
@@ -17,13 +20,13 @@ const EventDetail = ({ event }: { readonly event: TimelineEvent }) => {
   switch (event.type) {
     case 'EDITED':
       return detail.fields && detail.fields.length > 0 ? (
-        <p>Changed: {detail.fields.map((f) => fieldLabel[f]).join(', ')}</p>
+        <p className={eventDetailClass}>Changed: {detail.fields.map((f) => fieldLabel[f]).join(', ')}</p>
       ) : null;
     case 'EVIDENCE_ADDED':
-      return fileName ? <p>{fileName}</p> : null;
+      return fileName ? <p className={eventDetailClass}>{fileName}</p> : null;
     case 'EVIDENCE_REJECTED':
       return (
-        <p>
+        <p className={eventDetailClass}>
           {fileName ? `${fileName}: ` : ''}
           {describeRejection(detail.reason)}
         </p>
@@ -31,7 +34,7 @@ const EventDetail = ({ event }: { readonly event: TimelineEvent }) => {
     case 'RESOLVED_ACCEPTED':
     case 'RESOLVED_REJECTED':
     case 'WITHDRAWN':
-      return note ? <p>Note: {note}</p> : null;
+      return note ? <p className={eventDetailClass}>Note: {note}</p> : null;
     case 'SUBMITTED':
     case 'UNDER_REVIEW':
       return null;
@@ -40,16 +43,26 @@ const EventDetail = ({ event }: { readonly event: TimelineEvent }) => {
 
 // Renders only the contract's CUSTOMER/BANK attribution so no agent identity can leak even if extra fields arrive.
 export const Timeline = ({ events }: { readonly events: ReadonlyArray<TimelineEvent> }) => (
-  <section aria-labelledby="timeline-heading">
-    <h2 id="timeline-heading">Timeline</h2>
+  <section aria-labelledby="timeline-heading" className={panelClass}>
+    <h2 id="timeline-heading" className={sectionTitleClass}>
+      Timeline
+    </h2>
     {events.length === 0 ? (
-      <p>No events yet.</p>
+      <p className={mutedClass}>No events yet.</p>
     ) : (
-      <ol aria-label="Dispute timeline">
+      <ol aria-label="Dispute timeline" className="ml-1 space-y-5 border-l border-line pl-5">
         {events.map((event, index) => (
-          <li key={`${event.at}-${event.type}-${index}`}>
-            <time dateTime={event.at}>{formatDateTime(event.at)}</time>{' '}
-            <strong>{timelineLabel[event.type]}</strong> <span>by {actorLabel[event.by]}</span>
+          <li key={`${event.at}-${event.type}-${index}`} className="relative text-sm">
+            {/* Centres the dot on the list's border: pl-5 (1.25rem) + half the dot (0.3125rem) + half the 1px border. */}
+            <span
+              aria-hidden="true"
+              className="absolute top-1 -left-[calc(1.5625rem+0.5px)] size-2.5 rounded-full bg-accent ring-4 ring-surface"
+            />
+            <time dateTime={event.at} className="block text-xs text-muted">
+              {formatDateTime(event.at)}
+            </time>{' '}
+            <strong className="font-medium text-ink">{timelineLabel[event.type]}</strong>{' '}
+            <span className="text-muted">by {actorLabel[event.by]}</span>
             <EventDetail event={event} />
           </li>
         ))}

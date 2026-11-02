@@ -3,6 +3,25 @@ import { useId } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useApi } from '../../api/ApiProvider';
 import { routes } from '../../app/routes';
+import {
+  Badge,
+  Button,
+  Empty,
+  Field,
+  Label,
+  Loading,
+  PageHeader,
+  Select,
+  cardClass,
+  cx,
+  definitionListClass,
+  disputeStatusTone,
+  errorCardClass,
+  labelClass,
+  linkClass,
+  mutedClass,
+  termClass,
+} from '../../components/ui';
 import { formatMoney } from '../../lib/format/money';
 import { useMe } from '../home/useMe';
 import { listDisputes, type Account, type DisputeFilters, type DisputeSummary, type ListError } from './api';
@@ -29,6 +48,12 @@ const listErrorMessage: Readonly<Record<ListError, string>> = {
   FAILED: 'We could not load your disputes. Please try again.',
 };
 
+const chipClass = cx(
+  'inline-flex cursor-pointer items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-zinc-700',
+  'hover:bg-zinc-50 has-checked:border-accent-line has-checked:bg-accent-soft has-checked:text-accent-strong',
+  'has-focus-visible:ring-2 has-focus-visible:ring-focus/40 motion-safe:transition-colors',
+);
+
 const Filters = ({
   filters,
   accounts,
@@ -44,70 +69,88 @@ const Filters = ({
   const cardSelectId = useId();
   const cards = cardsFor(accounts, filters.accountId);
   return (
-    <form aria-label="Filter disputes" onSubmit={(e) => e.preventDefault()}>
+    <form aria-label="Filter disputes" onSubmit={(e) => e.preventDefault()} className={cx(cardClass, 'space-y-5 p-5')}>
       <fieldset>
-        <legend>Status</legend>
-        {DISPUTE_STATUSES.map((status) => (
-          <label key={status}>
-            <input
-              type="checkbox"
-              checked={filters.status.includes(status)}
-              onChange={() => onChange(toggleStatus(filters, status))}
-            />
-            {statusLabel[status]}
-          </label>
-        ))}
+        <legend className={cx(labelClass, 'mb-2')}>Status</legend>
+        <div className="flex flex-wrap gap-2">
+          {DISPUTE_STATUSES.map((status) => (
+            <label key={status} className={chipClass}>
+              <input
+                type="checkbox"
+                className="size-3.5 accent-accent focus-visible:outline-hidden"
+                checked={filters.status.includes(status)}
+                onChange={() => onChange(toggleStatus(filters, status))}
+              />
+              {statusLabel[status]}
+            </label>
+          ))}
+        </div>
       </fieldset>
-      <label htmlFor={accountSelectId}>Account</label>
-      <select
-        id={accountSelectId}
-        value={filters.accountId ?? ''}
-        disabled={accountsUnavailable}
-        onChange={(e) => onChange(selectAccount(filters, accounts, e.target.value || undefined))}
-      >
-        <option value="">All accounts</option>
-        {accounts.map((a) => (
-          <option key={a.accountId} value={a.accountId}>
-            {a.accountType} {a.accountNumberMasked}
-          </option>
-        ))}
-      </select>
-      <label htmlFor={cardSelectId}>Card</label>
-      <select
-        id={cardSelectId}
-        value={filters.cardId ?? ''}
-        disabled={accountsUnavailable}
-        onChange={(e) => onChange({ ...filters, cardId: e.target.value || undefined })}
-      >
-        <option value="">All cards</option>
-        {cards.map((c) => (
-          <option key={c.cardId} value={c.cardId}>
-            {c.brand} ending {c.last4}
-          </option>
-        ))}
-      </select>
-      {accountsUnavailable ? <p>Account and card filters are unavailable right now.</p> : null}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <Label htmlFor={accountSelectId}>Account</Label>
+          <Select
+            id={accountSelectId}
+            value={filters.accountId ?? ''}
+            disabled={accountsUnavailable}
+            onChange={(e) => onChange(selectAccount(filters, accounts, e.target.value || undefined))}
+          >
+            <option value="">All accounts</option>
+            {accounts.map((a) => (
+              <option key={a.accountId} value={a.accountId}>
+                {a.accountType} {a.accountNumberMasked}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field>
+          <Label htmlFor={cardSelectId}>Card</Label>
+          <Select
+            id={cardSelectId}
+            value={filters.cardId ?? ''}
+            disabled={accountsUnavailable}
+            onChange={(e) => onChange({ ...filters, cardId: e.target.value || undefined })}
+          >
+            <option value="">All cards</option>
+            {cards.map((c) => (
+              <option key={c.cardId} value={c.cardId}>
+                {c.brand} ending {c.last4}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      {accountsUnavailable ? <p className={mutedClass}>Account and card filters are unavailable right now.</p> : null}
     </form>
   );
 };
 
 const DisputeRow = ({ dispute }: { readonly dispute: DisputeSummary }) => (
-  <li>
-    <Link to={routes.disputeDetail(dispute.transactionId)}>
-      {dispute.transaction ? dispute.transaction.merchantName : 'Transaction details unavailable'}
-    </Link>
-    {dispute.transaction ? (
-      <span> {formatMoney(dispute.transaction.amount, dispute.transaction.currency)}</span>
-    ) : null}
-    <dl>
-      <dt>Status</dt>
-      <dd>{statusLabel[dispute.status]}</dd>
-      <dt>Reason</dt>
+  <li className={cx(cardClass, 'space-y-4 p-5')}>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <Link to={routes.disputeDetail(dispute.transactionId)} className={cx(linkClass, 'text-base')}>
+        {dispute.transaction ? dispute.transaction.merchantName : 'Transaction details unavailable'}
+      </Link>
+      {dispute.transaction ? (
+        <span className="font-semibold text-ink tabular-nums">
+          {' '}
+          {formatMoney(dispute.transaction.amount, dispute.transaction.currency)}
+        </span>
+      ) : null}
+    </div>
+    <dl className={definitionListClass}>
+      <dt className={termClass}>Status</dt>
+      <dd>
+        <Badge tone={disputeStatusTone[dispute.status]}>{statusLabel[dispute.status]}</Badge>
+      </dd>
+      <dt className={termClass}>Reason</dt>
       <dd>{reasonLabel[dispute.reasonCode]}</dd>
-      <dt>Latest update</dt>
+      <dt className={termClass}>Latest update</dt>
       <dd>
         {timelineLabel[dispute.lastEvent.type]},{' '}
-        <time dateTime={dispute.lastEvent.at}>{formatDateTime(dispute.lastEvent.at)}</time>
+        <time dateTime={dispute.lastEvent.at} className="text-muted">
+          {formatDateTime(dispute.lastEvent.at)}
+        </time>
       </dd>
     </dl>
   </li>
@@ -141,48 +184,53 @@ export const DisputesScreen = () => {
 
   return (
     <section aria-labelledby="disputes-heading">
-      <h1 id="disputes-heading">Your disputes</h1>
-      <Filters
-        filters={filters}
-        accounts={accounts}
-        accountsUnavailable={accountsUnavailable}
-        onChange={setFilters}
-      />
-      {disputesQuery.isPending ? <p role="status">Loading disputes…</p> : null}
-      {listError ? (
-        <div role="alert">
-          <p>{listErrorMessage[listError]}</p>
-          {listError === 'FILTER_UNAVAILABLE' && hasAccountOrCardFilter(filters) ? (
-            <button
-              type="button"
-              onClick={() => setFilters({ ...filters, accountId: undefined, cardId: undefined })}
+      <PageHeader title="Your disputes" titleId="disputes-heading" />
+      <div className="space-y-6">
+        <Filters
+          filters={filters}
+          accounts={accounts}
+          accountsUnavailable={accountsUnavailable}
+          onChange={setFilters}
+        />
+        {disputesQuery.isPending ? <Loading>Loading disputes…</Loading> : null}
+        {listError ? (
+          <div role="alert" className={errorCardClass}>
+            <p>{listErrorMessage[listError]}</p>
+            {listError === 'FILTER_UNAVAILABLE' && hasAccountOrCardFilter(filters) ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setFilters({ ...filters, accountId: undefined, cardId: undefined })}
+              >
+                Clear account and card filters
+              </Button>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => void disputesQuery.refetch()}>
+                Try again
+              </Button>
+            )}
+          </div>
+        ) : null}
+        {!disputesQuery.isPending && !listError && items.length === 0 ? <Empty>No disputes found.</Empty> : null}
+        {items.length > 0 ? (
+          <ul aria-label="Disputes" className="space-y-3">
+            {items.map((d) => (
+              <DisputeRow key={d.disputeId} dispute={d} />
+            ))}
+          </ul>
+        ) : null}
+        {disputesQuery.hasNextPage && !listError ? (
+          <div className="flex justify-center">
+            <Button
+              variant="secondary"
+              disabled={disputesQuery.isFetchingNextPage}
+              onClick={() => void disputesQuery.fetchNextPage()}
             >
-              Clear account and card filters
-            </button>
-          ) : (
-            <button type="button" onClick={() => void disputesQuery.refetch()}>
-              Try again
-            </button>
-          )}
-        </div>
-      ) : null}
-      {!disputesQuery.isPending && !listError && items.length === 0 ? <p>No disputes found.</p> : null}
-      {items.length > 0 ? (
-        <ul aria-label="Disputes">
-          {items.map((d) => (
-            <DisputeRow key={d.disputeId} dispute={d} />
-          ))}
-        </ul>
-      ) : null}
-      {disputesQuery.hasNextPage && !listError ? (
-        <button
-          type="button"
-          disabled={disputesQuery.isFetchingNextPage}
-          onClick={() => void disputesQuery.fetchNextPage()}
-        >
-          {disputesQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
-        </button>
-      ) : null}
+              {disputesQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
+            </Button>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 };

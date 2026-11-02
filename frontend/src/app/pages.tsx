@@ -1,5 +1,7 @@
+import { PageHeader } from '../components/ui';
+
 export const NotFoundPage = () => (
   <section>
-    <h1>Page not found</h1>
+    <PageHeader title="Page not found" />
   </section>
 );

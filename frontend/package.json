@@ -34,6 +34,8 @@
     "vitest": "catalog:",
     "jsdom": "catalog:",
     "@testing-library/react": "catalog:",
-    "@testing-library/user-event": "catalog:"
+    "@testing-library/user-event": "catalog:",
+    "tailwindcss": "catalog:",
+    "@tailwindcss/vite": "catalog:"
   }
 }

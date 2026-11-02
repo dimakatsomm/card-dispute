@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from 'react';
+import { Button, Field, Label, Select, TextArea } from '../../components/ui';
 import { REASON_CODES, type ReasonCode } from '../../lib/dispute-reasons';
 import { reasonLabel } from '../disputes/labels';
 import type { DisputeChange } from './api';
@@ -39,35 +40,41 @@ export const EditForm = ({
   };
 
   return (
-    <form aria-label="Edit dispute" onSubmit={onSubmit}>
-      <label htmlFor={reasonId}>Reason</label>
-      <select
-        id={reasonId}
-        value={draft.reasonCode}
-        onChange={(e) => {
-          const code = REASON_CODES.find((r) => r === e.target.value);
-          if (code) setDraft({ ...draft, reasonCode: code });
-        }}
-      >
-        {REASON_CODES.map((code) => (
-          <option key={code} value={code}>
-            {reasonLabel[code]}
-          </option>
-        ))}
-      </select>
-      <label htmlFor={descriptionId}>Description</label>
-      <textarea
-        id={descriptionId}
-        required
-        value={draft.description}
-        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-      />
-      <button type="submit" disabled={pending || !change}>
-        {pending ? 'Saving…' : 'Save changes'}
-      </button>
-      <button type="button" onClick={onCancel} disabled={pending}>
-        Cancel
-      </button>
+    <form aria-label="Edit dispute" onSubmit={onSubmit} className="space-y-5 border-t border-line pt-5">
+      <Field>
+        <Label htmlFor={reasonId}>Reason</Label>
+        <Select
+          id={reasonId}
+          value={draft.reasonCode}
+          onChange={(e) => {
+            const code = REASON_CODES.find((r) => r === e.target.value);
+            if (code) setDraft({ ...draft, reasonCode: code });
+          }}
+        >
+          {REASON_CODES.map((code) => (
+            <option key={code} value={code}>
+              {reasonLabel[code]}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field>
+        <Label htmlFor={descriptionId}>Description</Label>
+        <TextArea
+          id={descriptionId}
+          required
+          value={draft.description}
+          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+        />
+      </Field>
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" disabled={pending || !change}>
+          {pending ? 'Saving…' : 'Save changes'}
+        </Button>
+        <Button variant="secondary" onClick={onCancel} disabled={pending}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 };

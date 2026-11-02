@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useParams } from 'react-router';
 import { useApi } from '../../api/ApiProvider';
 import { createEvidenceApi } from '../../components/evidence';
+import { errorBannerClass } from '../../components/ui';
 import { sha256Hex, uploadEvidence } from '../../lib/upload';
 import { createDisputeApi } from './api';
 import { DisputeForm } from './DisputeForm';
@@ -19,6 +20,6 @@ export const DisputeFormScreen = () => {
     }),
     [client],
   );
-  if (!transactionId) return <p role="alert">This transaction could not be found.</p>;
+  if (!transactionId) return <p role="alert" className={errorBannerClass}>This transaction could not be found.</p>;
   return <DisputeForm key={transactionId} transactionId={transactionId} deps={deps} />;
 };

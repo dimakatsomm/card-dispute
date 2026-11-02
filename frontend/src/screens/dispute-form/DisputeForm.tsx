@@ -9,6 +9,20 @@ import {
   useEvidenceUploads,
   useFileSelection,
 } from '../../components/evidence';
+import {
+  Button,
+  Field,
+  FieldError,
+  Hint,
+  Label,
+  PageHeader,
+  Select,
+  TextArea,
+  cardClass,
+  cx,
+  errorBannerClass,
+  successBannerClass,
+} from '../../components/ui';
 import { isReasonCode, REASON_CODES, type ReasonCode } from '../../lib/dispute-reasons';
 import {
   checkDescription,
@@ -95,9 +109,11 @@ export const DisputeForm = ({ transactionId, deps }: DisputeFormProps) => {
 
   if (phase.kind === 'uploading') {
     return (
-      <section aria-labelledby={`${id}-title`}>
-        <h1 id={`${id}-title`}>Dispute a transaction</h1>
-        <p role="status">Your dispute has been submitted. Uploading your files…</p>
+      <section aria-labelledby={`${id}-title`} className="mx-auto max-w-2xl space-y-6">
+        <PageHeader title="Dispute a transaction" titleId={`${id}-title`} />
+        <p role="status" className={successBannerClass}>
+          Your dispute has been submitted. Uploading your files…
+        </p>
         <UploadProgress
           uploads={uploads.uploads ?? []}
           onRetry={(prepared) => void uploads.retry(prepared)}
@@ -118,55 +134,64 @@ export const DisputeForm = ({ transactionId, deps }: DisputeFormProps) => {
   };
 
   return (
-    <section aria-labelledby={`${id}-title`}>
-      <h1 id={`${id}-title`}>Dispute a transaction</h1>
-      <p>The dispute covers the full amount of the transaction.</p>
-      {submitError ? <p role="alert">{submitError}</p> : null}
-      <form noValidate onSubmit={(event) => void onSubmit(event)}>
-        <div>
-          <label htmlFor={ids.reason}>Reason</label>
-          <select
-            id={ids.reason}
-            ref={reasonRef}
-            value={reason}
-            onChange={(event) => setReason(isReasonCode(event.currentTarget.value) ? event.currentTarget.value : '')}
-            aria-invalid={reasonError ? true : undefined}
-            aria-describedby={reasonError ? ids.reasonError : undefined}
-            required
-          >
-            <option value="">Choose a reason</option>
-            {REASON_CODES.map((code) => (
-              <option key={code} value={code}>
-                {REASON_LABELS[code]}
-              </option>
-            ))}
-          </select>
-          {reasonError ? <p id={ids.reasonError}>{reasonError}</p> : null}
-        </div>
-
-        <div>
-          <label htmlFor={ids.description}>What happened?</label>
-          <textarea
-            id={ids.description}
-            ref={descriptionRef}
-            value={description}
-            onChange={(event) => setDescription(event.currentTarget.value)}
-            aria-invalid={descriptionError ? true : undefined}
-            aria-describedby={describedBy(ids.descriptionCount, descriptionError ? ids.descriptionError : null)}
-            required
-          />
-          <p id={ids.descriptionCount}>
-            {codePointLength(description)} / {DESCRIPTION_MAX} characters (at least {DESCRIPTION_MIN})
+    <section aria-labelledby={`${id}-title`} className="mx-auto max-w-2xl">
+      <PageHeader title="Dispute a transaction" titleId={`${id}-title`}>
+        <p>The dispute covers the full amount of the transaction.</p>
+      </PageHeader>
+      <div className="space-y-6">
+        {submitError ? (
+          <p role="alert" className={errorBannerClass}>
+            {submitError}
           </p>
-          {descriptionError ? <p id={ids.descriptionError}>{descriptionError}</p> : null}
-        </div>
+        ) : null}
+        <form noValidate onSubmit={(event) => void onSubmit(event)} className={cx(cardClass, 'space-y-6 p-5 sm:p-6')}>
+          <Field>
+            <Label htmlFor={ids.reason}>Reason</Label>
+            <Select
+              id={ids.reason}
+              ref={reasonRef}
+              value={reason}
+              onChange={(event) => setReason(isReasonCode(event.currentTarget.value) ? event.currentTarget.value : '')}
+              aria-invalid={reasonError ? true : undefined}
+              aria-describedby={reasonError ? ids.reasonError : undefined}
+              required
+            >
+              <option value="">Choose a reason</option>
+              {REASON_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {REASON_LABELS[code]}
+                </option>
+              ))}
+            </Select>
+            {reasonError ? <FieldError id={ids.reasonError}>{reasonError}</FieldError> : null}
+          </Field>
 
-        <FilePicker label="Evidence (optional)" selection={selection} disabled={submitting} />
+          <Field>
+            <Label htmlFor={ids.description}>What happened?</Label>
+            <TextArea
+              id={ids.description}
+              ref={descriptionRef}
+              value={description}
+              onChange={(event) => setDescription(event.currentTarget.value)}
+              aria-invalid={descriptionError ? true : undefined}
+              aria-describedby={describedBy(ids.descriptionCount, descriptionError ? ids.descriptionError : null)}
+              required
+            />
+            <Hint id={ids.descriptionCount} className="tabular-nums">
+              {codePointLength(description)} / {DESCRIPTION_MAX} characters (at least {DESCRIPTION_MIN})
+            </Hint>
+            {descriptionError ? <FieldError id={ids.descriptionError}>{descriptionError}</FieldError> : null}
+          </Field>
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Submitting…' : 'Submit dispute'}
-        </button>
-      </form>
+          <FilePicker label="Evidence (optional)" selection={selection} disabled={submitting} />
+
+          <div className="flex justify-end border-t border-line pt-5">
+            <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
+              {submitting ? 'Submitting…' : 'Submit dispute'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </section>
   );
 };

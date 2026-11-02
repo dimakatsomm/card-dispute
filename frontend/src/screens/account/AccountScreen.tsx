@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { routes } from '../../app/routes';
 import { LoadError } from '../../components/transactions/LoadError';
 import { TransactionList } from '../../components/transactions/TransactionList';
+import { Loading, PageHeader, linkClass, sectionTitleClass } from '../../components/ui';
 import { AccountStatus, CardList, accountLabel } from '../home/accountDisplay';
 import { findAccount, useMe } from '../home/useMe';
 
@@ -12,36 +13,49 @@ export const AccountScreen = () => {
   const cardsHeading = useId();
   const transactionsHeading = useId();
 
-  if (me.isPending) return <p role="status">Loading account…</p>;
+  if (me.isPending) return <Loading>Loading account…</Loading>;
   if (me.isError) return <LoadError message="We couldn't load this account." onRetry={() => void me.refetch()} />;
 
   const account = findAccount(me.data, accountId);
   if (!account) {
     return (
-      <>
-        <h1>Account not found</h1>
+      <PageHeader title="Account not found">
         <p>
-          <Link to={routes.home()}>Back to your accounts</Link>
+          <Link to={routes.home()} className={linkClass}>
+            Back to your accounts
+          </Link>
         </p>
-      </>
+      </PageHeader>
     );
   }
 
   const label = accountLabel(account);
   return (
     <>
-      <h1>
-        {label}
-        <AccountStatus account={account} />
-      </h1>
-      <section aria-labelledby={cardsHeading}>
-        <h2 id={cardsHeading}>Cards</h2>
-        <CardList cards={account.cards} label={`Cards on ${label}`} />
-      </section>
-      <section aria-labelledby={transactionsHeading}>
-        <h2 id={transactionsHeading}>Transactions</h2>
-        <TransactionList filter={{ accountId: account.accountId }} caption={`Transactions on ${label}`} />
-      </section>
+      <PageHeader
+        title={
+          <>
+            {label}
+            <AccountStatus account={account} />
+          </>
+        }
+      />
+      <div className="space-y-10">
+        <section aria-labelledby={cardsHeading} className="space-y-4">
+          <h2 id={cardsHeading} className={sectionTitleClass}>
+            Cards
+          </h2>
+          <div className="max-w-2xl">
+            <CardList cards={account.cards} label={`Cards on ${label}`} />
+          </div>
+        </section>
+        <section aria-labelledby={transactionsHeading} className="space-y-4">
+          <h2 id={transactionsHeading} className={sectionTitleClass}>
+            Transactions
+          </h2>
+          <TransactionList filter={{ accountId: account.accountId }} caption={`Transactions on ${label}`} />
+        </section>
+      </div>
     </>
   );
 };

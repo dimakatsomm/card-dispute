@@ -727,6 +727,23 @@ Apply role privilege (boundary, prefix, review); secrets in state (KMS, restrict
 
 ---
 
+## UI — restyle (owner request 2026-11-02)
+
+### UI-01 · Restyle the SPA with Tailwind CSS v4 (ADR-070)
+```yaml
+agent: frontend
+owns: [frontend/src/**, frontend/index.html, frontend/vite.config.ts]
+depends_on: []
+acceptance:
+  - tailwindcss + @tailwindcss/vite (catalog 4.3.3, already installed by the orchestrator) wired in vite.config.ts; one CSS entry imported from main.tsx; no new dependencies
+  - simple, modern, sleek design applied to every screen (shell/nav, home, account, card, transactions, dispute form, disputes list, dispute detail incl. timeline/edit/withdraw dialog, add evidence, load/error/empty states)
+  - small shared design tokens (@theme) and a few presentational primitives (button, card, badge, field) as function components; no classes
+  - CSP unchanged: no inline style attributes, no external fonts/CDN; system font stack
+  - accessible names, roles, heading levels, labels and link/button text unchanged, so tests/ui and the frontend unit tests pass without selector edits
+  - responsive down to 360 px; visible focus rings; WCAG AA contrast; respects prefers-reduced-motion
+  - pnpm --filter @cd/web typecheck, lint, test and build exit 0
+```
+
 ## Rules for this file
 - `owns` sets in one batch must be disjoint.
 - Acceptance criteria are the test plan.

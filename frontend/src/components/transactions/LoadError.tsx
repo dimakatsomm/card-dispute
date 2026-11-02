@@ -1,8 +1,10 @@
+import { Button, errorCardClass } from '../ui';
+
 export const LoadError = ({ message, onRetry }: { readonly message: string; readonly onRetry: () => void }) => (
-  <div role="alert">
+  <div role="alert" className={errorCardClass}>
     <p>{message}</p>
-    <button type="button" onClick={onRetry}>
+    <Button variant="secondary" size="sm" onClick={onRetry}>
       Try again
-    </button>
+    </Button>
   </div>
 );

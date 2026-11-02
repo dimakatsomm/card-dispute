@@ -28,7 +28,7 @@ every dispute state change is valid, auditable and never lost.
 | Email | SES via API (`@aws-sdk/client-sesv2`) |
 | IaC | Terraform |
 | Monorepo | pnpm workspaces: backend/* (Node 24), frontend (React + Vite); infra/ (Terraform) separate |
-| Frontend | React + Vite + TypeScript SPA, nginx container on ECS; OIDC PKCE against Cognito |
+| Frontend | React + Vite + TypeScript SPA styled with Tailwind CSS v4 (ADR-070), nginx container on ECS; OIDC PKCE against Cognito |
 | Containers | Everything is a container: services, frontend, migrations, **Lambdas (container images)**; ARM64; tag = git SHA |
 | CI/CD | GitHub Actions, one pipeline per deployable, OIDC to AWS, **manual approval on every deploy** |
 | Tests | vitest, testcontainers (Postgres 18), moto server for SQS/S3 locally (LocalStack needs a licence — Q-11); SES mocked at SDK boundary |

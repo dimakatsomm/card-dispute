@@ -28,8 +28,8 @@ export const App = ({ auth, api, callbackPath }: AppProps) => {
 };
 
 export const ConfigErrorScreen = () => (
-  <main role="alert">
-    <h1>Service unavailable</h1>
-    <p>The application is not configured correctly. Please try again later.</p>
+  <main role="alert" className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-2 px-6">
+    <h1 className="text-2xl font-semibold tracking-tight">Service unavailable</h1>
+    <p className="text-muted">The application is not configured correctly. Please try again later.</p>
   </main>
 );

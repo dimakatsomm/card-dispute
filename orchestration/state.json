@@ -1,7 +1,7 @@
 {
   "_comment": "Orchestrator memory across sessions. Read at session start, written after every task transition. Statuses: todo | in_progress | in_review | done | blocked. This file must reflect reality — a task with a failing test is not done.",
   "milestone": "M1-walking-skeleton",
-  "updatedAt": "2026-10-25",
+  "updatedAt": "2026-11-02",
   "milestones": {
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
@@ -681,6 +681,15 @@
         "OWN-6",
         "ROLLOUT"
       ]
+    },
+    "UI-01": {
+      "status": "done",
+      "agent": "frontend",
+      "gates": {
+        "tests": "pass (web 100/100, tests/ui 5/5)",
+        "standards": "pass after fixes"
+      },
+      "decision": "ADR-070"
     }
   },
   "decisions": [
