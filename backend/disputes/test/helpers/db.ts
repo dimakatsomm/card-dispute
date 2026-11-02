@@ -69,6 +69,12 @@ export const startDisputesDb = async (): Promise<TestDb> => {
   const appPool = new pg.Pool({ connectionString: urlFor('disputes_app'), max: 20 });
   // The retention sweeper's own role, so races with it run under its real grants and triggers.
   const retentionPool = new pg.Pool({ connectionString: urlFor('disputes_retention'), max: 5 });
+  // Stopping the container can reach an idle client before its terminate completes; only that shutdown is expected.
+  const ignoreAdminShutdown = (err: Error & { code?: string }): void => {
+    if (err.code !== '57P01') throw err;
+  };
+  appPool.on('error', ignoreAdminShutdown);
+  retentionPool.on('error', ignoreAdminShutdown);
   const appQuery = (sql: string, params: ReadonlyArray<unknown> = []) => appPool.query(sql, [...params]);
   return {
     appPool,

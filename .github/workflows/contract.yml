@@ -109,3 +109,5 @@ jobs:
           base: base/docs/openapi/${{ matrix.spec }}
           revision: docs/openapi/${{ matrix.spec }}
           fail-on: ERR
+          # Specs share schemas through relative $refs to common.yaml.
+          allow-external-refs: true
