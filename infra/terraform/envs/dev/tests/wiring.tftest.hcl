@@ -266,6 +266,42 @@ run "phase_b_functions" {
   }
 }
 
+run "phase_b_from_git_sha" {
+  command = plan
+
+  variables {
+    lambda_image_uris = {
+      evidence-intake   = "0123456789abcdef0123456789abcdef01234567"
+      dispute-notifier  = "0123456789abcdef0123456789abcdef01234567"
+      retention-sweeper = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-retention-sweeper:0123abc"
+    }
+  }
+
+  assert {
+    condition = local.lambda_image_uris == {
+      evidence-intake   = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-intake:0123456789abcdef0123456789abcdef01234567"
+      dispute-notifier  = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-dispute-notifier:0123456789abcdef0123456789abcdef01234567"
+      retention-sweeper = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-retention-sweeper:0123abc"
+    }
+    error_message = "A bare git sha must resolve to this account's cd-lambda-<key> ECR repo; a full URI passes through."
+  }
+
+  assert {
+    condition     = alltrue([for k in local.lambda_keys : module.lambda[k].function_name == "cd-${k}"])
+    error_message = "A git sha alone must still create every function."
+  }
+}
+
+run "lambda_image_rejects_short_sha" {
+  command = plan
+
+  variables {
+    lambda_image_uris = { evidence-intake = "0123abc" }
+  }
+
+  expect_failures = [var.lambda_image_uris]
+}
+
 run "public_alb_fallback" {
   command = plan
 

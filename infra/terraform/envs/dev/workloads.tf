@@ -274,7 +274,7 @@ module "lambda" {
 
   name_prefix              = var.name_prefix
   function_key             = each.key
-  image_uri                = lookup(var.lambda_image_uris, each.key, null)
+  image_uri                = local.lambda_image_uris[each.key]
   permissions_boundary_arn = local.permissions_boundary_arn
   iam_path                 = local.iam_path
   log_retention_days       = var.log_retention_days

@@ -8,8 +8,12 @@ github_oidc_subject_prefix = "repo:dimakatsomm@47429454/card-dispute@1430222525"
 # V-M3 decides; public_alb is the ADR-063 fallback.
 edge_origin_mode = "vpc_origin"
 
-# Runbook phase A leaves this empty; phase B adds the published Lambda image URIs.
-lambda_image_uris = {}
+# Phase B images (git sha; the account comes from the caller). image_uri is ignored after creation: the Lambda pipelines own the code.
+lambda_image_uris = {
+  evidence-intake   = "b1bf83844842463ee856b100e7aa0b82b5a71bc4"
+  dispute-notifier  = "b1bf83844842463ee856b100e7aa0b82b5a71bc4"
+  retention-sweeper = "b1bf83844842463ee856b100e7aa0b82b5a71bc4"
+}
 
 enable_service_autoscaling = false
 enable_e2e_client          = true

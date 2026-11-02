@@ -47,7 +47,7 @@ variable "edge_origin_mode" {
 }
 
 variable "lambda_image_uris" {
-  description = "Lambda image URIs by function key; a function exists only when its key is present (runbook phase B)."
+  description = "Lambda image by function key: an ECR image URI, or a full git sha resolved to this account's <name_prefix>-lambda-<key> repo (keeps account ids out of git). A function exists only when its key is present (runbook phase B)."
   type        = map(string)
   default     = {}
 
@@ -59,9 +59,9 @@ variable "lambda_image_uris" {
   validation {
     condition = alltrue([
       for uri in values(var.lambda_image_uris) :
-      can(regex("^[0-9]{12}\\.dkr\\.ecr\\.eu-north-1\\.amazonaws\\.com/[a-z0-9._/-]+(:[A-Za-z0-9._-]{1,128}|@sha256:[a-f0-9]{64})$", uri))
+      can(regex("^[0-9a-f]{40}$", uri)) || can(regex("^[0-9]{12}\\.dkr\\.ecr\\.eu-north-1\\.amazonaws\\.com/[a-z0-9._/-]+(:[A-Za-z0-9._-]{1,128}|@sha256:[a-f0-9]{64})$", uri))
     ])
-    error_message = "lambda_image_uris values must be eu-north-1 ECR image URIs with a tag or sha256 digest."
+    error_message = "lambda_image_uris values must be a full git sha or an eu-north-1 ECR image URI with a tag or sha256 digest."
   }
 }
 

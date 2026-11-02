@@ -16,6 +16,15 @@ locals {
   seed_user_secret_name_prefix = "${var.name_prefix}/dev/seed-users/"
   data_kms_key_arn             = module.security.kms_key_arns["data"]
   evidence_kms_key_arn         = module.security.kms_key_arns["evidence"]
+
+  # A bare git sha keeps the account id out of dev.tfvars (public repo, ADR-041).
+  lambda_image_uris = {
+    for k in ["evidence-intake", "dispute-notifier", "retention-sweeper"] : k => (
+      !contains(keys(var.lambda_image_uris), k) ? null :
+      can(regex("^[0-9a-f]{40}$", var.lambda_image_uris[k])) ? "${local.account_id}.dkr.ecr.${local.region}.amazonaws.com/${var.name_prefix}-lambda-${k}:${var.lambda_image_uris[k]}" :
+      var.lambda_image_uris[k]
+    )
+  }
 }
 
 module "network" {
