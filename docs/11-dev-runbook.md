@@ -646,10 +646,13 @@ aws events put-events --entries '[{"Source":"aws.guardduty","DetailType":"GuardD
 the RDS CA, so a successful sweep proves a verified TLS connection:
 
 ```bash
-aws lambda invoke --function-name cd-retention-sweeper --qualifier live out.json \
-  --query '[StatusCode, FunctionError]' --output text && cat out.json
+OUT=$(mktemp)   # outside the repo: a failure body can name the cluster host
+aws lambda invoke --function-name cd-retention-sweeper --qualifier live "$OUT" \
+  --query '[StatusCode, FunctionError]' --output text && cat "$OUT"
 # expect: 200  None, then {"expired":<n>,"erased":<n>}
 ```
+
+If it fails, paste back only the `errorType` and `errorMessage`, with any hostname or IP address replaced by `<redacted>`.
 
 **C. The quarantine bucket policy denies by itself.** Your admin role has `s3:*` in IAM, so a 403 here can only
 come from the bucket policy. The e2e suite proves only the workload IAM side. The keys do not exist, so without the
@@ -663,13 +666,14 @@ aws s3api put-object-tagging --bucket "$Q" --key intake/gate-check-absent \
 # expect: AccessDenied   (DenyTagWritesExceptGuardDuty)
 aws s3api put-object --bucket "$Q" --key intake/gate-check-tagged --body /dev/null \
   --tagging 'GuardDutyMalwareScanStatus=NO_THREATS_FOUND' 2>&1 | grep -o 'AccessDenied'
-# expect: AccessDenied   (DenyUploadWithScanTag)
+# expect: AccessDenied   (DenyUploadWithScanTag, and DenyTagWritesExceptGuardDuty if S3 also checks tagging)
 aws s3api put-object --bucket "$Q" --key outside/gate-check --body /dev/null 2>&1 | grep -o 'AccessDenied'
 # expect: AccessDenied   (DenyUploadOutsideIntake)
 ```
 
-If either `put-object` prints nothing, the object was created and the policy is wrong. Delete it
-(`aws s3 rm "s3://$Q/<key>"`) and stop.
+If either `put-object` prints nothing, run it again without the `grep` to see the real error (an expired session
+also prints nothing). Then check `aws s3api head-object --bucket "$Q" --key <key>`. If the object exists, the
+policy is wrong: delete it (`aws s3 rm "s3://$Q/<key>"`) and stop.
 
 ---
 
