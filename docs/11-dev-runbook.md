@@ -19,7 +19,9 @@ approval click in steps 4 to 11). OWN-2, the $200 budget, is already decided (AD
 export AWS_PROFILE=<owner-sso-admin-profile>
 export AWS_REGION=eu-north-1
 export AWS_DEFAULT_REGION=eu-north-1
-aws sso login
+aws sso login            # or, without Identity Center: aws login --profile "$AWS_PROFILE"
+# Terraform cannot read `aws login` sessions; hand it the same short-lived credentials. Re-run when they expire.
+eval "$(aws configure export-credentials --format env)"
 
 export REPO=<owner>/<repo>
 # GitHub OIDC sub prefix: "repo:$REPO", or sub_claim_prefix when use_immutable_subject is true
@@ -224,6 +226,10 @@ They are variables, not secrets: they name resources but grant nothing, and CI m
 state key and role ARNs in logs (ADR-063).
 
 ## 3. OWN-4 — bootstrap apply and state migration
+
+**Done 2026-10-26** (`bootstrap/backend.tf` committed in `cbcc66f`). Kept for a rebuild in a new account: there,
+`backend.tf` is already committed, so delete it before the first `init` (`rm $B/backend.tf`);
+the `cp` below puts it back. For later changes to an applied bootstrap, use 3.1.
 
 Applied once, by you, with your SSO admin credentials. CI never applies `bootstrap/`. It creates the state bucket,
 the KMS key `alias/cd-tfstate`, the GitHub OIDC provider, `gha-infra-plan`, `gha-infra-apply` and the permissions
