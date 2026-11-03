@@ -3,7 +3,8 @@ info:
   title: Disputes service — public port (8080)
   version: 0.1.0
   description: |
-    Customer-facing disputes API. Every operation requires a **user** token; service tokens → 403.
+    Customer-facing disputes API. Every operation requires a **user** token, except `/agent/*`, which requires an
+    **agent** token (ADR-071). Service tokens → 403 everywhere; user and agent tokens are refused on each other's routes (403).
     One dispute per transaction, ever (incl. withdrawn), so `transactionId` identifies the dispute.
     A dispute always covers the full transaction amount — there is no amount field.
 servers:
@@ -250,10 +251,219 @@ paths:
             application/problem+json:
               schema: { $ref: './common.yaml#/components/schemas/Problem' }
 
+  /agent/review-queue:
+    get:
+      operationId: listReviewQueue
+      summary: Back-office queue — disputes awaiting or under review, oldest first
+      description: |
+        Disputes across all customers, ordered by `createdAt` then `disputeId` ascending. No customer identifiers or
+        contact data. `pickedUpBy` is the display name of the agent who moved it to UNDER_REVIEW, if any.
+      security:
+        - agentToken: []
+      parameters:
+        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+        - name: status
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema: { type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: { type: string, enum: [SUBMITTED, UNDER_REVIEW] }, default: [SUBMITTED, UNDER_REVIEW] }
+        - $ref: './common.yaml#/components/parameters/Limit'
+        - $ref: './common.yaml#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/QueueItem' }
+                  nextCursor:
+                    oneOf:
+                      - $ref: './common.yaml#/components/schemas/Cursor'
+                      - type: 'null'
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+
+  /agent/disputes/{transactionId}:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+      - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+    get:
+      operationId: getAgentDispute
+      summary: Dispute detail for an agent, with timeline, evidence metadata and the transaction
+      description: |
+        The transaction is looked up server-side with the dispute's own owner (never client input); `null` when
+        transactions is unavailable. Send `version` and `evidenceDigest` back on review/resolution. Each read is logged
+        with the agent id and dispute id only.
+      security:
+        - agentToken: []
+      responses:
+        '200':
+          description: Dispute
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentDisputeDetail' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+
+  /agent/disputes/{transactionId}/review:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+      - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+    put:
+      operationId: reviewDispute
+      summary: Pick up — SUBMITTED → UNDER_REVIEW
+      description: |
+        Already UNDER_REVIEW → 200 with the stored state (no-op), so a second agent sees who picked it up.
+        412 when `expectedVersion` or `expectedEvidenceDigest` is stale (evidence declared or settled since the read).
+      security:
+        - agentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewDisputeRequest' }
+      responses:
+        '200':
+          description: Current state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentDisputeDetail' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '412': { $ref: '#/components/responses/StaleView' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+
+  /agent/disputes/{transactionId}/resolution:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+      - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+    put:
+      operationId: resolveDispute
+      summary: Resolve — SUBMITTED / UNDER_REVIEW → RESOLVED_ACCEPTED | RESOLVED_REJECTED
+      description: |
+        Only human agents resolve; nothing automated changes dispute status (ADR-016). The note is shown to the
+        customer. Same outcome again → 200 with the stored state and the first note unchanged. Other terminal states
+        → 409. 412 as for review.
+      security:
+        - agentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResolveDisputeRequest' }
+      responses:
+        '200':
+          description: Current state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentDisputeDetail' }
+        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+        '412': { $ref: '#/components/responses/StaleView' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+
 components:
   securitySchemes:
     userToken: { $ref: './common.yaml#/components/securitySchemes/userToken' }
+    agentToken: { $ref: './common.yaml#/components/securitySchemes/agentToken' }
   schemas:
+    QueueItem:
+      type: object
+      additionalProperties: false
+      required: [disputeId, transactionId, status, reasonCode, version, createdAt, pickedUpBy]
+      properties:
+        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        status: { type: string, enum: [SUBMITTED, UNDER_REVIEW] }
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+        version: { type: integer, minimum: 1 }
+        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        pickedUpBy: { type: [string, 'null'], maxLength: 80 }
+    EvidenceDigest:
+      type: string
+      pattern: '^[a-f0-9]{64}$'
+      description: SHA-256 over the dispute's evidence ids and statuses; changes when evidence is declared or settled.
+    AgentTimelineEvent:
+      type: object
+      additionalProperties: false
+      required: [type, at, by]
+      properties:
+        type: { $ref: '#/components/schemas/TimelineType' }
+        at: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        by: { type: string, enum: [CUSTOMER, AGENT, SYSTEM] }
+        agentName: { type: string, minLength: 1, maxLength: 80, description: Present when `by` is AGENT. }
+        detail:
+          type: object
+          additionalProperties: false
+          properties:
+            fields: { type: array, minItems: 1, maxItems: 2, items: { type: string, enum: [description, reasonCode] } }
+            fileName: { type: string, minLength: 1, maxLength: 255 }
+            reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE, SCAN_FAILED] }
+            note: { type: string, maxLength: 2000 }
+    AgentDisputeDetail:
+      description: 'What an agent sees. Never includes customer contact details or the customer id.'
+      type: object
+      additionalProperties: false
+      required: [disputeId, transactionId, status, reasonCode, description, transaction, evidence, evidenceDigest, version, createdAt, updatedAt, resolvedAt, resolutionNote, pickedUpBy, timeline]
+      properties:
+        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
+        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
+        description: { $ref: '#/components/schemas/ResponseDescription' }
+        transaction: { $ref: '#/components/schemas/TransactionRef' }
+        evidence:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/Evidence' }
+        evidenceDigest: { $ref: '#/components/schemas/EvidenceDigest' }
+        version: { type: integer, minimum: 1 }
+        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        updatedAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
+        resolvedAt:
+          oneOf:
+            - { $ref: './common.yaml#/components/schemas/Timestamp' }
+            - { type: 'null' }
+        resolutionNote: { type: [string, 'null'], maxLength: 2000 }
+        pickedUpBy: { type: [string, 'null'], maxLength: 80 }
+        timeline:
+          type: array
+          description: Ascending by `at`.
+          items: { $ref: '#/components/schemas/AgentTimelineEvent' }
+    ReviewDisputeRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, expectedEvidenceDigest]
+      properties:
+        expectedVersion: { type: integer, minimum: 1 }
+        expectedEvidenceDigest: { $ref: '#/components/schemas/EvidenceDigest' }
+    ResolveDisputeRequest:
+      type: object
+      additionalProperties: false
+      required: [outcome, note, expectedVersion, expectedEvidenceDigest]
+      properties:
+        outcome: { type: string, enum: [ACCEPTED, REJECTED] }
+        note: { type: string, minLength: 10, maxLength: 2000, description: Shown to the customer on the timeline. }
+        expectedVersion: { type: integer, minimum: 1 }
+        expectedEvidenceDigest: { $ref: '#/components/schemas/EvidenceDigest' }
     CreateDisputeRequest:
       type: object
       additionalProperties: false
@@ -470,3 +680,14 @@ components:
             fileName: { type: string, minLength: 1, maxLength: 255 }
             reason: { type: string, enum: [MALWARE, TYPE_MISMATCH, CHECKSUM, SIZE, SCAN_FAILED] }
             note: { type: string, minLength: 1, maxLength: 2000 }
+  responses:
+    InvalidTransition:
+      description: '`INVALID_TRANSITION` — not allowed from the current status (e.g. already resolved the other way, or withdrawn).'
+      content:
+        application/problem+json:
+          schema: { $ref: './common.yaml#/components/schemas/Problem' }
+    StaleView:
+      description: '`STALE_VERSION` or `STALE_EVIDENCE` — the dispute or its evidence changed since the agent read it; reload.'
+      content:
+        application/problem+json:
+          schema: { $ref: './common.yaml#/components/schemas/Problem' }

@@ -5,7 +5,7 @@ info:
   description: |
     Service-to-service disputes API. Every operation requires a **service** token with the listed scope; user tokens → 403.
     All writes are idempotent: re-applying an already-applied change returns 200 with the current state.
-    `expectedVersion` mismatch → 412. Responses are tolerant: callers ignore fields they do not know. Callers reach this port via Service Connect (tasks) or the internal ALB (Lambdas).
+    No operation here changes dispute status: agents act through the public port's `/agent/*` routes (ADR-071). Responses are tolerant: callers ignore fields they do not know. Callers reach this port via Service Connect (tasks) or the internal ALB (Lambdas).
 servers:
   - url: http://disputes.cd.internal:8081
     description: Service Connect / internal ALB (dev)
@@ -46,100 +46,6 @@ paths:
         '400': { $ref: './common.yaml#/components/responses/BadRequest' }
         '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
         '403': { $ref: './common.yaml#/components/responses/Forbidden' }
-
-  /review-queue:
-    get:
-      operationId: listReviewQueue
-      summary: Back-office queue — disputes awaiting or under review, oldest first
-      security:
-        - serviceToken: [disputes/review]
-      parameters:
-        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
-        - name: status
-          in: query
-          required: false
-          style: form
-          explode: true
-          schema: { type: array, minItems: 1, maxItems: 2, items: { type: string, enum: [SUBMITTED, UNDER_REVIEW] }, default: [SUBMITTED] }
-        - $ref: './common.yaml#/components/parameters/Limit'
-        - $ref: './common.yaml#/components/parameters/Cursor'
-      responses:
-        '200':
-          description: One page, ordered createdAt asc
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items, nextCursor]
-                properties:
-                  items:
-                    type: array
-                    maxItems: 100
-                    items:
-                      type: object
-                      required: [disputeId, transactionId, userId, status, reasonCode, version, createdAt]
-                      properties:
-                        disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
-                        transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
-                        userId: { $ref: './common.yaml#/components/schemas/Uuid' }
-                        status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
-                        reasonCode: { $ref: './common.yaml#/components/schemas/ReasonCode' }
-                        version: { type: integer, minimum: 1 }
-                        createdAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
-                  nextCursor:
-                    oneOf:
-                      - $ref: './common.yaml#/components/schemas/Cursor'
-                      - type: 'null'
-        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
-        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
-        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
-
-  /dispute/{transactionId}/review:
-    put:
-      operationId: reviewDispute
-      summary: SUBMITTED → UNDER_REVIEW
-      description: Caller — back-office on behalf of a human agent (AGENT only; no automation changes dispute status).
-      security:
-        - serviceToken: [disputes/review]
-      parameters:
-        - $ref: './common.yaml#/components/parameters/TransactionIdPath'
-        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ReviewDisputeRequest' }
-      responses:
-        '200': { $ref: '#/components/responses/DisputeState' }
-        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
-        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
-        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
-        '404': { $ref: './common.yaml#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/InvalidTransition' }
-        '412': { $ref: '#/components/responses/StaleVersion' }
-
-  /dispute/{transactionId}/resolution:
-    put:
-      operationId: resolveDispute
-      summary: Resolve (AGENT only) — SUBMITTED/UNDER_REVIEW → RESOLVED_ACCEPTED | RESOLVED_REJECTED
-      security:
-        - serviceToken: [disputes/resolve]
-      parameters:
-        - $ref: './common.yaml#/components/parameters/TransactionIdPath'
-        - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ResolveDisputeRequest' }
-      responses:
-        '200': { $ref: '#/components/responses/DisputeState' }
-        '400': { $ref: './common.yaml#/components/responses/BadRequest' }
-        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
-        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
-        '404': { $ref: './common.yaml#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/InvalidTransition' }
-        '412': { $ref: '#/components/responses/StaleVersion' }
 
   /dispute/{transactionId}/evidence/{evidenceId}:
     put:
@@ -195,30 +101,6 @@ components:
   securitySchemes:
     serviceToken: { $ref: './common.yaml#/components/securitySchemes/serviceToken' }
   schemas:
-    AgentActor:
-      type: object
-      additionalProperties: false
-      required: [type, id]
-      properties:
-        type: { const: AGENT }
-        id: { type: string, minLength: 1, maxLength: 128, description: Agent's Cognito sub. Never shown to customers. }
-    ReviewDisputeRequest:
-      type: object
-      additionalProperties: false
-      required: [actor, expectedVersion]
-      properties:
-        actor: { $ref: '#/components/schemas/AgentActor' }
-        expectedVersion: { type: integer, minimum: 1 }
-        note: { type: string, maxLength: 500 }
-    ResolveDisputeRequest:
-      type: object
-      additionalProperties: false
-      required: [outcome, note, actor, expectedVersion]
-      properties:
-        outcome: { type: string, enum: [ACCEPTED, REJECTED] }
-        note: { type: string, minLength: 1, maxLength: 2000, description: Shown to the customer on the timeline. }
-        actor: { $ref: '#/components/schemas/AgentActor' }
-        expectedVersion: { type: integer, minimum: 1 }
     EvidenceStored:
       type: object
       additionalProperties: false
@@ -240,32 +122,10 @@ components:
         sizeBytes: { type: integer, minimum: 1 }
         contentType: { type: string, minLength: 1, description: Detected from magic bytes; may be a type we do not accept. }
   responses:
-    DisputeState:
-      description: Current state after the (possibly no-op) change
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [disputeId, transactionId, status, version]
-            properties:
-              disputeId: { $ref: './common.yaml#/components/schemas/Uuid' }
-              transactionId: { $ref: './common.yaml#/components/schemas/Uuid' }
-              status: { $ref: './common.yaml#/components/schemas/DisputeStatus' }
-              version: { type: integer, minimum: 1 }
-    InvalidTransition:
-      description: '`INVALID_TRANSITION` — not allowed from the current status (e.g. terminal).'
-      content:
-        application/problem+json:
-          schema: { $ref: './common.yaml#/components/schemas/Problem' }
     EvidenceResultConflict:
       description: |
         `EVIDENCE_CLOSED` — the item is EXPIRED or ERASED, so no result can be recorded (the caller discards the upload).
         `RESULT_CONFLICT` — the item already settled as the other result (STORED vs REJECTED); the first result stands.
-      content:
-        application/problem+json:
-          schema: { $ref: './common.yaml#/components/schemas/Problem' }
-    StaleVersion:
-      description: '`expectedVersion` does not match.'
       content:
         application/problem+json:
           schema: { $ref: './common.yaml#/components/schemas/Problem' }

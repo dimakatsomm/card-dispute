@@ -2,108 +2,6 @@
 
 import * as z from 'zod';
 
-export const zAgentActor = z.strictObject({
-    type: z.literal('AGENT'),
-    id: z.string().check(ctx => {
-        if (ctx.value.length > 256) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 128,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 1) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 1,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 128) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 128,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    })
-});
-
-export const zReviewDisputeRequest = z.strictObject({
-    actor: zAgentActor,
-    expectedVersion: z.int().gte(1),
-    note: z.string().check(ctx => {
-        if (ctx.value.length > 1000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 500,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 500) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 500) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 500,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).optional()
-});
-
-export const zResolveDisputeRequest = z.strictObject({
-    outcome: z.enum(['ACCEPTED', 'REJECTED']),
-    note: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 1) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 1,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }),
-    actor: zAgentActor,
-    expectedVersion: z.int().gte(1)
-});
-
 export const zEvidenceStored = z.strictObject({
     result: z.literal('STORED'),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
@@ -143,43 +41,6 @@ export const zEvidenceRejected = z.strictObject({
     }).optional()
 });
 
-/**
- * Opaque. Issued as base64url (no padding) of a JSON pair `[timestamp, uuid]` (microsecond UTC timestamp, id).
- * The decoded content is checked by the service; a mismatch is 400 `INVALID_CURSOR`.
- *
- */
-export const zCursor = z.string().check(ctx => {
-    if (ctx.value.length > 1024) {
-        ctx.issues.push({
-            code: 'too_big',
-            origin: 'string',
-            maximum: 512,
-            inclusive: true,
-            input: ctx.value
-        });
-        return;
-    }
-    const length = [...ctx.value].length;
-    if (length < 1) {
-        ctx.issues.push({
-            code: 'too_small',
-            origin: 'string',
-            minimum: 1,
-            inclusive: true,
-            input: ctx.value
-        });
-    }
-    if (length > 512) {
-        ctx.issues.push({
-            code: 'too_big',
-            origin: 'string',
-            maximum: 512,
-            inclusive: true,
-            input: ctx.value
-        });
-    }
-}).regex(/^[A-Za-z0-9_-]+$/);
-
 export const zDisputeStatus = z.enum([
     'SUBMITTED',
     'UNDER_REVIEW',
@@ -200,23 +61,6 @@ export const zProblem = z.object({
     correlationId: z.string()
 });
 
-export const zReasonCode = z.enum([
-    'FRAUD',
-    'NOT_RECEIVED',
-    'DUPLICATE',
-    'INCORRECT_AMOUNT',
-    'CANCELLED_SUBSCRIPTION',
-    'DEFECTIVE_GOODS',
-    'OTHER'
-]);
-
-/**
- * RFC 3339 with seconds, optional fraction, and `Z` or an offset up to ±14:00; year 0000 is rejected.
- * Calendar validity (e.g. 30 February) is not expressible as a pattern; `format: date-time` covers it.
- *
- */
-export const zTimestamp = z.iso.datetime({ offset: true }).regex(/^(?!0000)[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](.[0-9]+)?(Z|[+-](0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)$/);
-
 export const zUuid = z.guid();
 
 /**
@@ -227,13 +71,6 @@ export const zUuid = z.guid();
 export const zServiceToken = z.unknown();
 
 export const zCorrelationIdHeader = z.string().regex(/^[A-Za-z0-9-]{8,64}$/);
-
-/**
- * Opaque cursor from a previous page's `nextCursor`.
- */
-export const zCursor2 = zCursor;
-
-export const zLimit = z.int().gte(1).lte(100).default(25);
 
 /**
  * One dispute per transaction, ever, so this also identifies the dispute.
@@ -266,72 +103,6 @@ export const zLookupDisputesResponse = z.object({
         status: zDisputeStatus,
         version: z.int().gte(1)
     })).max(100)
-});
-
-export const zListReviewQueueHeaders = z.object({
-    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
-});
-
-export const zListReviewQueueQuery = z.object({
-    status: z.array(z.enum(['SUBMITTED', 'UNDER_REVIEW'])).min(1).max(2).optional().default(['SUBMITTED']),
-    limit: z.int().gte(1).lte(100).optional().default(25),
-    cursor: zCursor.optional()
-});
-
-/**
- * One page, ordered createdAt asc
- */
-export const zListReviewQueueResponse = z.object({
-    items: z.array(z.object({
-        disputeId: zUuid,
-        transactionId: zUuid,
-        userId: zUuid,
-        status: zDisputeStatus,
-        reasonCode: zReasonCode,
-        version: z.int().gte(1),
-        createdAt: zTimestamp
-    })).max(100),
-    nextCursor: zCursor.nullable()
-});
-
-export const zReviewDisputeBody = zReviewDisputeRequest;
-
-export const zReviewDisputeHeaders = z.object({
-    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
-});
-
-export const zReviewDisputePath = z.object({
-    transactionId: zUuid
-});
-
-/**
- * Current state after the (possibly no-op) change
- */
-export const zReviewDisputeResponse = z.object({
-    disputeId: zUuid,
-    transactionId: zUuid,
-    status: zDisputeStatus,
-    version: z.int().gte(1)
-});
-
-export const zResolveDisputeBody = zResolveDisputeRequest;
-
-export const zResolveDisputeHeaders = z.object({
-    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
-});
-
-export const zResolveDisputePath = z.object({
-    transactionId: zUuid
-});
-
-/**
- * Current state after the (possibly no-op) change
- */
-export const zResolveDisputeResponse = z.object({
-    disputeId: zUuid,
-    transactionId: zUuid,
-    status: zDisputeStatus,
-    version: z.int().gte(1)
 });
 
 export const zRecordEvidenceResultBody = z.discriminatedUnion('result', [

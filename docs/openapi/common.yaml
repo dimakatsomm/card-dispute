@@ -18,6 +18,18 @@ components:
           authorizationUrl: https://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/authorize
           tokenUrl: https://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/token
           scopes: {}
+    agentToken:
+      type: oauth2
+      description: |
+        Cognito **access token** for a back-office agent (hosted login on the `backoffice` client, authorization code +
+        PKCE; ADR-071). Valid only with `cognito:groups` ∋ `agents` and an ACTIVE `agent_identity`. Accepted only on
+        `/agent/*` operations of the disputes public port. Customer and service tokens there → 403; agent tokens on
+        customer routes → 403.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/authorize
+          tokenUrl: https://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/token
+          scopes: {}
     serviceToken:
       type: oauth2
       description: |
@@ -32,8 +44,6 @@ components:
             users/contact.read: Read a user's contact details for notifications
             transactions/read: Raw transaction lookup by user + ids
             disputes/read: Batch dispute lookup by user + transaction ids
-            disputes/review: Move a dispute to UNDER_REVIEW
-            disputes/resolve: Resolve a dispute (agent)
             disputes/evidence.write: Record evidence scan/validation result
 
   headers:

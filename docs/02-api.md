@@ -49,9 +49,10 @@ port, so it doesn't exist from the internet (404) even with a stolen service tok
 | disputes | `PUT /dispute/{transactionId}` | public | user | — (edit / withdraw) |
 | disputes | `POST /dispute/{transactionId}/evidence` | public | user | — (declare more files → presigned URLs) |
 | disputes | `PUT /dispute/{transactionId}/evidence/{evidenceId}` | service | service | `disputes/evidence.write` (scan/validation result from evidence-intake) |
-| disputes | `GET /review-queue` | service | service | `disputes/review` (back-office queue) |
-| disputes | `PUT /dispute/{transactionId}/review` | service | service | `disputes/review` |
-| disputes | `PUT /dispute/{transactionId}/resolution` | service | service | `disputes/resolve` |
+| disputes | `GET /agent/review-queue` | public | agent | — (ADR-071) |
+| disputes | `GET /agent/disputes/{transactionId}` | public | agent | — |
+| disputes | `PUT /agent/disputes/{transactionId}/review` | public | agent | — |
+| disputes | `PUT /agent/disputes/{transactionId}/resolution` | public | agent | — |
 | all | `GET /health`, `GET /ready` | both | none | — |
 
 Notation: `GET :8081/transactions` means the service-port route.
@@ -218,7 +219,11 @@ Retry-safe (ADR-050): a declaration matching an existing `PENDING` item of the d
 - `PUT /dispute/{transactionId}/evidence/{evidenceId}` (scope `disputes/evidence.write`, caller: evidence-intake Lambda) → body `{ "result": "STORED" | "REJECTED", "reason"?: "MALWARE|TYPE_MISMATCH|CHECKSUM|SIZE|SCAN_FAILED", "sha256", "sizeBytes", "contentType" }` (the facts evidence-intake observed; required with `STORED`, optional with `REJECTED` because intake cannot observe them when the scan verdict is `ACCESS_DENIED`, `FAILED` or `SKIPPED` or `HeadObject` fails; `reason` is required with `REJECTED`), response 200 `{ "evidenceId", "status": "STORED" | "REJECTED", "s3Key"? }`. disputes compares the reported facts with the declared ones: a `STORED` result whose facts differ is recorded `REJECTED` (`TYPE_MISMATCH`, `SIZE` or `CHECKSUM`) and answered 200 with `status: "REJECTED"`, so the caller acts on the response. `s3Key` = `evidence/{disputeId}/{evidenceId}`, set by disputes only when `STORED` and never read from the body; the caller copies the object there. Writes `EVIDENCE_ADDED` or `EVIDENCE_REJECTED` to the history. Idempotent: the same result again → 200 no-op. An `evidenceId` that is not this dispute's → 404. A result for an `EXPIRED`/`ERASED` item → 409 `EVIDENCE_CLOSED`; one conflicting with the settled result (`STORED` vs `REJECTED`) → 409 `RESULT_CONFLICT` (the first result stands).
 - `GET :8081/transactions?userId=&transactionIds=&accountId?&cardId?` (≤ 100 ids; transactions, scope `transactions/read`) → `{ items: [raw txn] }`, only that user's rows that also match the optional account/card filter (non-matching or missing ids simply absent). Makes no s2s calls.
 - `GET :8081/disputes?userId=&transactionIds=` (≤ 100 ids) → `{ "items": [ { "transactionId", "disputeId", "status", "version" } ] }`. Used by transactions for the `dispute` / `disputable` fields and by the notifier (scope `disputes/read`) to read the current `version` and skip stale status emails (ADR-055).
-- `PUT /dispute/{transactionId}/review` → SUBMITTED → UNDER_REVIEW. Body `{ "actor": {"type":"AGENT","id"}, "expectedVersion", "note"? }` — AGENT only (ADR-033)
-- `GET :8081/review-queue?status=SUBMITTED|UNDER_REVIEW&limit&cursor` (scope `disputes/review`) → disputes across all customers, oldest `createdAt` first, for the back-office
-- `PUT /dispute/{transactionId}/resolution` → `{ "outcome": "ACCEPTED|REJECTED", "note", "actor": {"type":"AGENT","id"}, "expectedVersion" }` — AGENT only.
+- Back office (ADR-071): agent routes are on the disputes **public** port under `/agent/*` and need an agent token; the actor is the token's `agentId`, never a body field.
+  - `GET /agent/review-queue?status=SUBMITTED|UNDER_REVIEW&limit&cursor` → disputes across customers, oldest `createdAt` first, no customer identifiers.
+  - `GET /agent/disputes/{transactionId}` → detail with timeline (agent display names), evidence metadata, `evidenceDigest`, `pickedUpBy`, transaction.
+  - `PUT /agent/disputes/{transactionId}/review` → SUBMITTED → UNDER_REVIEW; body `{ expectedVersion, expectedEvidenceDigest }`.
+  - `PUT /agent/disputes/{transactionId}/resolution` → `{ outcome: ACCEPTED|REJECTED, note (10–2000, customer-visible), expectedVersion, expectedEvidenceDigest }`.
+  - 412 `STALE_VERSION` / `STALE_EVIDENCE`, 409 `INVALID_TRANSITION`; same-state replays → 200 with the stored state.
+- Seeded agents (local mock issuer and seed, BO-01/BO-04): `eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee` `agent.naledi` "Naledi M." ACTIVE; `ffffffff-ffff-4fff-8fff-ffffffffffff` `agent.pieter` "Pieter V." DISABLED.
 All writes idempotent: repeating an applied transition returns 200 with current state. Stale `expectedVersion` → 412.
