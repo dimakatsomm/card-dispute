@@ -80,6 +80,9 @@ export const buildApp = (config: Config, deps: Deps): FastifyInstance => {
   const findClient = (id: string | undefined): Client | undefined =>
     config.clients.find((c) => c.clientId === id);
   const sign = (claims: Readonly<Record<string, unknown>>) => signJwt(config.privateKey, claims);
+  // Groups come only from seed config, and only on clients that are meant to see them (ADR-071).
+  const groupsFor = (client: Client, user: SeedUser): ReadonlyArray<string> =>
+    client.emitsGroups ? user.groups : [];
 
   app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => {
     done(null, Object.fromEntries(new URLSearchParams(body as string)));
@@ -176,10 +179,13 @@ export const buildApp = (config: Config, deps: Deps): FastifyInstance => {
       clientId: client.clientId,
       nowSeconds: nowSeconds(),
       ttlSeconds: ACCESS_TTL_SECONDS,
+      sub: user.sub,
+      username: user.username,
+      groups: groupsFor(client, user),
     };
     return {
-      access_token: sign(accessTokenClaims({ ...base, scope, sub: user.sub, username: user.username })),
-      id_token: sign(idTokenClaims({ ...base, sub: user.sub, username: user.username, nonce })),
+      access_token: sign(accessTokenClaims({ ...base, scope })),
+      id_token: sign(idTokenClaims({ ...base, nonce })),
       ...(refresh ? { refresh_token: refresh } : {}),
       token_type: 'Bearer',
       expires_in: ACCESS_TTL_SECONDS,
@@ -267,13 +273,11 @@ export const buildApp = (config: Config, deps: Deps): FastifyInstance => {
         nowSeconds: variant === 'expired' ? nowSeconds() - 2 * ACCESS_TTL_SECONDS : nowSeconds(),
         ttlSeconds: ACCESS_TTL_SECONDS,
       };
+      const identity = { sub: user.sub, username: user.username, groups: groupsFor(client, user) };
       const claims =
         variant === 'id'
-          ? idTokenClaims({ ...base, sub: user.sub, username: user.username, nonce: null })
-          : accessTokenClaims({
-              ...base,
-              ...(isUserClient ? { sub: user.sub, username: user.username } : {}),
-            });
+          ? idTokenClaims({ ...base, ...identity, nonce: null })
+          : accessTokenClaims({ ...base, ...(isUserClient ? identity : {}) });
       const key = variant === 'bad_signature' ? generateKey() : config.privateKey;
       return { access_token: signJwt(key, claims) };
     });

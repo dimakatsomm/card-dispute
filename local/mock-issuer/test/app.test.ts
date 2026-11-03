@@ -26,10 +26,15 @@ const decode = (jwt: string) => {
   };
 };
 
-const login = async (app: ReturnType<typeof setup>['app'], user: string) => {
+const login = async (
+  app: ReturnType<typeof setup>['app'],
+  user: string,
+  clientId = 'spa',
+  redirectUri = REDIRECT,
+) => {
   const res = await app.inject({
     method: 'GET',
-    url: `/oauth2/authorize?response_type=code&client_id=spa&redirect_uri=${encodeURIComponent(REDIRECT)}&code_challenge=${challengeOf(VERIFIER)}&code_challenge_method=S256&state=xyz&login_as=${user}`,
+    url: `/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challengeOf(VERIFIER)}&code_challenge_method=S256&state=xyz&login_as=${user}`,
   });
   return new URL(res.headers.location as string);
 };
@@ -39,6 +44,7 @@ const exchange = (
   code: string,
   verifier: string,
   redirectUri = REDIRECT,
+  clientId = 'spa',
 ) =>
   app.inject({
     method: 'POST',
@@ -46,7 +52,7 @@ const exchange = (
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     payload: new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: 'spa',
+      client_id: clientId,
       code,
       redirect_uri: redirectUri,
       code_verifier: verifier,
@@ -168,8 +174,111 @@ const GRANTS_PER_DOCS_05: Readonly<Record<string, string>> = {
   'svc-disputes': 'auth/validate users/cards.read transactions/read',
   'svc-notifier': 'users/contact.read disputes/read',
   'svc-evidence-intake': 'disputes/evidence.write',
-  'svc-backoffice': 'disputes/review disputes/resolve users/cards.read',
 };
+
+const AGENT_REDIRECT = 'http://localhost:5173/agent/callback';
+
+const signInTokens = async (user: string, clientId: string, redirectUri: string) => {
+  const { app } = setup();
+  const code = (await login(app, user, clientId, redirectUri)).searchParams.get('code') as string;
+  const res = await exchange(app, code, VERIFIER, redirectUri, clientId);
+  expect(res.statusCode).toBe(200);
+  const body = res.json() as { access_token: string; id_token: string; refresh_token: string };
+  return { app, body, access: decode(body.access_token).claims, id: decode(body.id_token).claims };
+};
+
+describe('backoffice client and agent group', () => {
+  it('signs a seeded agent in on backoffice with cognito:groups on access, id and refreshed tokens', async () => {
+    const { app, body, access, id } = await signInTokens('E', 'backoffice', AGENT_REDIRECT);
+    expect(access).toMatchObject({
+      sub: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      username: 'agent.naledi',
+      client_id: 'backoffice',
+      'cognito:groups': ['agents'],
+    });
+    expect(id).toMatchObject({ aud: 'backoffice', 'cognito:groups': ['agents'] });
+
+    const refreshed = await app.inject({
+      method: 'POST',
+      url: '/oauth2/token',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: 'backoffice',
+        refresh_token: body.refresh_token,
+      }).toString(),
+    });
+    expect(
+      decode((refreshed.json() as { access_token: string }).access_token).claims['cognito:groups'],
+    ).toEqual(['agents']);
+  });
+
+  it('keeps the group off an agent signed in through spa', async () => {
+    const { access, id } = await signInTokens('E', 'spa', REDIRECT);
+    expect(access['sub']).toBe('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+    expect(access).not.toHaveProperty('cognito:groups');
+    expect(id).not.toHaveProperty('cognito:groups');
+  });
+
+  it.each(['A', 'B', 'C', 'D'])('never puts the group on customer %s, on either client', async (user) => {
+    for (const [clientId, redirect] of [
+      ['spa', REDIRECT],
+      ['backoffice', AGENT_REDIRECT],
+    ] as const) {
+      const { access, id } = await signInTokens(user, clientId, redirect);
+      expect(access).not.toHaveProperty('cognito:groups');
+      expect(id).not.toHaveProperty('cognito:groups');
+    }
+  });
+
+  it('ignores a cognito:groups request parameter', async () => {
+    const { app } = setup();
+    const res = await app.inject({
+      url: `/oauth2/authorize?response_type=code&client_id=backoffice&redirect_uri=${encodeURIComponent(AGENT_REDIRECT)}&code_challenge=${challengeOf(VERIFIER)}&code_challenge_method=S256&login_as=A&cognito%3Agroups=agents&groups=agents`,
+    });
+    const code = new URL(res.headers.location as string).searchParams.get('code') as string;
+    const tokens = (await exchange(app, code, VERIFIER, AGENT_REDIRECT, 'backoffice')).json() as {
+      access_token: string;
+    };
+    expect(decode(tokens.access_token).claims).not.toHaveProperty('cognito:groups');
+  });
+
+  it('accepts only its own redirect URIs and lists the agents on the sign-in page', async () => {
+    const { app } = setup();
+    const spaCallback = await app.inject({
+      url: `/oauth2/authorize?response_type=code&client_id=backoffice&redirect_uri=${encodeURIComponent(REDIRECT)}&code_challenge=abc&code_challenge_method=S256&login_as=E`,
+    });
+    expect(spaCallback.statusCode).toBe(400);
+
+    const agentOnSpa = await app.inject({
+      url: `/oauth2/authorize?response_type=code&client_id=spa&redirect_uri=${encodeURIComponent(AGENT_REDIRECT)}&code_challenge=abc&code_challenge_method=S256&login_as=E`,
+    });
+    expect(agentOnSpa.statusCode).toBe(400);
+
+    const page = await app.inject({
+      url: `/oauth2/authorize?response_type=code&client_id=backoffice&redirect_uri=${encodeURIComponent(AGENT_REDIRECT)}&code_challenge=abc&code_challenge_method=S256`,
+    });
+    expect(page.body).toContain('value="E"');
+    expect(page.body).toContain('value="F"');
+  });
+
+  it('takes the backoffice redirect URIs from MOCK_ISSUER_BACKOFFICE_REDIRECT_URIS when set', async () => {
+    const { config } = setup({
+      MOCK_ISSUER_BACKOFFICE_REDIRECT_URIS: 'http://localhost:8080/agent/callback',
+    });
+    expect(config.clients.find((c) => c.clientId === 'backoffice')?.redirectUris).toEqual([
+      'http://localhost:8080/agent/callback',
+    ]);
+  });
+
+  it('has no svc-backoffice client and no review or resolve scope anywhere', async () => {
+    const { app, config } = setup();
+    expect((await clientCredentials(app, 'svc-backoffice')).statusCode).toBe(401);
+    const scopes = config.clients.flatMap((c) => c.allowedScopes);
+    expect(scopes).not.toContain('disputes/review');
+    expect(scopes).not.toContain('disputes/resolve');
+  });
+});
 
 describe('client_credentials', () => {
   it.each(Object.entries(GRANTS_PER_DOCS_05))(
@@ -250,6 +359,10 @@ describe('test hooks', () => {
     expect(wrongIssuer['sub']).toBe(SEED_USERS[1]?.sub);
 
     expect((await mint('variant=id'))['token_use']).toBe('id');
+
+    expect((await mint('user=E&client_id=backoffice'))['cognito:groups']).toEqual(['agents']);
+    expect(await mint('user=E&client_id=spa')).not.toHaveProperty('cognito:groups');
+    expect(await mint('user=A&client_id=backoffice')).not.toHaveProperty('cognito:groups');
 
     const badSig = (await app.inject({ url: '/test/tokens?variant=bad_signature' })).json() as {
       access_token: string;

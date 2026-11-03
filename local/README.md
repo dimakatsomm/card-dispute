@@ -69,18 +69,24 @@ Cognito-shaped OIDC issuer: RS256 keys generated at start (set `MOCK_ISSUER_PRIV
 | B   | `bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb` | `sipho.dlamini`  |                                                                                  |
 | C   | `cccccccc-cccc-4ccc-8ccc-cccccccccccc` | `lerato.mokoena` |                                                                                  |
 | D   | `dddddddd-dddd-4ddd-8ddd-dddddddddddd` | `dumisani.zulu`  | DISABLED in the auth seed; the issuer still issues tokens, auth must reject them |
+| E   | `eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee` | `agent.naledi`   | Agent "Naledi M.", ACTIVE in the auth seed (group `agents`)                      |
+| F   | `ffffffff-ffff-4fff-8fff-ffffffffffff` | `agent.pieter`   | Agent "Pieter V.", DISABLED in the auth seed (group `agents`); auth must reject  |
+
+Group membership is fixed in `local/mock-issuer/src/config.ts`, never taken from the request. `cognito:groups: ["agents"]`
+appears on access and id tokens only for E/F and only on the `backoffice` client; the same sub signed in through `spa` gets
+no group (auth also checks the client, ADR-071). Customers A-D never carry the claim.
 
 ### Clients
 
-| Client                | Type          | Scopes                                                                         |
-| --------------------- | ------------- | ------------------------------------------------------------------------------ |
-| `spa`                 | public (PKCE) | `openid profile email`; redirect URIs `http://localhost:5173/` and `/callback` |
-| `svc-users`           | confidential  | `auth/validate`                                                                |
-| `svc-transactions`    | confidential  | `auth/validate users/cards.read disputes/read`                                 |
-| `svc-disputes`        | confidential  | `auth/validate users/cards.read transactions/read`                             |
-| `svc-notifier`        | confidential  | `users/contact.read disputes/read`                                             |
-| `svc-evidence-intake` | confidential  | `disputes/evidence.write`                                                      |
-| `svc-backoffice`      | confidential  | `disputes/review disputes/resolve users/cards.read`                            |
+| Client                | Type          | Scopes                                                                                                                                |
+| --------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `spa`                 | public (PKCE) | `openid profile email`; redirect URIs `http://localhost:5173/` and `/callback`                                                        |
+| `backoffice`          | public (PKCE) | `openid profile email`; redirect URIs `/` and `/agent/callback` on each SPA origin (`MOCK_ISSUER_BACKOFFICE_REDIRECT_URIS` overrides) |
+| `svc-users`           | confidential  | `auth/validate`                                                                                                                       |
+| `svc-transactions`    | confidential  | `auth/validate users/cards.read disputes/read`                                                                                        |
+| `svc-disputes`        | confidential  | `auth/validate users/cards.read transactions/read`                                                                                    |
+| `svc-notifier`        | confidential  | `users/contact.read disputes/read`                                                                                                    |
+| `svc-evidence-intake` | confidential  | `disputes/evidence.write`                                                                                                             |
 
 All confidential clients share `MOCK_ISSUER_CLIENT_SECRET` (default `local-dev-client-secret`). Requesting a scope the
 client is not allowed returns `invalid_scope`, as Cognito does; omitting `scope` grants all allowed scopes.
@@ -109,6 +115,23 @@ curl -s -d grant_type=authorization_code -d client_id=spa -d code="$CODE" \
 
 Refresh with `-d grant_type=refresh_token -d client_id=spa -d refresh_token=<token>`.
 
+### Sign in as the seeded agent
+
+In the browser use the SPA's "Agent sign-in" and pick `E - Naledi M. (agent)` on the mock sign-in page (`F` is the
+disabled agent, for negative tests). From the shell it is the same PKCE flow with the `backoffice` client and its callback:
+
+```bash
+LOCATION=$(curl -s -o /dev/null -w '%{redirect_url}' \
+  "http://localhost:55900/oauth2/authorize?response_type=code&client_id=backoffice&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fagent%2Fcallback&code_challenge=$CHALLENGE&code_challenge_method=S256&login_as=E")
+CODE=${LOCATION##*code=}
+curl -s -d grant_type=authorization_code -d client_id=backoffice -d code="$CODE" \
+  -d redirect_uri=http://localhost:5173/agent/callback -d code_verifier="$VERIFIER" \
+  http://localhost:55900/oauth2/token
+```
+
+The access token carries `cognito:groups: ["agents"]`; auth `/validate` returns an `agent` principal only when the
+auth seed also has an ACTIVE `agent_identity` row for the sub (BO-01). There is no service client for the back office.
+
 ### Negative-test tokens
 
 Off by default (the routes are 404). Enable with `MOCK_ISSUER_TEST_HOOKS=true docker compose up -d --build --wait` (or set it in `local/.env`); e2e and L-02 overrides set it:
@@ -118,7 +141,8 @@ curl -s 'http://localhost:55900/test/tokens?variant=expired&user=A'
 ```
 
 `variant`: `valid` (default), `expired`, `wrong_issuer`, `bad_signature` (signed by another key), `id` (`token_use: "id"`).
-`user` is A-D; `client_id` defaults to `spa`, pass a `svc-*` client for a service token (`scope` optional).
+`user` is A-F; `client_id` defaults to `spa`, pass `backoffice` for an agent token (E/F carry the group there) or a
+`svc-*` client for a service token (`scope` optional).
 
 ## Tests
 

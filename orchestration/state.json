@@ -733,11 +733,12 @@
       ]
     },
     "BO-04": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "BO-00"
-      ]
+      ],
+      "notes": "Gate PASS 2026-11-03 (security+tests+standards, one pass): backoffice client, agents E/F with cognito:groups only on backoffice, svc-backoffice and review/resolve scopes removed, parity exact vs grants.json; 30/30 tests, typecheck, eslint. Follow-ups routed to BO-02 (.env.example, compose) and BO-07 (stack.ts)."
     },
     "BO-05": {
       "status": "todo",

@@ -30,11 +30,16 @@ type AccessTokenInput = {
   readonly ttlSeconds: number;
   readonly sub?: string;
   readonly username?: string;
+  readonly groups?: ReadonlyArray<string>;
 };
+
+const groupsClaim = (groups: ReadonlyArray<string> | undefined): Claims =>
+  groups?.length ? { 'cognito:groups': [...groups] } : {};
 
 export const accessTokenClaims = (i: AccessTokenInput): Claims => ({
   ...(i.sub ? { sub: i.sub } : {}),
   ...(i.username ? { username: i.username } : {}),
+  ...groupsClaim(i.groups),
   token_use: 'access',
   client_id: i.clientId,
   scope: i.scope,
@@ -52,11 +57,13 @@ type IdTokenInput = {
   readonly nonce: string | null;
   readonly nowSeconds: number;
   readonly ttlSeconds: number;
+  readonly groups?: ReadonlyArray<string>;
 };
 
 export const idTokenClaims = (i: IdTokenInput): Claims => ({
   sub: i.sub,
   'cognito:username': i.username,
+  ...groupsClaim(i.groups),
   token_use: 'id',
   aud: i.clientId,
   iss: i.issuer,
