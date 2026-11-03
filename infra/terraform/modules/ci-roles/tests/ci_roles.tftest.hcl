@@ -164,7 +164,7 @@ run "no_role_reaches_another_deployable" {
       for k, pol in aws_iam_role_policy.this : [
         for s in jsondecode(pol.policy).Statement :
         s.Condition == { ArnEquals = { "ecs:cluster" = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd-cluster" } }
-        if length(setintersection(s.Action, ["ecs:RunTask", "ecs:DescribeTasks", "ecs:UpdateService", "ecs:DescribeServices"])) > 0
+        if length(setintersection([for a in s.Action : lower(a)], ["ecs:runtask", "ecs:describetasks", "ecs:updateservice", "ecs:describeservices"])) > 0
       ]
     ]))
     error_message = "Every RunTask, DescribeTasks, UpdateService and DescribeServices statement must carry the ecs:cluster condition."
@@ -193,7 +193,7 @@ run "pass_role_is_limited_to_own_roles_for_ecs" {
     condition = alltrue(flatten([
       for k, pol in aws_iam_role_policy.this : [
         for s in jsondecode(pol.policy).Statement : [
-          for a in s.Action : !startswith(a, "iam:") || (
+          for a in s.Action : !startswith(lower(a), "iam:") || (
             a == "iam:PassRole" && length(s.Action) == 1
             && lookup(s, "Condition", null) == { StringEquals = { "iam:PassedToService" = "ecs-tasks.amazonaws.com" } }
           )

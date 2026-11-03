@@ -658,7 +658,7 @@
       "agent": "orchestrator",
       "blockedBy": [],
       "status": "done",
-      "notes": "SEED_A_EMAIL, probe --hold, tiros perms (7b3fde0, b22b927); (4) e2e no events:/scheduler: assertion (mutation-checked) + runbook §11.1 manual checks A–C; (5) final-dlq-empty config; (6)(7) done (2026-11-03)"
+      "notes": "SEED_A_EMAIL, probe --hold, tiros perms (7b3fde0, b22b927); item 4 + gate (44c6d3d, 31522de, this commit). Gate 2026-11-03: security PASS after round 2 (case-insensitive e2e/iam/ecs action guards, ? rejected, runbook §11.1 redaction), tests PASS after round 2 (positive tiros asserts in ci-roles + boundary), standards PASS; ci-roles 8/8, bootstrap 13/13, evidence-buckets 9/9 on TF 1.11.3, mutation-checked. local/seed vitest (items 1-2) read, not run here (no node_modules)."
     },
     "DOC-M3b": {
       "agent": "orchestrator",
