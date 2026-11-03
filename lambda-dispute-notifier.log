@@ -1,0 +1,205 @@
+2026-11-03T08:41:39 START RequestId: eafa7b9a-5190-5c23-8c64-18f9f1ec0349 Version: 2
+2026-11-03T08:41:41 {"level":30,"time":<acct>7,"pid":2,"hostname":"169.254.43.89","messageId":"444e05f4-4f78-4832-9f65-483c6e61cff7","eventId":"6e7bf278-bdaa-40f9-9f48-5eaa24a9836f","eventType":"DisputeCreated","disputeId":"01a1a092-3029-736a-8cb8-0bd0834e42d4","kind":"SENT","sesMessageId":"011001a1a0923edc-5968b671-a8a5-4a74-a845-2c0564a4b201-000000","msg":"notification handled"}
+2026-11-03T08:41:41 END RequestId: eafa7b9a-5190-5c23-8c64-18f9f1ec0349
+2026-11-03T08:41:41 REPORT RequestId: eafa7b9a-5190-5c23-8c64-18f9f1ec0349	Duration: 2421.48 ms	Billed Duration: 3491 ms	Memory Size: 256 MB	Max Memory Used: 153 MB	Init Duration: 1068.70 ms
+2026-11-03T08:41:43 START RequestId: ecd0e38a-070f-5d51-9690-80e9a77371fe Version: 2
+2026-11-03T08:41:44 {"level":30,"time":<acct>1,"pid":2,"hostname":"169.254.43.89","messageId":"ac2f0c90-2191-456e-b14e-3b9d6f9c930d","eventId":"4f839c94-0a06-4651-b97f-232ed27c0dca","eventType":"EvidenceRejected","disputeId":"01a1a092-3029-736a-8cb8-0bd0834e42d4","kind":"SENT","sesMessageId":"011001a1a0924920-3a04d949-cae5-4397-a16b-caf1b1e5f400-000000","msg":"notification handled"}
+2026-11-03T08:41:44 END RequestId: ecd0e38a-070f-5d51-9690-80e9a77371fe
+2026-11-03T08:41:44 REPORT RequestId: ecd0e38a-070f-5d51-9690-80e9a77371fe	Duration: 272.68 ms	Billed Duration: 273 ms	Memory Size: 256 MB	Max Memory Used: 153 MB
+2026-11-03T08:41:44 START RequestId: f86d6369-b25f-521a-b703-000a12234a93 Version: 2
+2026-11-03T08:41:44 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.43.89","messageId":"5c6bc88c-8c05-4224-a2ed-00b7b9769137","eventId":"3dc82b5b-ab10-41cf-9283-4e1f50959968","eventType":"EvidenceStored","disputeId":"01a1a092-3029-736a-8cb8-0bd0834e42d4","kind":"SENT","sesMessageId":"011001a1a0924a58-0588eb62-1f67-4d24-b69e-d88eb74748bc-000000","msg":"notification handled"}
+2026-11-03T08:41:44 {"level":30,"time":<acct>1,"pid":2,"hostname":"169.254.43.89","messageId":"c27c10ef-f951-45af-84e5-0f5f1ffef602","eventId":"1013907c-502c-4d5d-a243-eea9d5abae4b","eventType":"EvidenceRejected","disputeId":"01a1a092-3029-736a-8cb8-0bd0834e42d4","kind":"SENT","sesMessageId":"011001a1a0924afe-4e34e977-d260-4bd4-a1ec-6942864f24c4-000000","msg":"notification handled"}
+2026-11-03T08:41:44 END RequestId: f86d6369-b25f-521a-b703-000a12234a93
+2026-11-03T08:41:44 REPORT RequestId: f86d6369-b25f-521a-b703-000a12234a93	Duration: 365.49 ms	Billed Duration: 366 ms	Memory Size: 256 MB	Max Memory Used: 153 MB
+2026-11-03T08:41:56 START RequestId: fee5c934-1074-5fcd-9dd8-aa57b0fc0362 Version: 2
+2026-11-03T08:41:56 {"level":30,"time":<acct>5,"pid":2,"hostname":"169.254.43.89","messageId":"d72bad42-1d21-4d3e-9968-7e9de31243e3","eventId":"003517fa-0122-46f7-9a83-fb8b64e02466","eventType":"DisputeCreated","disputeId":"01a1a092-790b-72b5-856f-8d760163ab14","kind":"SENT","sesMessageId":"011001a1a09279d0-6f6d020a-9875-45c8-8c0a-50cc33e0bedc-000000","msg":"notification handled"}
+2026-11-03T08:41:56 END RequestId: fee5c934-1074-5fcd-9dd8-aa57b0fc0362
+2026-11-03T08:41:56 REPORT RequestId: fee5c934-1074-5fcd-9dd8-aa57b0fc0362	Duration: 239.93 ms	Billed Duration: 240 ms	Memory Size: 256 MB	Max Memory Used: 153 MB
+2026-11-03T08:41:57 START RequestId: 88465127-e8c8-5259-af6d-3244485c1ef6 Version: 2
+2026-11-03T08:41:57 {"level":30,"time":<acct>5,"pid":2,"hostname":"169.254.43.89","messageId":"4d08d392-f1e4-4a8b-91bd-2b8e1e6219e8","eventId":"94f92355-1ca0-4b55-ba86-8c63d8e76e49","eventType":"DisputeEdited","disputeId":"01a1a092-790b-72b5-856f-8d760163ab14","kind":"SENT","sesMessageId":"011001a1a0927f2e-e6919a62-f99f-4a17-bde7-5cb411caad63-000000","msg":"notification handled"}
+2026-11-03T08:41:57 END RequestId: 88465127-e8c8-5259-af6d-3244485c1ef6
+2026-11-03T08:41:57 REPORT RequestId: 88465127-e8c8-5259-af6d-3244485c1ef6	Duration: 191.24 ms	Billed Duration: 192 ms	Memory Size: 256 MB	Max Memory Used: 153 MB
+2026-11-03T08:41:57 START RequestId: 4059c593-bda8-561f-aa05-a6f01d2f5975 Version: 2
+2026-11-03T08:41:58 {"level":30,"time":<acct>2,"pid":2,"hostname":"169.254.43.89","messageId":"6eba332a-1156-4952-8786-74a7d3e40f11","eventId":"c252d67a-b28d-4aa5-a9ea-2457d29dd5c8","eventType":"DisputeStatusChanged","disputeId":"01a1a092-790b-72b5-856f-8d760163ab14","kind":"SENT","sesMessageId":"011001a1a0927fdd-189100bf-f40f-4f47-bb8b-204fce213020-000000","msg":"notification handled"}
+2026-11-03T08:41:58 END RequestId: 4059c593-bda8-561f-aa05-a6f01d2f5975
+2026-11-03T08:41:58 REPORT RequestId: 4059c593-bda8-561f-aa05-a6f01d2f5975	Duration: 174.45 ms	Billed Duration: 175 ms	Memory Size: 256 MB	Max Memory Used: 153 MB
+2026-11-03T09:02:44 START RequestId: 19b61d9b-c417-5bef-bf2e-7ef8617ff5da Version: 2
+2026-11-03T09:02:47 {"level":30,"time":<acct>2,"pid":2,"hostname":"169.254.33.85","messageId":"49cdd491-bf36-4da4-b4fd-2f0d06424e79","eventId":"e7e9afd7-7dad-4aa6-aa96-70f0d80fb112","eventType":"DisputeCreated","disputeId":"01a1a0a5-82c7-7f14-be7a-67f584bd1def","kind":"SENT","sesMessageId":"011001a1a0a58f0e-88ab9066-a871-474a-8617-d972a098467f-000000","msg":"notification handled"}
+2026-11-03T09:02:47 END RequestId: 19b61d9b-c417-5bef-bf2e-7ef8617ff5da
+2026-11-03T09:02:47 REPORT RequestId: 19b61d9b-c417-5bef-bf2e-7ef8617ff5da	Duration: 2492.36 ms	Billed Duration: 2899 ms	Memory Size: 256 MB	Max Memory Used: 151 MB	Init Duration: 406.58 ms
+2026-11-03T09:02:49 START RequestId: 9cd1cc67-f82e-5944-ad3a-af045d402cf3 Version: 2
+2026-11-03T09:02:49 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.33.85","messageId":"c057b5ed-b948-4d54-86a8-d071a894c8fa","eventId":"94f9af9a-d288-4fe6-9224-15467a7c8950","eventType":"EvidenceStored","disputeId":"01a1a0a5-82c7-7f14-be7a-67f584bd1def","kind":"SENT","sesMessageId":"011001a1a0a598b6-384680a8-dfac-40dc-8e95-be4576e89178-000000","msg":"notification handled"}
+2026-11-03T09:02:49 END RequestId: 9cd1cc67-f82e-5944-ad3a-af045d402cf3
+2026-11-03T09:02:49 REPORT RequestId: 9cd1cc67-f82e-5944-ad3a-af045d402cf3	Duration: 368.55 ms	Billed Duration: 369 ms	Memory Size: 256 MB	Max Memory Used: 151 MB
+2026-11-03T09:02:49 START RequestId: 61b33b44-7309-5e13-87f9-5827d67c10ff Version: 2
+2026-11-03T09:02:49 {"level":30,"time":<acct>2,"pid":2,"hostname":"169.254.33.85","messageId":"61967403-306f-448d-88fa-82ab33fad488","eventId":"5ef59e16-5e76-4d9f-9aa7-2e004db8f7c1","eventType":"EvidenceRejected","disputeId":"01a1a0a5-82c7-7f14-be7a-67f584bd1def","kind":"SENT","sesMessageId":"011001a1a0a59973-335b9d0a-2d5f-4e96-b2a0-ee41c90f110a-000000","msg":"notification handled"}
+2026-11-03T09:02:49 END RequestId: 61b33b44-7309-5e13-87f9-5827d67c10ff
+2026-11-03T09:02:49 REPORT RequestId: 61b33b44-7309-5e13-87f9-5827d67c10ff	Duration: 171.28 ms	Billed Duration: 172 ms	Memory Size: 256 MB	Max Memory Used: 151 MB
+2026-11-03T09:02:50 START RequestId: e9ef34a5-35f9-5f6a-8a9b-57c69091a580 Version: 2
+2026-11-03T09:02:52 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.38.235","messageId":"398edef4-b9a3-48fd-8dc0-8a899196121b","eventId":"6957fd6f-39c7-46f9-a6b5-e7646b63f2ce","eventType":"EvidenceRejected","disputeId":"01a1a0a5-82c7-7f14-be7a-67f584bd1def","kind":"SENT","sesMessageId":"011001a1a0a5a297-04f52bea-df3e-415f-9d49-107e3d50dc9d-000000","msg":"notification handled"}
+2026-11-03T09:02:52 END RequestId: e9ef34a5-35f9-5f6a-8a9b-57c69091a580
+2026-11-03T09:02:52 REPORT RequestId: e9ef34a5-35f9-5f6a-8a9b-57c69091a580	Duration: 2036.96 ms	Billed Duration: 2594 ms	Memory Size: 256 MB	Max Memory Used: 152 MB	Init Duration: 556.99 ms
+2026-11-03T09:03:02 START RequestId: a6ff2c51-b4a0-56f0-a177-4f3211d9c347 Version: 2
+2026-11-03T09:03:02 {"level":30,"time":<acct>3,"pid":2,"hostname":"169.254.38.235","messageId":"9cbc0515-2a65-41f8-8a4b-571b79ed2b4a","eventId":"0b93bdbe-33c2-43dd-aee7-e1a5b4451ed1","eventType":"DisputeCreated","disputeId":"01a1a0a5-c98e-75a9-81ae-fff5a3d2738b","kind":"SENT","sesMessageId":"011001a1a0a5cb34-98072cc6-f961-452e-9ddd-70e8de407d68-000000","msg":"notification handled"}
+2026-11-03T09:03:02 END RequestId: a6ff2c51-b4a0-56f0-a177-4f3211d9c347
+2026-11-03T09:03:02 REPORT RequestId: a6ff2c51-b4a0-56f0-a177-4f3211d9c347	Duration: 601.23 ms	Billed Duration: 602 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T09:03:03 START RequestId: e3865375-7639-5522-9849-3016d3432b17 Version: 2
+2026-11-03T09:03:03 START RequestId: a1435546-7e45-5c72-b2a2-3625db39d698 Version: 2
+2026-11-03T09:03:03 {"level":30,"time":<acct>3,"pid":2,"hostname":"169.254.38.235","messageId":"095a3494-1b61-4573-88d8-eb5aa6403b66","eventId":"1be7f8e9-bddc-4d9a-88d2-f4580e76216b","eventType":"DisputeEdited","disputeId":"01a1a0a5-c98e-75a9-81ae-fff5a3d2738b","kind":"SENT","sesMessageId":"011001a1a0a5cfe7-0fce8ab2-81db-48a3-87a3-473d32cf8fa6-000000","msg":"notification handled"}
+2026-11-03T09:03:03 END RequestId: e3865375-7639-5522-9849-3016d3432b17
+2026-11-03T09:03:03 REPORT RequestId: e3865375-7639-5522-9849-3016d3432b17	Duration: 361.95 ms	Billed Duration: 362 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T09:03:03 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.33.85","messageId":"5a360c25-6921-45a1-8c64-a09fcc3ea1d6","eventId":"e76bdefb-9a34-40a6-8a68-204d7664caf4","eventType":"DisputeStatusChanged","disputeId":"01a1a0a5-c98e-75a9-81ae-fff5a3d2738b","kind":"SENT","sesMessageId":"011001a1a0a5d097-d3ac16a7-e2af-4259-942b-3687e1c07039-000000","msg":"notification handled"}
+2026-11-03T09:03:03 END RequestId: a1435546-7e45-5c72-b2a2-3625db39d698
+2026-11-03T09:03:03 REPORT RequestId: a1435546-7e45-5c72-b2a2-3625db39d698	Duration: 300.46 ms	Billed Duration: 301 ms	Memory Size: 256 MB	Max Memory Used: 151 MB
+2026-11-03T09:25:55 START RequestId: e30ea3ca-7833-57cf-91a9-c0a9d2e935b8 Version: 2
+2026-11-03T09:25:57 {"level":30,"time":<acct>0,"pid":2,"hostname":"169.254.26.241","messageId":"493f7e29-c48c-4876-b354-8d26741d0a29","eventId":"9fc96a95-95e7-4c73-b9ac-7c6bbb45b745","eventType":"DisputeCreated","disputeId":"01a1a0ba-b9fb-7645-b5bf-ae21beaf51ab","kind":"SENT","sesMessageId":"011001a1a0bac596-540145ed-056d-41d1-a01a-5d169df0ffc9-000000","msg":"notification handled"}
+2026-11-03T09:25:57 END RequestId: e30ea3ca-7833-57cf-91a9-c0a9d2e935b8
+2026-11-03T09:25:57 REPORT RequestId: e30ea3ca-7833-57cf-91a9-c0a9d2e935b8	Duration: 2329.71 ms	Billed Duration: 2775 ms	Memory Size: 256 MB	Max Memory Used: 152 MB	Init Duration: 445.25 ms
+2026-11-03T09:26:02 START RequestId: 4f335cac-97b5-51fa-8b8b-3fcf3d6bd38b Version: 2
+2026-11-03T09:26:03 {"level":30,"time":<acct>2,"pid":2,"hostname":"169.254.26.241","messageId":"aac22117-6253-406e-8726-05959a3fcf4b","eventId":"a0f9a30e-827e-43c2-8810-214b11d7a63e","eventType":"EvidenceRejected","disputeId":"01a1a0ba-b9fb-7645-b5bf-ae21beaf51ab","kind":"SENT","sesMessageId":"011001a1a0badb82-1289c44a-b639-4513-bc6f-b5a6b79a77ab-000000","msg":"notification handled"}
+2026-11-03T09:26:03 END RequestId: 4f335cac-97b5-51fa-8b8b-3fcf3d6bd38b
+2026-11-03T09:26:03 REPORT RequestId: 4f335cac-97b5-51fa-8b8b-3fcf3d6bd38b	Duration: 553.95 ms	Billed Duration: 554 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T09:26:03 START RequestId: b3375056-aff8-58b7-9639-3335051d6ac0 Version: 2
+2026-11-03T09:26:03 START RequestId: 58935bf3-a454-503e-9807-38900e8d1652 Version: 2
+2026-11-03T09:26:05 {"level":30,"time":<acct>7,"pid":2,"hostname":"169.254.41.37","messageId":"d9738c26-68d8-45b4-ac42-500006ddcf66","eventId":"b4ea0398-f9d7-4b32-863e-f6e62a289134","eventType":"EvidenceRejected","disputeId":"01a1a0ba-b9fb-7645-b5bf-ae21beaf51ab","kind":"SENT","sesMessageId":"011001a1a0bae317-66848f87-e341-429a-8594-f61227e4a571-000000","msg":"notification handled"}
+2026-11-03T09:26:05 END RequestId: b3375056-aff8-58b7-9639-3335051d6ac0
+2026-11-03T09:26:05 REPORT RequestId: b3375056-aff8-58b7-9639-3335051d6ac0	Duration: 1796.32 ms	Billed Duration: 2213 ms	Memory Size: 256 MB	Max Memory Used: 152 MB	Init Duration: 416.55 ms
+2026-11-03T09:26:05 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.56.3","messageId":"c80187a6-3b7f-405f-bff9-0303a121f87c","eventId":"5ac40523-9081-4006-ae36-e40d784b053c","eventType":"EvidenceRejected","disputeId":"01a1a0ba-b9fb-7645-b5bf-ae21beaf51ab","kind":"SENT","sesMessageId":"011001a1a0bae4dd-023ac56b-2b7e-4345-901f-3e487b7acf5a-000000","msg":"notification handled"}
+2026-11-03T09:26:05 END RequestId: 58935bf3-a454-503e-9807-38900e8d1652
+2026-11-03T09:26:05 REPORT RequestId: 58935bf3-a454-503e-9807-38900e8d1652	Duration: 2122.70 ms	Billed Duration: 2733 ms	Memory Size: 256 MB	Max Memory Used: 152 MB	Init Duration: 609.88 ms
+2026-11-03T09:26:14 START RequestId: e76f6200-d151-54f1-ad50-01637bbc8686 Version: 2
+2026-11-03T09:26:14 {"level":30,"time":<acct>5,"pid":2,"hostname":"169.254.56.3","messageId":"0727d4ee-0101-4357-8232-cb9366e295b0","eventId":"b4a3af5d-e8db-4c86-9875-cf4735e29f13","eventType":"DisputeCreated","disputeId":"01a1a0bb-06ab-70c5-b479-9bc331915c04","kind":"SENT","sesMessageId":"011001a1a0bb07fc-d23a9b5e-cd80-4547-85ac-51efdc42fde4-000000","msg":"notification handled"}
+2026-11-03T09:26:14 END RequestId: e76f6200-d151-54f1-ad50-01637bbc8686
+2026-11-03T09:26:14 REPORT RequestId: e76f6200-d151-54f1-ad50-01637bbc8686	Duration: 494.73 ms	Billed Duration: 495 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T09:26:15 START RequestId: 20468569-f8f9-537e-b288-e60a5209b512 Version: 2
+2026-11-03T09:26:16 START RequestId: e709cd78-20a9-5e6c-a8a7-ae1b8a43c33c Version: 2
+2026-11-03T09:26:16 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.56.3","messageId":"86172d09-fc0e-42c2-8366-5cc1bddfbf9b","eventId":"3b1f8127-c6a7-4f84-a63e-8ee66352bc07","eventType":"DisputeEdited","disputeId":"01a1a0bb-06ab-70c5-b479-9bc331915c04","kind":"SENT","sesMessageId":"011001a1a0bb0f65-55812c75-9eab-4a33-be3e-7bffd0a7ff2c-000000","msg":"notification handled"}
+2026-11-03T09:26:16 END RequestId: 20468569-f8f9-537e-b288-e60a5209b512
+2026-11-03T09:26:16 REPORT RequestId: 20468569-f8f9-537e-b288-e60a5209b512	Duration: 406.93 ms	Billed Duration: 407 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T09:26:16 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.41.37","messageId":"dccb1e00-ae95-477a-b4e9-d59f5bb01b28","eventId":"8cca7f94-0341-4453-8b2c-193f97b2ffe0","eventType":"DisputeStatusChanged","disputeId":"01a1a0bb-06ab-70c5-b479-9bc331915c04","kind":"SENT","sesMessageId":"011001a1a0bb0ff0-222fa6b6-ef0d-4224-86b6-0a742c383224-000000","msg":"notification handled"}
+2026-11-03T09:26:16 END RequestId: e709cd78-20a9-5e6c-a8a7-ae1b8a43c33c
+2026-11-03T09:26:16 REPORT RequestId: e709cd78-20a9-5e6c-a8a7-ae1b8a43c33c	Duration: 409.73 ms	Billed Duration: 410 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:33:45 START RequestId: b237ee27-e615-5727-8f4a-8d445cdd2d52 Version: 2
+2026-11-03T10:33:47 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.15.183","messageId":"5f27e15f-0ba4-4454-9ee7-0eb9a912c637","eventId":"018eaafc-cb13-45e2-b87b-d609b23aa2e7","eventType":"DisputeCreated","disputeId":"01a1a0f8-d808-73ba-a74e-3ed7c21869cc","kind":"SENT","sesMessageId":"011001a1a0f8e0d0-3c9b7b63-b353-4947-bab8-a17970de5d0a-000000","msg":"notification handled"}
+2026-11-03T10:33:47 END RequestId: b237ee27-e615-5727-8f4a-8d445cdd2d52
+2026-11-03T10:33:47 REPORT RequestId: b237ee27-e615-5727-8f4a-8d445cdd2d52	Duration: 1786.83 ms	Billed Duration: 2110 ms	Memory Size: 256 MB	Max Memory Used: 152 MB	Init Duration: 323.15 ms
+2026-11-03T10:33:49 START RequestId: 5be93857-e91b-57a2-88a9-5b3453db9ed6 Version: 2
+2026-11-03T10:33:50 {"level":30,"time":<acct>9,"pid":2,"hostname":"169.254.15.183","messageId":"66103adb-88cd-4fec-b279-3b2e63bab97b","eventId":"5e3d2274-214e-43fe-9625-4e6d485db4b1","eventType":"EvidenceRejected","disputeId":"01a1a0f8-d808-73ba-a74e-3ed7c21869cc","kind":"SENT","sesMessageId":"011001a1a0f8eb1c-00e5fa52-5ff8-48c9-b39d-fcb47c57622f-000000","msg":"notification handled"}
+2026-11-03T10:33:50 END RequestId: 5be93857-e91b-57a2-88a9-5b3453db9ed6
+2026-11-03T10:33:50 REPORT RequestId: 5be93857-e91b-57a2-88a9-5b3453db9ed6	Duration: 249.47 ms	Billed Duration: 250 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:33:50 START RequestId: ef8daade-3226-58f5-85e7-c9bd88e41100 Version: 2
+2026-11-03T10:33:50 {"level":30,"time":<acct>5,"pid":2,"hostname":"169.254.15.183","messageId":"3aad52ad-9ccb-461e-97be-0050df4739e3","eventId":"ffd5e0ca-be88-442c-899c-39ce659d801e","eventType":"EvidenceStored","disputeId":"01a1a0f8-d808-73ba-a74e-3ed7c21869cc","kind":"SENT","sesMessageId":"011001a1a0f8ecd8-af000ac8-4bac-4e21-8bbb-20e21ccf8ff4-000000","msg":"notification handled"}
+2026-11-03T10:33:50 END RequestId: ef8daade-3226-58f5-85e7-c9bd88e41100
+2026-11-03T10:33:50 REPORT RequestId: ef8daade-3226-58f5-85e7-c9bd88e41100	Duration: 177.25 ms	Billed Duration: 178 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:33:50 START RequestId: e38af792-cd84-535c-8f98-94f1774adaa9 Version: 2
+2026-11-03T10:33:51 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.15.183","messageId":"8b651d07-d21c-40d3-b689-3b5a71e802fe","eventId":"5c49136b-000c-484a-938f-a1c00c7e6047","eventType":"EvidenceRejected","disputeId":"01a1a0f8-d808-73ba-a74e-3ed7c21869cc","kind":"SENT","sesMessageId":"011001a1a0f8eea4-f5b5b3f0-1220-48d2-9256-bcb7d88e890e-000000","msg":"notification handled"}
+2026-11-03T10:33:51 END RequestId: e38af792-cd84-535c-8f98-94f1774adaa9
+2026-11-03T10:33:51 REPORT RequestId: e38af792-cd84-535c-8f98-94f1774adaa9	Duration: 155.18 ms	Billed Duration: 156 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:34:03 START RequestId: e99de606-e3b3-5043-9e85-8565597df937 Version: 2
+2026-11-03T10:34:03 {"level":30,"time":<acct>7,"pid":2,"hostname":"169.254.15.183","messageId":"632d75f9-6087-4444-9eac-9ccd638ab4d8","eventId":"f69c3689-8919-479e-9daa-26869b0fa923","eventType":"DisputeCreated","disputeId":"01a1a0f9-1e2b-7559-891d-991e2c488ae4","kind":"SENT","sesMessageId":"011001a1a0f91eb2-e5202bec-9d0a-4b1a-b615-29a5b6ab67c2-000000","msg":"notification handled"}
+2026-11-03T10:34:03 END RequestId: e99de606-e3b3-5043-9e85-8565597df937
+2026-11-03T10:34:03 REPORT RequestId: e99de606-e3b3-5043-9e85-8565597df937	Duration: 198.28 ms	Billed Duration: 199 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:34:04 START RequestId: d78bd7ab-ae6c-514a-a119-b4c814b457b9 Version: 2
+2026-11-03T10:34:04 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.15.183","messageId":"4d9a75bc-07c0-44e5-a13b-c1cc1bde4c67","eventId":"49412b52-d25d-4855-9712-28de4d8656e4","eventType":"DisputeEdited","disputeId":"01a1a0f9-1e2b-7559-891d-991e2c488ae4","kind":"SENT","sesMessageId":"011001a1a0f923db-5d514eb7-1699-4043-a2d5-6b19ac201320-000000","msg":"notification handled"}
+2026-11-03T10:34:04 END RequestId: d78bd7ab-ae6c-514a-a119-b4c814b457b9
+2026-11-03T10:34:04 REPORT RequestId: d78bd7ab-ae6c-514a-a119-b4c814b457b9	Duration: 179.49 ms	Billed Duration: 180 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:34:04 START RequestId: eb3da660-03f3-5932-b915-c503b93c90c7 Version: 2
+2026-11-03T10:34:04 {"level":30,"time":<acct>1,"pid":2,"hostname":"169.254.15.183","messageId":"8360ced6-7be1-44ee-b6e9-d3a98b4ef581","eventId":"f1edf52d-f669-41dc-b1fa-b1b12fa4f1c1","eventType":"DisputeStatusChanged","disputeId":"01a1a0f9-1e2b-7559-891d-991e2c488ae4","kind":"SENT","sesMessageId":"011001a1a0f924c8-52847c9e-e089-47f5-8f52-edb01cceebe8-000000","msg":"notification handled"}
+2026-11-03T10:34:04 END RequestId: eb3da660-03f3-5932-b915-c503b93c90c7
+2026-11-03T10:34:04 REPORT RequestId: eb3da660-03f3-5932-b915-c503b93c90c7	Duration: 171.70 ms	Billed Duration: 172 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:53:09 START RequestId: 00432d78-ddab-53a4-8f13-4e1b62e45fcf Version: 2
+2026-11-03T10:53:11 {"level":40,"time":<acct>1,"pid":2,"hostname":"169.254.73.19","messageId":"b30dc4c8-9f98-42a9-a096-3ae39a007ea8","kind":"EMAIL_FAILED","ref":{"eventId":"5b821e50-6e46-4832-b691-39a4db974a38","eventType":"DisputeCreated","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T10:53:11 END RequestId: 00432d78-ddab-53a4-8f13-4e1b62e45fcf
+2026-11-03T10:53:11 REPORT RequestId: 00432d78-ddab-53a4-8f13-4e1b62e45fcf	Duration: 1502.34 ms	Billed Duration: 2177 ms	Memory Size: 256 MB	Max Memory Used: 152 MB	Init Duration: 674.66 ms
+2026-11-03T10:53:28 START RequestId: 63a4c360-3de4-51e1-8982-a00382b33d8a Version: 2
+2026-11-03T10:53:28 {"level":40,"time":<acct>8,"pid":2,"hostname":"169.254.73.19","messageId":"3a3662f6-3010-4740-af21-4344259c6575","kind":"EMAIL_FAILED","ref":{"eventId":"8ab766dc-789f-4328-a5a9-8be026fb6b5a","eventType":"DisputeEdited","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T10:53:28 END RequestId: 63a4c360-3de4-51e1-8982-a00382b33d8a
+2026-11-03T10:53:28 REPORT RequestId: 63a4c360-3de4-51e1-8982-a00382b33d8a	Duration: 437.38 ms	Billed Duration: 438 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:56:08 START RequestId: fcb1e350-658a-5321-97d0-8033da7fdfd3 Version: 2
+2026-11-03T10:56:09 {"level":30,"time":<acct>5,"pid":2,"hostname":"169.254.73.19","messageId":"b30dc4c8-9f98-42a9-a096-3ae39a007ea8","eventId":"5b821e50-6e46-4832-b691-39a4db974a38","eventType":"DisputeCreated","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59","kind":"SKIPPED_STALE","eventVersion":1,"currentVersion":2,"msg":"notification handled"}
+2026-11-03T10:56:09 END RequestId: fcb1e350-658a-5321-97d0-8033da7fdfd3
+2026-11-03T10:56:09 REPORT RequestId: fcb1e350-658a-5321-97d0-8033da7fdfd3	Duration: 307.94 ms	Billed Duration: 308 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:56:28 START RequestId: ad0b0326-4c40-57c4-976e-60458c4979dd Version: 2
+2026-11-03T10:56:28 {"level":40,"time":<acct>1,"pid":2,"hostname":"169.254.73.19","messageId":"3a3662f6-3010-4740-af21-4344259c6575","kind":"EMAIL_FAILED","ref":{"eventId":"8ab766dc-789f-4328-a5a9-8be026fb6b5a","eventType":"DisputeEdited","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T10:56:28 END RequestId: ad0b0326-4c40-57c4-976e-60458c4979dd
+2026-11-03T10:56:28 REPORT RequestId: ad0b0326-4c40-57c4-976e-60458c4979dd	Duration: 241.98 ms	Billed Duration: 242 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:57:16 START RequestId: d75b561c-a6e4-5c70-9b37-357f66a5c900 Version: 2
+2026-11-03T10:57:16 {"level":40,"time":<acct>2,"pid":2,"hostname":"169.254.73.19","messageId":"f181bd18-a232-46a3-9a1b-1952cebfd057","kind":"EMAIL_FAILED","ref":{"eventId":"99544834-b6ad-40f1-b58f-ae9af0c9f0ce","eventType":"EvidenceRejected","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T10:57:16 END RequestId: d75b561c-a6e4-5c70-9b37-357f66a5c900
+2026-11-03T10:57:16 REPORT RequestId: d75b561c-a6e4-5c70-9b37-357f66a5c900	Duration: 200.58 ms	Billed Duration: 201 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:57:44 START RequestId: cd8698a0-9fee-51e2-b2ed-fbc35fbb6a2d Version: 2
+2026-11-03T10:57:44 {"level":40,"time":<acct>9,"pid":2,"hostname":"169.254.73.19","messageId":"646219c7-e0e4-4d89-b89d-1234f36058e6","kind":"EMAIL_FAILED","ref":{"eventId":"feafa933-f4e7-488b-8820-8d7735feb87f","eventType":"EvidenceStored","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T10:57:44 END RequestId: cd8698a0-9fee-51e2-b2ed-fbc35fbb6a2d
+2026-11-03T10:57:44 REPORT RequestId: cd8698a0-9fee-51e2-b2ed-fbc35fbb6a2d	Duration: 120.75 ms	Billed Duration: 121 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T10:59:28 START RequestId: 1ba7cb52-5847-52e3-ba70-a8319882f793 Version: 2
+2026-11-03T10:59:28 {"level":40,"time":<acct>5,"pid":2,"hostname":"169.254.73.19","messageId":"3a3662f6-3010-4740-af21-4344259c6575","kind":"EMAIL_FAILED","ref":{"eventId":"8ab766dc-789f-4328-a5a9-8be026fb6b5a","eventType":"DisputeEdited","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T10:59:28 END RequestId: 1ba7cb52-5847-52e3-ba70-a8319882f793
+2026-11-03T10:59:28 REPORT RequestId: 1ba7cb52-5847-52e3-ba70-a8319882f793	Duration: 376.93 ms	Billed Duration: 377 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:00:16 START RequestId: 0bb861dd-3ed1-53b9-be94-02befe25d1aa Version: 2
+2026-11-03T11:00:16 {"level":40,"time":<acct>3,"pid":2,"hostname":"169.254.73.19","messageId":"f181bd18-a232-46a3-9a1b-1952cebfd057","kind":"EMAIL_FAILED","ref":{"eventId":"99544834-b6ad-40f1-b58f-ae9af0c9f0ce","eventType":"EvidenceRejected","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:00:16 END RequestId: 0bb861dd-3ed1-53b9-be94-02befe25d1aa
+2026-11-03T11:00:16 REPORT RequestId: 0bb861dd-3ed1-53b9-be94-02befe25d1aa	Duration: 189.91 ms	Billed Duration: 190 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:00:44 START RequestId: dca8c200-4dd7-5200-b82a-a1638cde4f14 Version: 2
+2026-11-03T11:00:44 {"level":40,"time":<acct>8,"pid":2,"hostname":"169.254.73.19","messageId":"646219c7-e0e4-4d89-b89d-1234f36058e6","kind":"EMAIL_FAILED","ref":{"eventId":"feafa933-f4e7-488b-8820-8d7735feb87f","eventType":"EvidenceStored","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:00:44 END RequestId: dca8c200-4dd7-5200-b82a-a1638cde4f14
+2026-11-03T11:00:44 REPORT RequestId: dca8c200-4dd7-5200-b82a-a1638cde4f14	Duration: 130.81 ms	Billed Duration: 131 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:02:28 START RequestId: d4325d7e-0c14-50a6-a1b5-3e1dcd95b36b Version: 2
+2026-11-03T11:02:28 {"level":40,"time":<acct>9,"pid":2,"hostname":"169.254.73.19","messageId":"3a3662f6-3010-4740-af21-4344259c6575","kind":"EMAIL_FAILED","ref":{"eventId":"8ab766dc-789f-4328-a5a9-8be026fb6b5a","eventType":"DisputeEdited","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:02:28 END RequestId: d4325d7e-0c14-50a6-a1b5-3e1dcd95b36b
+2026-11-03T11:02:28 REPORT RequestId: d4325d7e-0c14-50a6-a1b5-3e1dcd95b36b	Duration: 195.46 ms	Billed Duration: 196 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:03:16 START RequestId: e30a2f69-475b-5987-8d83-4c0a86f5e551 Version: 2
+2026-11-03T11:03:16 {"level":40,"time":<acct>2,"pid":2,"hostname":"169.254.73.19","messageId":"f181bd18-a232-46a3-9a1b-1952cebfd057","kind":"EMAIL_FAILED","ref":{"eventId":"99544834-b6ad-40f1-b58f-ae9af0c9f0ce","eventType":"EvidenceRejected","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:03:16 END RequestId: e30a2f69-475b-5987-8d83-4c0a86f5e551
+2026-11-03T11:03:16 REPORT RequestId: e30a2f69-475b-5987-8d83-4c0a86f5e551	Duration: 168.91 ms	Billed Duration: 169 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:03:44 START RequestId: f2ea77b9-b3a5-5f79-8bed-14da72641975 Version: 2
+2026-11-03T11:03:44 {"level":40,"time":<acct>6,"pid":2,"hostname":"169.254.73.19","messageId":"646219c7-e0e4-4d89-b89d-1234f36058e6","kind":"EMAIL_FAILED","ref":{"eventId":"feafa933-f4e7-488b-8820-8d7735feb87f","eventType":"EvidenceStored","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:03:44 END RequestId: f2ea77b9-b3a5-5f79-8bed-14da72641975
+2026-11-03T11:03:44 REPORT RequestId: f2ea77b9-b3a5-5f79-8bed-14da72641975	Duration: 106.30 ms	Billed Duration: 107 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:04:38 START RequestId: ee83e387-a2f1-5854-8777-80e4630dbb99 Version: 2
+2026-11-03T11:04:38 {"level":30,"time":<acct>5,"pid":2,"hostname":"169.254.73.19","messageId":"4a1a4fc1-245e-4d8e-b7d5-5a5fc8399b2c","eventId":"7cbe989e-5fde-4e2d-9fb8-26b46299d6c8","eventType":"DisputeCreated","disputeId":"01a1a115-1ebf-7ba0-9c7d-c83122336b6d","kind":"SENT","sesMessageId":"011001a1a1151fc4-0d2ef46f-3c9f-4274-8de4-f5bf7a040f6f-000000","msg":"notification handled"}
+2026-11-03T11:04:38 END RequestId: ee83e387-a2f1-5854-8777-80e4630dbb99
+2026-11-03T11:04:38 REPORT RequestId: ee83e387-a2f1-5854-8777-80e4630dbb99	Duration: 307.78 ms	Billed Duration: 308 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:04:44 START RequestId: 0b437529-06d9-5138-918f-164ac4de42f5 Version: 2
+2026-11-03T11:04:44 {"level":30,"time":<acct>0,"pid":2,"hostname":"169.254.73.19","messageId":"e1037e32-a2bb-463a-843f-86c6c1f34ea9","eventId":"5d56ded7-5cae-4931-aa69-a1c706aa2c03","eventType":"EvidenceRejected","disputeId":"01a1a115-1ebf-7ba0-9c7d-c83122336b6d","kind":"SENT","sesMessageId":"011001a1a11535c6-9f596c18-96bd-4068-87cf-0b02c6597f50-000000","msg":"notification handled"}
+2026-11-03T11:04:44 END RequestId: 0b437529-06d9-5138-918f-164ac4de42f5
+2026-11-03T11:04:44 REPORT RequestId: 0b437529-06d9-5138-918f-164ac4de42f5	Duration: 173.90 ms	Billed Duration: 174 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:04:44 START RequestId: 4238f13c-8895-5e95-9f4c-925f496c2899 Version: 2
+2026-11-03T11:04:45 {"level":30,"time":<acct>9,"pid":2,"hostname":"169.254.73.19","messageId":"972c4476-a6cc-48d7-8cbd-0a9b896aa34e","eventId":"ff340ced-b584-4524-8eb0-ace52ea5269c","eventType":"EvidenceRejected","disputeId":"01a1a115-1ebf-7ba0-9c7d-c83122336b6d","kind":"SENT","sesMessageId":"011001a1a1153904-132e88ca-6b58-4f36-a1fa-8ba24bf91fb8-000000","msg":"notification handled"}
+2026-11-03T11:04:45 END RequestId: 4238f13c-8895-5e95-9f4c-925f496c2899
+2026-11-03T11:04:45 REPORT RequestId: 4238f13c-8895-5e95-9f4c-925f496c2899	Duration: 174.14 ms	Billed Duration: 175 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:04:46 START RequestId: 6d5419e9-11e6-5e95-92d5-7a8ad3ebc899 Version: 2
+2026-11-03T11:04:46 {"level":30,"time":<acct>9,"pid":2,"hostname":"169.254.73.19","messageId":"8b3cea8f-9425-4f21-9cac-a802c6a0cad1","eventId":"43f653d6-6554-4c61-89dd-6ad43926fe1f","eventType":"EvidenceRejected","disputeId":"01a1a115-1ebf-7ba0-9c7d-c83122336b6d","kind":"SENT","sesMessageId":"011001a1a1153d60-79f3c95e-8072-427a-911c-a625c45d82ee-000000","msg":"notification handled"}
+2026-11-03T11:04:46 END RequestId: 6d5419e9-11e6-5e95-92d5-7a8ad3ebc899
+2026-11-03T11:04:46 REPORT RequestId: 6d5419e9-11e6-5e95-92d5-7a8ad3ebc899	Duration: 82.20 ms	Billed Duration: 83 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:04:56 START RequestId: 28c0cf97-dbc2-571e-88ee-acf419cca112 Version: 2
+2026-11-03T11:04:56 {"level":30,"time":<acct>9,"pid":2,"hostname":"169.254.73.19","messageId":"f76cf6eb-c38b-4804-8c3f-faf8c5a71eb8","eventId":"d67f08ce-32e1-4b0a-8e76-ff8837e7013a","eventType":"DisputeCreated","disputeId":"01a1a115-669c-70f6-969c-b99d18b92799","kind":"SENT","sesMessageId":"011001a1a1156706-306be17f-fee9-4edf-b100-91a912b91c1e-000000","msg":"notification handled"}
+2026-11-03T11:04:56 END RequestId: 28c0cf97-dbc2-571e-88ee-acf419cca112
+2026-11-03T11:04:56 REPORT RequestId: 28c0cf97-dbc2-571e-88ee-acf419cca112	Duration: 157.99 ms	Billed Duration: 158 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:04:58 START RequestId: d5becfe1-abf2-5a01-a973-ac8269e2d673 Version: 2
+2026-11-03T11:04:58 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.73.19","messageId":"9a99b740-035c-40a1-ba76-57db63aa6169","eventId":"9eaed278-cb00-45ec-8fc8-093a3838d4cb","eventType":"DisputeEdited","disputeId":"01a1a115-669c-70f6-969c-b99d18b92799","kind":"SENT","sesMessageId":"011001a1a1156c90-d30fb59b-dc34-4409-8d46-4ceec90b37ef-000000","msg":"notification handled"}
+2026-11-03T11:04:58 END RequestId: d5becfe1-abf2-5a01-a973-ac8269e2d673
+2026-11-03T11:04:58 REPORT RequestId: d5becfe1-abf2-5a01-a973-ac8269e2d673	Duration: 153.34 ms	Billed Duration: 154 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:04:58 START RequestId: 38c32701-a54f-5ed1-8b2a-<acct> Version: 2
+2026-11-03T11:04:58 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.73.19","messageId":"cc514f15-fb9b-4b12-93b7-389c5cd57ac9","eventId":"461025e6-e433-4047-9792-60af3cfab6a9","eventType":"DisputeStatusChanged","disputeId":"01a1a115-669c-70f6-969c-b99d18b92799","kind":"SENT","sesMessageId":"011001a1a1156db5-bac657f1-3b4b-40f2-8863-3035e4fc4241-000000","msg":"notification handled"}
+2026-11-03T11:04:58 END RequestId: 38c32701-a54f-5ed1-8b2a-<acct>
+2026-11-03T11:04:58 REPORT RequestId: 38c32701-a54f-5ed1-8b2a-<acct>	Duration: 223.00 ms	Billed Duration: 224 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:05:28 START RequestId: 8bc6a019-643c-54da-9bc8-c37aa60c846e Version: 2
+2026-11-03T11:05:28 {"level":40,"time":<acct>5,"pid":2,"hostname":"169.254.73.19","messageId":"3a3662f6-3010-4740-af21-4344259c6575","kind":"EMAIL_FAILED","ref":{"eventId":"8ab766dc-789f-4328-a5a9-8be026fb6b5a","eventType":"DisputeEdited","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:05:28 END RequestId: 8bc6a019-643c-54da-9bc8-c37aa60c846e
+2026-11-03T11:05:28 REPORT RequestId: 8bc6a019-643c-54da-9bc8-c37aa60c846e	Duration: 172.95 ms	Billed Duration: 173 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:06:16 START RequestId: 22419bca-ba02-5ff3-959e-f8a97854d325 Version: 2
+2026-11-03T11:06:16 {"level":40,"time":<acct>9,"pid":2,"hostname":"169.254.73.19","messageId":"f181bd18-a232-46a3-9a1b-1952cebfd057","kind":"EMAIL_FAILED","ref":{"eventId":"99544834-b6ad-40f1-b58f-ae9af0c9f0ce","eventType":"EvidenceRejected","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:06:16 END RequestId: 22419bca-ba02-5ff3-959e-f8a97854d325
+2026-11-03T11:06:16 REPORT RequestId: 22419bca-ba02-5ff3-959e-f8a97854d325	Duration: 241.82 ms	Billed Duration: 242 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:06:44 START RequestId: f07af358-7b61-50a8-8b2d-903bb915d01c Version: 2
+2026-11-03T11:06:44 {"level":40,"time":<acct>5,"pid":2,"hostname":"169.254.73.19","messageId":"646219c7-e0e4-4d89-b89d-1234f36058e6","kind":"EMAIL_FAILED","ref":{"eventId":"feafa933-f4e7-488b-8820-8d7735feb87f","eventType":"EvidenceStored","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:06:44 END RequestId: f07af358-7b61-50a8-8b2d-903bb915d01c
+2026-11-03T11:06:44 REPORT RequestId: f07af358-7b61-50a8-8b2d-903bb915d01c	Duration: 189.58 ms	Billed Duration: 190 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:09:16 START RequestId: 5078bc0d-0cee-54b4-937b-df6ecfe7ad80 Version: 2
+2026-11-03T11:09:16 {"level":40,"time":<acct>2,"pid":2,"hostname":"169.254.73.19","messageId":"f181bd18-a232-46a3-9a1b-1952cebfd057","kind":"EMAIL_FAILED","ref":{"eventId":"99544834-b6ad-40f1-b58f-ae9af0c9f0ce","eventType":"EvidenceRejected","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:09:16 END RequestId: 5078bc0d-0cee-54b4-937b-df6ecfe7ad80
+2026-11-03T11:09:16 REPORT RequestId: 5078bc0d-0cee-54b4-937b-df6ecfe7ad80	Duration: 202.90 ms	Billed Duration: 203 ms	Memory Size: 256 MB	Max Memory Used: 152 MB
+2026-11-03T11:09:44 START RequestId: fe963314-5a20-52b2-8d40-50779918309c Version: 2
+2026-11-03T11:09:44 {"level":40,"time":<acct>1,"pid":2,"hostname":"169.254.73.19","messageId":"646219c7-e0e4-4d89-b89d-1234f36058e6","kind":"EMAIL_FAILED","ref":{"eventId":"feafa933-f4e7-488b-8820-8d7735feb87f","eventType":"EvidenceStored","disputeId":"01a1a10a-989d-7df1-ac33-3c0dabf38d59"},"errorName":"AccessDeniedException","msg":"notification failed"}
+2026-11-03T11:09:44 END RequestId: fe963314-5a20-52b2-8d40-50779918309c
+2026-11-03T11:09:44 REPORT RequestId: fe963314-5a20-52b2-8d40-50779918309c	Duration: 140.92 ms	Billed Duration: 141 ms	Memory Size: 256 MB	Max Memory Used: 152 MB

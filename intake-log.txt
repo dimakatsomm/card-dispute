@@ -1,0 +1,36 @@
+2026-11-03T08:41:43 START RequestId: 7c798683-a991-4730-b261-d8e610cc1657 Version: 2
+2026-11-03T08:41:43 START RequestId: 59d8b850-0e74-4b42-a2e3-5afe016d7cdb Version: 2
+2026-11-03T08:41:43 START RequestId: f11a8538-3084-4262-812d-87e7eafde9d0 Version: 2
+2026-11-03T08:41:44 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.74.111","correlationId":"e368dec7-573a-5e20-d4e0-abc23cfa65b8","transactionId":"407081bb-e814-8426-9b8a-3b6a4d9c8ed3","evidenceId":"01a1a092-3065-701f-8f34-50b9a883e651","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T08:41:44 END RequestId: 7c798683-a991-4730-b261-d8e610cc1657
+2026-11-03T08:41:44 REPORT RequestId: 7c798683-a991-4730-b261-d8e610cc1657	Duration: 883.77 ms	Billed Duration: 1679 ms	Memory Size: 256 MB	Max Memory Used: 142 MB	Init Duration: 794.68 ms
+2026-11-03T08:41:44 {"level":30,"time":<acct>2,"pid":2,"hostname":"169.254.61.121","correlationId":"bfbe08b9-7008-b199-03ac-3bc119b6fe0c","transactionId":"407081bb-e814-8426-9b8a-3b6a4d9c8ed3","evidenceId":"01a1a092-3067-74c7-91fc-41f0ba8c3ac5","outcome":"REJECTED","claimed":"REJECTED","reason":"TYPE_MISMATCH","msg":"evidence intake done"}
+2026-11-03T08:41:44 END RequestId: 59d8b850-0e74-4b42-a2e3-5afe016d7cdb
+2026-11-03T08:41:44 REPORT RequestId: 59d8b850-0e74-4b42-a2e3-5afe016d7cdb	Duration: 990.19 ms	Billed Duration: 1817 ms	Memory Size: 256 MB	Max Memory Used: 117 MB	Init Duration: 826.04 ms
+2026-11-03T08:41:44 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.53.37","correlationId":"825d48b8-5db0-a946-22b6-f0bad093b46e","transactionId":"407081bb-e814-8426-9b8a-3b6a4d9c8ed3","evidenceId":"01a1a092-3048-73c1-95b8-11f7c49b7ba5","outcome":"PROMOTED","claimed":"STORED","msg":"evidence intake done"}
+2026-11-03T08:41:44 END RequestId: f11a8538-3084-4262-812d-87e7eafde9d0
+2026-11-03T08:41:44 REPORT RequestId: f11a8538-3084-4262-812d-87e7eafde9d0	Duration: 1325.63 ms	Billed Duration: 2197 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 870.39 ms
+2026-11-03T09:02:48 START RequestId: 494e2f2f-56a1-4ba0-9d7c-57fc8ae8ab6f Version: 2
+2026-11-03T09:02:48 START RequestId: fe55b639-5dfc-4652-a240-886e2199ced0 Version: 2
+2026-11-03T09:02:48 START RequestId: b31dde88-f454-43e9-b20b-a9e5d4ed139e Version: 2
+2026-11-03T09:02:49 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.44.85","correlationId":"16e0e3e7-918c-776a-512d-298ed4729752","transactionId":"4a117a0c-fc83-8753-885a-91769558bdc9","evidenceId":"01a1a0a5-8302-7f66-b0a0-30fcef30f3da","outcome":"REJECTED","claimed":"REJECTED","reason":"TYPE_MISMATCH","msg":"evidence intake done"}
+2026-11-03T09:02:49 END RequestId: b31dde88-f454-43e9-b20b-a9e5d4ed139e
+2026-11-03T09:02:49 REPORT RequestId: b31dde88-f454-43e9-b20b-a9e5d4ed139e	Duration: 959.03 ms	Billed Duration: 1355 ms	Memory Size: 256 MB	Max Memory Used: 129 MB	Init Duration: 395.41 ms
+2026-11-03T09:02:49 {"level":30,"time":<acct>7,"pid":2,"hostname":"169.254.7.101","correlationId":"facca4da-4a8a-552f-3e26-cd66c90fc827","transactionId":"4a117a0c-fc83-8753-885a-91769558bdc9","evidenceId":"01a1a0a5-82ff-7934-85d2-7cf759c88824","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T09:02:49 END RequestId: fe55b639-5dfc-4652-a240-886e2199ced0
+2026-11-03T09:02:49 REPORT RequestId: fe55b639-5dfc-4652-a240-886e2199ced0	Duration: 1183.96 ms	Billed Duration: 1646 ms	Memory Size: 256 MB	Max Memory Used: 140 MB	Init Duration: 461.93 ms
+2026-11-03T09:02:49 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.12.19","correlationId":"0a4d6091-a038-3273-85b2-07ed94d0413a","transactionId":"4a117a0c-fc83-8753-885a-91769558bdc9","evidenceId":"01a1a0a5-82f3-70e4-84a8-2d0ee929a854","outcome":"PROMOTED","claimed":"STORED","msg":"evidence intake done"}
+2026-11-03T09:02:49 END RequestId: 494e2f2f-56a1-4ba0-9d7c-57fc8ae8ab6f
+2026-11-03T09:02:49 REPORT RequestId: 494e2f2f-56a1-4ba0-9d7c-57fc8ae8ab6f	Duration: 1643.91 ms	Billed Duration: 2311 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 666.62 ms
+2026-11-03T09:26:01 START RequestId: 7ed423bd-00ee-497e-9dae-37cc36b39e0c Version: 2
+2026-11-03T09:26:01 START RequestId: c1a668ef-57eb-47bc-997d-1a20b48a0a38 Version: 2
+2026-11-03T09:26:01 START RequestId: fb38687f-8391-471d-9b1a-ad6adeb0758a Version: 2
+2026-11-03T09:26:02 {"level":30,"time":<acct>0,"pid":2,"hostname":"169.254.42.63","correlationId":"cf4bf160-01c9-0473-dfdf-3305eb9b0c8d","transactionId":"bc415f8b-56da-8a08-b008-061f6b6f4dbf","evidenceId":"01a1a0ba-ba41-7b51-83a6-9b7aba50b182","outcome":"REJECTED","claimed":"REJECTED","reason":"SCAN_FAILED","msg":"evidence intake done"}
+2026-11-03T09:26:02 END RequestId: 7ed423bd-00ee-497e-9dae-37cc36b39e0c
+2026-11-03T09:26:02 REPORT RequestId: 7ed423bd-00ee-497e-9dae-37cc36b39e0c	Duration: 1044.83 ms	Billed Duration: 1421 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 375.80 ms
+2026-11-03T09:26:02 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.41.133","correlationId":"8e5b87f0-aaa2-4e5d-1723-cf1b95755f30","transactionId":"bc415f8b-56da-8a08-b008-061f6b6f4dbf","evidenceId":"01a1a0ba-ba3d-7299-b3f8-eb8624d313c5","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T09:26:02 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.56.123","correlationId":"c1c7b439-a4ca-7b5d-e1ea-c9487be7c553","transactionId":"bc415f8b-56da-8a08-b008-061f6b6f4dbf","evidenceId":"01a1a0ba-ba2e-75b8-bc5d-c6cc0211986a","outcome":"REJECTED","claimed":"REJECTED","reason":"SCAN_FAILED","msg":"evidence intake done"}
+2026-11-03T09:26:02 END RequestId: fb38687f-8391-471d-9b1a-ad6adeb0758a
+2026-11-03T09:26:02 REPORT RequestId: fb38687f-8391-471d-9b1a-ad6adeb0758a	Duration: 965.96 ms	Billed Duration: 1470 ms	Memory Size: 256 MB	Max Memory Used: 122 MB	Init Duration: 503.46 ms
+2026-11-03T09:26:02 END RequestId: c1a668ef-57eb-47bc-997d-1a20b48a0a38
+2026-11-03T09:26:02 REPORT RequestId: c1a668ef-57eb-47bc-997d-1a20b48a0a38	Duration: 1158.91 ms	Billed Duration: 1691 ms	Memory Size: 256 MB	Max Memory Used: 142 MB	Init Duration: 532.07 ms

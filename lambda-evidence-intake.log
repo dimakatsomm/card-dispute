@@ -1,0 +1,68 @@
+2026-11-03T08:41:43 START RequestId: 7c798683-a991-4730-b261-d8e610cc1657 Version: 2
+2026-11-03T08:41:43 START RequestId: 59d8b850-0e74-4b42-a2e3-5afe016d7cdb Version: 2
+2026-11-03T08:41:43 START RequestId: f11a8538-3084-4262-812d-87e7eafde9d0 Version: 2
+2026-11-03T08:41:44 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.74.111","correlationId":"e368dec7-573a-5e20-d4e0-abc23cfa65b8","transactionId":"407081bb-e814-8426-9b8a-3b6a4d9c8ed3","evidenceId":"01a1a092-3065-701f-8f34-50b9a883e651","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T08:41:44 END RequestId: 7c798683-a991-4730-b261-d8e610cc1657
+2026-11-03T08:41:44 REPORT RequestId: 7c798683-a991-4730-b261-d8e610cc1657	Duration: 883.77 ms	Billed Duration: 1679 ms	Memory Size: 256 MB	Max Memory Used: 142 MB	Init Duration: 794.68 ms
+2026-11-03T08:41:44 {"level":30,"time":<acct>2,"pid":2,"hostname":"169.254.61.121","correlationId":"bfbe08b9-7008-b199-03ac-3bc119b6fe0c","transactionId":"407081bb-e814-8426-9b8a-3b6a4d9c8ed3","evidenceId":"01a1a092-3067-74c7-91fc-41f0ba8c3ac5","outcome":"REJECTED","claimed":"REJECTED","reason":"TYPE_MISMATCH","msg":"evidence intake done"}
+2026-11-03T08:41:44 END RequestId: 59d8b850-0e74-4b42-a2e3-5afe016d7cdb
+2026-11-03T08:41:44 REPORT RequestId: 59d8b850-0e74-4b42-a2e3-5afe016d7cdb	Duration: 990.19 ms	Billed Duration: 1817 ms	Memory Size: 256 MB	Max Memory Used: 117 MB	Init Duration: 826.04 ms
+2026-11-03T08:41:44 {"level":30,"time":<acct>4,"pid":2,"hostname":"169.254.53.37","correlationId":"825d48b8-5db0-a946-22b6-f0bad093b46e","transactionId":"407081bb-e814-8426-9b8a-3b6a4d9c8ed3","evidenceId":"01a1a092-3048-73c1-95b8-11f7c49b7ba5","outcome":"PROMOTED","claimed":"STORED","msg":"evidence intake done"}
+2026-11-03T08:41:44 END RequestId: f11a8538-3084-4262-812d-87e7eafde9d0
+2026-11-03T08:41:44 REPORT RequestId: f11a8538-3084-4262-812d-87e7eafde9d0	Duration: 1325.63 ms	Billed Duration: 2197 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 870.39 ms
+2026-11-03T09:02:48 START RequestId: 494e2f2f-56a1-4ba0-9d7c-57fc8ae8ab6f Version: 2
+2026-11-03T09:02:48 START RequestId: fe55b639-5dfc-4652-a240-886e2199ced0 Version: 2
+2026-11-03T09:02:48 START RequestId: b31dde88-f454-43e9-b20b-a9e5d4ed139e Version: 2
+2026-11-03T09:02:49 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.44.85","correlationId":"16e0e3e7-918c-776a-512d-298ed4729752","transactionId":"4a117a0c-fc83-8753-885a-91769558bdc9","evidenceId":"01a1a0a5-8302-7f66-b0a0-30fcef30f3da","outcome":"REJECTED","claimed":"REJECTED","reason":"TYPE_MISMATCH","msg":"evidence intake done"}
+2026-11-03T09:02:49 END RequestId: b31dde88-f454-43e9-b20b-a9e5d4ed139e
+2026-11-03T09:02:49 REPORT RequestId: b31dde88-f454-43e9-b20b-a9e5d4ed139e	Duration: 959.03 ms	Billed Duration: 1355 ms	Memory Size: 256 MB	Max Memory Used: 129 MB	Init Duration: 395.41 ms
+2026-11-03T09:02:49 {"level":30,"time":<acct>7,"pid":2,"hostname":"169.254.7.101","correlationId":"facca4da-4a8a-552f-3e26-cd66c90fc827","transactionId":"4a117a0c-fc83-8753-885a-91769558bdc9","evidenceId":"01a1a0a5-82ff-7934-85d2-7cf759c88824","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T09:02:49 END RequestId: fe55b639-5dfc-4652-a240-886e2199ced0
+2026-11-03T09:02:49 REPORT RequestId: fe55b639-5dfc-4652-a240-886e2199ced0	Duration: 1183.96 ms	Billed Duration: 1646 ms	Memory Size: 256 MB	Max Memory Used: 140 MB	Init Duration: 461.93 ms
+2026-11-03T09:02:49 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.12.19","correlationId":"0a4d6091-a038-3273-85b2-07ed94d0413a","transactionId":"4a117a0c-fc83-8753-885a-91769558bdc9","evidenceId":"01a1a0a5-82f3-70e4-84a8-2d0ee929a854","outcome":"PROMOTED","claimed":"STORED","msg":"evidence intake done"}
+2026-11-03T09:02:49 END RequestId: 494e2f2f-56a1-4ba0-9d7c-57fc8ae8ab6f
+2026-11-03T09:02:49 REPORT RequestId: 494e2f2f-56a1-4ba0-9d7c-57fc8ae8ab6f	Duration: 1643.91 ms	Billed Duration: 2311 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 666.62 ms
+2026-11-03T09:26:01 START RequestId: 7ed423bd-00ee-497e-9dae-37cc36b39e0c Version: 2
+2026-11-03T09:26:01 START RequestId: c1a668ef-57eb-47bc-997d-1a20b48a0a38 Version: 2
+2026-11-03T09:26:01 START RequestId: fb38687f-8391-471d-9b1a-ad6adeb0758a Version: 2
+2026-11-03T09:26:02 {"level":30,"time":<acct>0,"pid":2,"hostname":"169.254.42.63","correlationId":"cf4bf160-01c9-0473-dfdf-3305eb9b0c8d","transactionId":"bc415f8b-56da-8a08-b008-061f6b6f4dbf","evidenceId":"01a1a0ba-ba41-7b51-83a6-9b7aba50b182","outcome":"REJECTED","claimed":"REJECTED","reason":"SCAN_FAILED","msg":"evidence intake done"}
+2026-11-03T09:26:02 END RequestId: 7ed423bd-00ee-497e-9dae-37cc36b39e0c
+2026-11-03T09:26:02 REPORT RequestId: 7ed423bd-00ee-497e-9dae-37cc36b39e0c	Duration: 1044.83 ms	Billed Duration: 1421 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 375.80 ms
+2026-11-03T09:26:02 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.41.133","correlationId":"8e5b87f0-aaa2-4e5d-1723-cf1b95755f30","transactionId":"bc415f8b-56da-8a08-b008-061f6b6f4dbf","evidenceId":"01a1a0ba-ba3d-7299-b3f8-eb8624d313c5","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T09:26:02 {"level":30,"time":<acct>6,"pid":2,"hostname":"169.254.56.123","correlationId":"c1c7b439-a4ca-7b5d-e1ea-c9487be7c553","transactionId":"bc415f8b-56da-8a08-b008-061f6b6f4dbf","evidenceId":"01a1a0ba-ba2e-75b8-bc5d-c6cc0211986a","outcome":"REJECTED","claimed":"REJECTED","reason":"SCAN_FAILED","msg":"evidence intake done"}
+2026-11-03T09:26:02 END RequestId: fb38687f-8391-471d-9b1a-ad6adeb0758a
+2026-11-03T09:26:02 REPORT RequestId: fb38687f-8391-471d-9b1a-ad6adeb0758a	Duration: 965.96 ms	Billed Duration: 1470 ms	Memory Size: 256 MB	Max Memory Used: 122 MB	Init Duration: 503.46 ms
+2026-11-03T09:26:02 END RequestId: c1a668ef-57eb-47bc-997d-1a20b48a0a38
+2026-11-03T09:26:02 REPORT RequestId: c1a668ef-57eb-47bc-997d-1a20b48a0a38	Duration: 1158.91 ms	Billed Duration: 1691 ms	Memory Size: 256 MB	Max Memory Used: 142 MB	Init Duration: 532.07 ms
+2026-11-03T10:33:49 START RequestId: 38dcbcbf-ffbe-44e4-bfd6-dd964ce38562 Version: 2
+2026-11-03T10:33:49 START RequestId: 3c23ea2f-82f3-4480-b278-a9ad1732895a Version: 2
+2026-11-03T10:33:49 START RequestId: 2ae2fb33-89a7-4998-9288-be3a18098589 Version: 2
+2026-11-03T10:33:50 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.66.155","correlationId":"fb69048f-05f7-0a05-d66d-b4faabb60787","transactionId":"d15a8898-0a6a-879f-9a05-04535c4942d5","evidenceId":"01a1a0f8-d82c-7d9d-8c3e-0d2b19e6c150","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T10:33:50 END RequestId: 38dcbcbf-ffbe-44e4-bfd6-dd964ce38562
+2026-11-03T10:33:50 REPORT RequestId: 38dcbcbf-ffbe-44e4-bfd6-dd964ce38562	Duration: 962.32 ms	Billed Duration: 1378 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 415.57 ms
+2026-11-03T10:33:50 {"level":30,"time":<acct>7,"pid":2,"hostname":"169.254.26.97","correlationId":"58b4fcd1-162d-fbee-50d1-5eb754a6129f","transactionId":"d15a8898-0a6a-879f-9a05-04535c4942d5","evidenceId":"01a1a0f8-d825-7ab6-bea0-37be23aeacab","outcome":"PROMOTED","claimed":"STORED","msg":"evidence intake done"}
+2026-11-03T10:33:50 END RequestId: 3c23ea2f-82f3-4480-b278-a9ad1732895a
+2026-11-03T10:33:50 REPORT RequestId: 3c23ea2f-82f3-4480-b278-a9ad1732895a	Duration: 1340.14 ms	Billed Duration: 1836 ms	Memory Size: 256 MB	Max Memory Used: 143 MB	Init Duration: 495.29 ms
+2026-11-03T10:33:51 {"level":30,"time":<acct>3,"pid":2,"hostname":"169.254.44.107","correlationId":"4887913e-e448-9630-bd3c-b6efa94747f6","transactionId":"d15a8898-0a6a-879f-9a05-04535c4942d5","evidenceId":"01a1a0f8-d832-7111-9dd3-b423b6816f5e","outcome":"REJECTED","claimed":"REJECTED","reason":"TYPE_MISMATCH","msg":"evidence intake done"}
+2026-11-03T10:33:51 END RequestId: 2ae2fb33-89a7-4998-9288-be3a18098589
+2026-11-03T10:33:51 REPORT RequestId: 2ae2fb33-89a7-4998-9288-be3a18098589	Duration: 1130.43 ms	Billed Duration: 1625 ms	Memory Size: 256 MB	Max Memory Used: 123 MB	Init Duration: 493.96 ms
+2026-11-03T10:57:15 START RequestId: 569587dc-84c3-486b-8ee8-5612448116d9 Version: 2
+2026-11-03T10:57:16 {"level":30,"time":<acct>2,"pid":2,"hostname":"169.254.0.179","correlationId":"db0aeba7-9d98-25db-b58e-1e95022682e0","transactionId":"01201315-fc99-8688-9f32-7c88ea02a5f7","evidenceId":"01a1a10e-4c57-798d-90b1-9e06844d75c1","outcome":"REJECTED","claimed":"REJECTED","reason":"SCAN_FAILED","msg":"evidence intake done"}
+2026-11-03T10:57:16 END RequestId: 569587dc-84c3-486b-8ee8-5612448116d9
+2026-11-03T10:57:16 REPORT RequestId: 569587dc-84c3-486b-8ee8-5612448116d9	Duration: 1341.64 ms	Billed Duration: 1843 ms	Memory Size: 256 MB	Max Memory Used: 123 MB	Init Duration: 501.20 ms
+2026-11-03T10:57:43 START RequestId: d77f9b0e-17f7-4cb1-9494-101956928e15 Version: 2
+2026-11-03T10:57:45 {"level":30,"time":<acct>0,"pid":2,"hostname":"169.254.0.179","correlationId":"80d24659-56f2-42f3-a3b5-774e211dfb2a","transactionId":"01201315-fc99-8688-9f32-7c88ea02a5f7","evidenceId":"01a1a10e-8743-73ed-aeb2-f21166a87837","outcome":"PROMOTED","claimed":"STORED","msg":"evidence intake done"}
+2026-11-03T10:57:45 END RequestId: d77f9b0e-17f7-4cb1-9494-101956928e15
+2026-11-03T10:57:45 REPORT RequestId: d77f9b0e-17f7-4cb1-9494-101956928e15	Duration: 1104.16 ms	Billed Duration: 1105 ms	Memory Size: 256 MB	Max Memory Used: 143 MB
+2026-11-03T11:04:43 START RequestId: c2ad2273-b36e-4124-bd71-b1734d65a5d3 Version: 2
+2026-11-03T11:04:44 START RequestId: ff46b285-6aef-49ba-92cc-91b84cc37710 Version: 2
+2026-11-03T11:04:44 {"level":30,"time":<acct>8,"pid":2,"hostname":"169.254.26.203","correlationId":"6992072a-d6a2-7108-247c-6bfab5629db4","transactionId":"4fd18468-db43-80e8-8842-aa0d0db79e9b","evidenceId":"01a1a115-1ef0-74d8-9ea8-5c728059fe95","outcome":"REJECTED","claimed":"REJECTED","reason":"MALWARE","msg":"evidence intake done"}
+2026-11-03T11:04:44 END RequestId: c2ad2273-b36e-4124-bd71-b1734d65a5d3
+2026-11-03T11:04:44 REPORT RequestId: c2ad2273-b36e-4124-bd71-b1734d65a5d3	Duration: 1491.30 ms	Billed Duration: 1927 ms	Memory Size: 256 MB	Max Memory Used: 142 MB	Init Duration: 434.90 ms
+2026-11-03T11:04:45 {"level":30,"time":<acct>9,"pid":2,"hostname":"169.254.19.27","correlationId":"83f53212-83eb-febe-afd2-66cec847a59b","transactionId":"4fd18468-db43-80e8-8842-aa0d0db79e9b","evidenceId":"01a1a115-1ee5-7ae6-83b7-1bc68a8d9849","outcome":"REJECTED","claimed":"REJECTED","reason":"SCAN_FAILED","msg":"evidence intake done"}
+2026-11-03T11:04:45 END RequestId: ff46b285-6aef-49ba-92cc-91b84cc37710
+2026-11-03T11:04:45 REPORT RequestId: ff46b285-6aef-49ba-92cc-91b84cc37710	Duration: 959.36 ms	Billed Duration: 1958 ms	Memory Size: 256 MB	Max Memory Used: 117 MB	Init Duration: 998.40 ms
+2026-11-03T11:04:45 START RequestId: d03956bd-8901-46fa-b693-3c8c745b644c Version: 2
+2026-11-03T11:04:46 {"level":30,"time":<acct>7,"pid":2,"hostname":"169.254.2.251","correlationId":"8ea29e9f-6e57-68d9-89ff-f478e107f78e","transactionId":"4fd18468-db43-80e8-8842-aa0d0db79e9b","evidenceId":"01a1a115-1ef2-7dec-9808-7db7950a078a","outcome":"REJECTED","claimed":"REJECTED","reason":"TYPE_MISMATCH","msg":"evidence intake done"}
+2026-11-03T11:04:46 END RequestId: d03956bd-8901-46fa-b693-3c8c745b644c
+2026-11-03T11:04:46 REPORT RequestId: d03956bd-8901-46fa-b693-3c8c745b644c	Duration: 1032.75 ms	Billed Duration: 1955 ms	Memory Size: 256 MB	Max Memory Used: 117 MB	Init Duration: 922.17 ms
