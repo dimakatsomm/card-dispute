@@ -340,6 +340,16 @@ run "boundary_caps_workloads" {
     )) == 0
     error_message = "The boundary must allow the path-component reads Reachability Analyzer performs as the e2e role."
   }
+
+  assert {
+    condition = one([
+      for s in jsondecode(aws_iam_policy.boundary.policy).Statement :
+      length(setsubtract(["tiros:CreateQuery", "tiros:GetQueryAnswer", "tiros:GetQueryExplanation"], s.Action)) == 0
+      && jsonencode(s.Condition) == jsonencode({ StringEquals = { "aws:RequestedRegion" = ["eu-north-1"] } })
+      if s.Sid == "NoResourceLevelActions"
+    ])
+    error_message = "The boundary must allow the tiros query actions, region-conditioned, or the e2e role's grant has no effect."
+  }
 }
 
 run "no_wildcards_outside_documented_exceptions" {

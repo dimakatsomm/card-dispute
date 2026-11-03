@@ -624,6 +624,57 @@ OWN-7, after the first real status-change mail: open it in your mail client, cop
 (`Authentication-Results`, DMARC result) and paste them back. This closes V-05 and R-6 (SES cannot DKIM-sign for
 `icloud.com`, so DMARC alignment may fail and the mail may land in spam; that is accepted for dev).
 
+### 11.1 M3-gate manual checks (owner admin session)
+
+The `e2e` role is deliberately not allowed to put events or invoke Lambdas, because that would let CI forge scan
+results or run retention. These three checks run as your SSO admin instead. Paste each output back for the M3-gate.
+If any result differs from its "expect" line, stop.
+
+```bash
+export Q=$(terraform -chdir=$ENV output -raw quarantine_bucket_name)
+```
+
+**A. Nobody can forge a GuardDuty scan result.** `aws.*` sources are reserved for AWS services, even for an admin:
+
+```bash
+aws events put-events --entries '[{"Source":"aws.guardduty","DetailType":"GuardDuty Malware Protection Object Scan Result","Detail":"{}"}]' \
+  --query '[FailedEntryCount, Entries[0].ErrorCode]' --output text
+# expect: 1  NotAuthorizedForSourceException
+```
+
+**B. The retention sweeper reaches Aurora over TLS.** The cluster has `rds.force_ssl = 1` and the sweeper verifies
+the RDS CA, so a successful sweep proves a verified TLS connection:
+
+```bash
+OUT=$(mktemp)   # outside the repo: a failure body can name the cluster host
+aws lambda invoke --function-name cd-retention-sweeper --qualifier live "$OUT" \
+  --query '[StatusCode, FunctionError]' --output text && cat "$OUT"
+# expect: 200  None, then {"expired":<n>,"erased":<n>}
+```
+
+If it fails, paste back only the `errorType` and `errorMessage`, with any hostname or IP address replaced by `<redacted>`.
+
+**C. The quarantine bucket policy denies by itself.** Your admin role has `s3:*` in IAM, so a 403 here can only
+come from the bucket policy. The e2e suite proves only the workload IAM side. The keys do not exist, so without the
+policy you would get 404, not 403:
+
+```bash
+aws s3api get-object --bucket "$Q" --key intake/gate-check-absent /dev/null 2>&1 | grep -o 'AccessDenied\|NoSuchKey'
+# expect: AccessDenied   (DenyReadUnlessScannedClean)
+aws s3api put-object-tagging --bucket "$Q" --key intake/gate-check-absent \
+  --tagging 'TagSet=[{Key=GuardDutyMalwareScanStatus,Value=NO_THREATS_FOUND}]' 2>&1 | grep -o 'AccessDenied\|NoSuchKey'
+# expect: AccessDenied   (DenyTagWritesExceptGuardDuty)
+aws s3api put-object --bucket "$Q" --key intake/gate-check-tagged --body /dev/null \
+  --tagging 'GuardDutyMalwareScanStatus=NO_THREATS_FOUND' 2>&1 | grep -o 'AccessDenied'
+# expect: AccessDenied   (DenyUploadWithScanTag, and DenyTagWritesExceptGuardDuty if S3 also checks tagging)
+aws s3api put-object --bucket "$Q" --key outside/gate-check --body /dev/null 2>&1 | grep -o 'AccessDenied'
+# expect: AccessDenied   (DenyUploadOutsideIntake)
+```
+
+If either `put-object` prints nothing, run it again without the `grep` to see the real error (an expired session
+also prints nothing). Then check `aws s3api head-object --bucket "$Q" --key <key>`. If the object exists, the
+policy is wrong: delete it (`aws s3 rm "s3://$Q/<key>"`) and stop.
+
 ---
 
 ## Park and unpark

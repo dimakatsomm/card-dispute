@@ -164,7 +164,7 @@ run "no_role_reaches_another_deployable" {
       for k, pol in aws_iam_role_policy.this : [
         for s in jsondecode(pol.policy).Statement :
         s.Condition == { ArnEquals = { "ecs:cluster" = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd-cluster" } }
-        if length(setintersection(s.Action, ["ecs:RunTask", "ecs:DescribeTasks", "ecs:UpdateService", "ecs:DescribeServices"])) > 0
+        if length(setintersection([for a in s.Action : lower(a)], ["ecs:runtask", "ecs:describetasks", "ecs:updateservice", "ecs:describeservices"])) > 0
       ]
     ]))
     error_message = "Every RunTask, DescribeTasks, UpdateService and DescribeServices statement must carry the ecs:cluster condition."
@@ -175,13 +175,14 @@ run "no_role_reaches_another_deployable" {
     error_message = "e2e may run only the net-probe task family."
   }
 
+  # E-03x: events:/scheduler: would let CI forge GuardDuty scan results or move retention; IAM actions are case-insensitive.
   assert {
     condition = alltrue(flatten([
       for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : [
-        for a in s.Action : !startswith(a, "ecr:") && !startswith(a, "lambda:") && !contains(["ecs:UpdateService", "ecs:RegisterTaskDefinition", "sqs:SendMessage", "s3:PutObject", "s3:DeleteObject"], a)
+        for a in s.Action : alltrue([for p in ["ecr:", "lambda:", "events:", "scheduler:"] : !startswith(lower(a), p)]) && !contains(["ecs:updateservice", "ecs:registertaskdefinition", "sqs:sendmessage", "s3:putobject", "s3:deleteobject"], lower(a))
       ]
     ]))
-    error_message = "e2e must not deploy, publish or write to queues and buckets."
+    error_message = "e2e must not deploy, publish, put events, touch schedules or write to queues and buckets."
   }
 }
 
@@ -192,7 +193,7 @@ run "pass_role_is_limited_to_own_roles_for_ecs" {
     condition = alltrue(flatten([
       for k, pol in aws_iam_role_policy.this : [
         for s in jsondecode(pol.policy).Statement : [
-          for a in s.Action : !startswith(a, "iam:") || (
+          for a in s.Action : !startswith(lower(a), "iam:") || (
             a == "iam:PassRole" && length(s.Action) == 1
             && lookup(s, "Condition", null) == { StringEquals = { "iam:PassedToService" = "ecs-tasks.amazonaws.com" } }
           )
@@ -245,8 +246,8 @@ run "wildcards_only_where_documented" {
   }
 
   assert {
-    condition     = alltrue(flatten([for pol in aws_iam_role_policy.this : [for s in jsondecode(pol.policy).Statement : [for a in s.Action : !strcontains(a, "*")]]]))
-    error_message = "No action may contain a wildcard."
+    condition     = alltrue(flatten([for pol in aws_iam_role_policy.this : [for s in jsondecode(pol.policy).Statement : [for a in s.Action : !strcontains(a, "*") && !strcontains(a, "?")]]]))
+    error_message = "No action may contain a wildcard (* or ?)."
   }
 
   assert {
@@ -265,6 +266,14 @@ run "wildcards_only_where_documented" {
       flatten([for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : s.Action if s.Sid == "ReachabilityPathComponentRead"]),
     )) == 0
     error_message = "e2e must read the path components Reachability Analyzer walks, or the analysis fails with insufficient permissions."
+  }
+
+  assert {
+    condition = length(setsubtract(
+      ["tiros:CreateQuery", "tiros:GetQueryAnswer", "tiros:GetQueryExplanation"],
+      flatten([for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : s.Action if s.Sid == "ReachabilityRead"]),
+    )) == 0 && alltrue(flatten([for k, pol in aws_iam_role_policy.this : [for s in jsondecode(pol.policy).Statement : [for a in s.Action : k == "e2e" || !startswith(lower(a), "tiros:")]]]))
+    error_message = "Only e2e may call tiros, and it needs all three query actions or Reachability Analyzer fails with insufficient permissions."
   }
 
   assert {
