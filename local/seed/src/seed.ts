@@ -65,6 +65,15 @@ const SQL = {
     select r.username from jsonb_to_recordset($1::jsonb) as r(cognito_sub text, username text, user_id uuid)
     left join auth.auth_identity i on i.username = r.username
     where i.cognito_sub is distinct from r.cognito_sub or i.user_id is distinct from r.user_id`,
+  agentIdentity: `
+    insert into auth.agent_identity (agent_id, cognito_sub, display_name, status)
+    select agent_id, cognito_sub, display_name, status
+    from jsonb_to_recordset($1::jsonb) as r(agent_id uuid, cognito_sub text, display_name text, status text)
+    on conflict do nothing`,
+  agentMismatch: `
+    select r.cognito_sub from jsonb_to_recordset($1::jsonb) as r(agent_id uuid, cognito_sub text)
+    left join auth.agent_identity a on a.cognito_sub = r.cognito_sub
+    where a.agent_id is distinct from r.agent_id`,
   transaction: `
     insert into transactions.transaction (transaction_id, user_id, account_id, card_id, amount, currency,
       merchant_name, mcc, type, status, transaction_at, posted_at)
@@ -117,7 +126,12 @@ const inserts = (data: SeedData): Readonly<Record<Service, Insert>> => ({
     if (mismatched.rows.length > 0) {
       throw new Error(`auth_identity differs from the identity provider for ${mismatched.rows.map((r) => r.username).join(', ')}`);
     }
-    return { auth_identity: inserted };
+    const agents = await count(c, SQL.agentIdentity, [json(data.agentIdentities)]);
+    const agentMismatched = await c.query<{ cognito_sub: string }>(SQL.agentMismatch, [json(data.agentIdentities)]);
+    if (agentMismatched.rows.length > 0) {
+      throw new Error(`agent_identity differs from the seed for ${agentMismatched.rows.map((r) => r.cognito_sub).join(', ')}`);
+    }
+    return { auth_identity: inserted, agent_identity: agents };
   },
   transactions: async (c) => ({ transaction: await count(c, SQL.transaction, [json(data.transactions)]) }),
   disputes: async (c) => {

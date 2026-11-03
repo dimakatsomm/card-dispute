@@ -77,6 +77,7 @@ describe('runAwsSeed against Postgres 18 with Cognito stubbed', () => {
         seed_secret_created: 4,
         app_user: 4,
         auth_identity: 4,
+        agent_identity: 0,
         transaction: data.transactions.length,
         dispute: 4,
       },
@@ -88,6 +89,7 @@ describe('runAwsSeed against Postgres 18 with Cognito stubbed', () => {
         .map(([username, u]) => ({ username, cognito_sub: u.sub, status: u.enabled ? 'ACTIVE' : 'DISABLED' })),
     );
     expect(stored.rows.map((r) => r.cognito_sub)).not.toContain('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    expect((await adminQuery('select count(*)::int as n from auth.agent_identity')).rows).toEqual([{ n: 0 }]);
 
     aws.calls.length = 0;
     const second = await runAwsSeed(seedDeps(aws))(data);

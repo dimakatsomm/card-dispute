@@ -11,6 +11,7 @@ const data = generateSeedData({ seed: DEFAULT_SEED, now: new Date('2026-10-19T09
 
 const TABLES = [
   'auth.auth_identity',
+  'auth.agent_identity',
   'users.app_user',
   'users.account',
   'users.card',
@@ -64,6 +65,7 @@ describe('runSeed against Postgres 18 (bootstrap + committed migrations)', () =>
         account: data.accounts.length,
         card: data.cards.length,
         auth_identity: 4,
+        agent_identity: 2,
         transaction: data.transactions.length,
         dispute: 4,
         dispute_status_history: data.history.length,
@@ -96,6 +98,20 @@ describe('runSeed against Postgres 18 (bootstrap + committed migrations)', () =>
       { username: 'sipho.dlamini', status: 'ACTIVE', profile_status: 'ACTIVE' },
       { username: 'thandi.nkosi', status: 'ACTIVE', profile_status: 'ACTIVE' },
     ]);
+  });
+
+  it('seeds the docs/02 agents, one ACTIVE and one DISABLED, and the ACTIVE one is the actor on seeded agent history', async () => {
+    const agents = await adminQuery(
+      'select cognito_sub, display_name, status from auth.agent_identity order by cognito_sub',
+    );
+    expect(agents.rows).toEqual([
+      { cognito_sub: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', display_name: 'Naledi M.', status: 'ACTIVE' },
+      { cognito_sub: 'ffffffff-ffff-4fff-8fff-ffffffffffff', display_name: 'Pieter V.', status: 'DISABLED' },
+    ]);
+    const actors = await adminQuery(`
+      select distinct a.display_name from disputes.dispute_status_history h
+      left join auth.agent_identity a on a.agent_id::text = h.actor_id where h.actor_type = 'AGENT'`);
+    expect(actors.rows).toEqual([{ display_name: 'Naledi M.' }]);
   });
 
   it('stores history in action order per dispute', async () => {

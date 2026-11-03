@@ -109,6 +109,7 @@ beforeAll(async () => {
         '002_dispute_status_history.sql',
         '003_dispute_evidence.sql',
         '004_retention_erasure.sql',
+        '005_review_queue_index.sql',
       ],
     },
   });
@@ -444,95 +445,113 @@ describe('retention erasure (004)', () => {
       { rel: 'dispute_evidence', tgname: 'dispute_evidence_status_guard', tgenabled: 'O' },
     ]);
   });
+});
 
-  describe('sweeper candidate query plans', () => {
-    type PlanNode = {
-      readonly 'Node Type': string;
-      readonly 'Relation Name'?: string;
-      readonly 'Index Name'?: string;
-      readonly Plans?: PlanNode[];
-    };
+describe('query plans on seeded, analyzed data', () => {
+  type PlanNode = {
+    readonly 'Node Type': string;
+    readonly 'Relation Name'?: string;
+    readonly 'Index Name'?: string;
+    readonly Plans?: PlanNode[];
+  };
 
-    const nodesOf = (n: PlanNode): PlanNode[] => [n, ...(n.Plans ?? []).flatMap(nodesOf)];
+  const nodesOf = (n: PlanNode): PlanNode[] => [n, ...(n.Plans ?? []).flatMap(nodesOf)];
 
-    const scansOf = async (sql: string): Promise<string[]> => {
-      const r = await asRole('disputes_retention', `explain (format json) ${sql}`);
-      return nodesOf(r.rows[0]['QUERY PLAN'][0].Plan as PlanNode)
-        .filter((n) => n['Relation Name'] !== undefined || n['Index Name'] !== undefined)
-        .map((n) => `${n['Node Type']} ${n['Index Name'] ?? n['Relation Name']}`);
-    };
+  const planOf = async (role: Role, sql: string): Promise<PlanNode[]> => {
+    const r = await asRole(role, `explain (format json) ${sql}`);
+    return nodesOf(r.rows[0]['QUERY PLAN'][0].Plan as PlanNode);
+  };
 
-    beforeAll(async () => {
-      // ~3.4 years of hourly disputes; terminal ones over 1 year + 30 days ago are already erased, leaving a backlog of candidates.
-      await asRole(
-        'disputes_migrator',
-        `with s as (
-           select g, now() - g * interval '1 hour' as ts,
-                  case when g % 10 = 0 then 'SUBMITTED' when g % 10 = 1 then 'UNDER_REVIEW'
-                       when g % 10 in (2, 3) then 'WITHDRAWN' when g % 10 in (4, 5, 6) then 'RESOLVED_REJECTED'
-                       else 'RESOLVED_ACCEPTED' end as status
-             from generate_series(1, 30000) g)
-         insert into dispute (transaction_id, user_id, reason_code, description, status, resolved_at,
-                              created_by, updated_by, created_at, updated_at)
-         select gen_random_uuid(), gen_random_uuid(), 'OTHER',
-                case when status not in ('SUBMITTED', 'UNDER_REVIEW') and ts + interval '7 days' < now() - interval '1 year 30 days'
-                     then '[erased]' else 'Seeded plan-test dispute' end,
-                status, case when status like 'RESOLVED_%' then ts + interval '7 days' end,
-                'USER:u', 'USER:u', ts, ts
-           from s`,
-      );
-      await asRole(
-        'disputes_migrator',
-        `insert into dispute_status_history (dispute_id, action, from_status, to_status, actor_type, actor_id, created_at)
-         select id, 'CREATE', null, 'SUBMITTED', 'USER', 'u', created_at from dispute
-         union all
-         select id, 'WITHDRAW', 'SUBMITTED', 'WITHDRAWN', 'USER', 'u', created_at + interval '7 days'
-           from dispute where status = 'WITHDRAWN'
-         union all
-         select id, 'RESOLVE', 'UNDER_REVIEW', status, 'AGENT', 'a', resolved_at from dispute where resolved_at is not null`,
-      );
-      await asRole(
-        'disputes_migrator',
-        `insert into dispute_evidence (dispute_id, file_name, declared_content_type, declared_size_bytes, declared_sha256,
-                                       status, s3_key, created_at, updated_at)
-         select d.id, case when d.description = '[erased]' then '[erased]' else 'receipt.pdf' end,
-                'application/pdf', 100, '${SHA}', e.status,
-                case when e.status = 'STORED' then 'evidence/' || d.dispute_id || '/' || n end, d.created_at, d.created_at
-           from dispute d cross join generate_series(1, 2) n
-           cross join lateral (select case when d.description = '[erased]' then 'ERASED'
-                                           when d.created_at > now() - interval '48 hours' then 'PENDING'
-                                           else 'STORED' end as status) e`,
-      );
-      await asRole('disputes_migrator', 'analyze dispute; analyze dispute_status_history; analyze dispute_evidence');
-    });
+  const scansOf = async (sql: string, role: Role = 'disputes_retention'): Promise<string[]> =>
+    (await planOf(role, sql))
+      .filter((n) => n['Relation Name'] !== undefined || n['Index Name'] !== undefined)
+      .map((n) => `${n['Node Type']} ${n['Index Name'] ?? n['Relation Name']}`);
 
-    it.each<[string, string, string]>([
-      [
-        'PENDING evidence by age',
-        `select id from disputes.dispute_evidence
-          where status = 'PENDING' and created_at <= now() - interval '24 hours' order by created_at limit 100`,
-        'dispute_evidence_pending_age_idx',
-      ],
-      [
-        'RESOLVED_* disputes by resolved_at',
-        `select id from disputes.dispute
-          where status in ('RESOLVED_ACCEPTED', 'RESOLVED_REJECTED') and resolved_at <= now() - interval '1 year'
-            and description <> '[erased]'
-          order by resolved_at limit 100`,
-        'dispute_resolved_unerased_idx',
-      ],
-      [
-        'WITHDRAWN disputes by the WITHDRAW history row',
-        `select d.id from disputes.dispute d join disputes.dispute_status_history h on h.dispute_id = d.id
-          where d.status = 'WITHDRAWN' and h.action = 'WITHDRAW' and h.created_at <= now() - interval '1 year'
-            and d.description <> '[erased]'
-          order by h.created_at limit 100`,
-        'dispute_status_history_withdraw_idx',
-      ],
-    ])('%s uses an index, never a seq scan', async (_name, sql, index) => {
-      const scans = await scansOf(sql);
-      expect(scans.filter((s) => s.startsWith('Seq Scan'))).toEqual([]);
-      expect(scans.some((s) => s.endsWith(` ${index}`))).toBe(true);
-    });
+  beforeAll(async () => {
+    // ~3.4 years of hourly disputes; terminal ones over 1 year + 30 days ago are already erased, leaving a backlog of candidates.
+    await asRole(
+      'disputes_migrator',
+      `with s as (
+         select g, now() - g * interval '1 hour' as ts,
+                case when g % 10 = 0 then 'SUBMITTED' when g % 10 = 1 then 'UNDER_REVIEW'
+                     when g % 10 in (2, 3) then 'WITHDRAWN' when g % 10 in (4, 5, 6) then 'RESOLVED_REJECTED'
+                     else 'RESOLVED_ACCEPTED' end as status
+           from generate_series(1, 30000) g)
+       insert into dispute (transaction_id, user_id, reason_code, description, status, resolved_at,
+                            created_by, updated_by, created_at, updated_at)
+       select gen_random_uuid(), gen_random_uuid(), 'OTHER',
+              case when status not in ('SUBMITTED', 'UNDER_REVIEW') and ts + interval '7 days' < now() - interval '1 year 30 days'
+                   then '[erased]' else 'Seeded plan-test dispute' end,
+              status, case when status like 'RESOLVED_%' then ts + interval '7 days' end,
+              'USER:u', 'USER:u', ts, ts
+         from s`,
+    );
+    await asRole(
+      'disputes_migrator',
+      `insert into dispute_status_history (dispute_id, action, from_status, to_status, actor_type, actor_id, created_at)
+       select id, 'CREATE', null, 'SUBMITTED', 'USER', 'u', created_at from dispute
+       union all
+       select id, 'WITHDRAW', 'SUBMITTED', 'WITHDRAWN', 'USER', 'u', created_at + interval '7 days'
+         from dispute where status = 'WITHDRAWN'
+       union all
+       select id, 'RESOLVE', 'UNDER_REVIEW', status, 'AGENT', 'a', resolved_at from dispute where resolved_at is not null`,
+    );
+    await asRole(
+      'disputes_migrator',
+      `insert into dispute_evidence (dispute_id, file_name, declared_content_type, declared_size_bytes, declared_sha256,
+                                     status, s3_key, created_at, updated_at)
+       select d.id, case when d.description = '[erased]' then '[erased]' else 'receipt.pdf' end,
+              'application/pdf', 100, '${SHA}', e.status,
+              case when e.status = 'STORED' then 'evidence/' || d.dispute_id || '/' || n end, d.created_at, d.created_at
+         from dispute d cross join generate_series(1, 2) n
+         cross join lateral (select case when d.description = '[erased]' then 'ERASED'
+                                         when d.created_at > now() - interval '48 hours' then 'PENDING'
+                                         else 'STORED' end as status) e`,
+    );
+    await asRole('disputes_migrator', 'analyze dispute; analyze dispute_status_history; analyze dispute_evidence');
+  });
+
+  it.each<[string, string, string]>([
+    [
+      'PENDING evidence by age',
+      `select id from disputes.dispute_evidence
+        where status = 'PENDING' and created_at <= now() - interval '24 hours' order by created_at limit 100`,
+      'dispute_evidence_pending_age_idx',
+    ],
+    [
+      'RESOLVED_* disputes by resolved_at',
+      `select id from disputes.dispute
+        where status in ('RESOLVED_ACCEPTED', 'RESOLVED_REJECTED') and resolved_at <= now() - interval '1 year'
+          and description <> '[erased]'
+        order by resolved_at limit 100`,
+      'dispute_resolved_unerased_idx',
+    ],
+    [
+      'WITHDRAWN disputes by the WITHDRAW history row',
+      `select d.id from disputes.dispute d join disputes.dispute_status_history h on h.dispute_id = d.id
+        where d.status = 'WITHDRAWN' and h.action = 'WITHDRAW' and h.created_at <= now() - interval '1 year'
+          and d.description <> '[erased]'
+        order by h.created_at limit 100`,
+      'dispute_status_history_withdraw_idx',
+    ],
+  ])('sweeper: %s uses an index, never a seq scan', async (_name, sql, index) => {
+    const scans = await scansOf(sql);
+    expect(scans.filter((s) => s.startsWith('Seq Scan'))).toEqual([]);
+    expect(scans.some((s) => s.endsWith(` ${index}`))).toBe(true);
+  });
+
+  const queueSql = (statuses: string, keyset: string): string =>
+    `select dispute_id, transaction_id, status, reason_code, version, created_at from disputes.dispute
+      where status in (${statuses}) ${keyset}
+      order by created_at, id limit 51`;
+
+  it.each<[string, string, string]>([
+    ['first page, both open statuses', `'SUBMITTED', 'UNDER_REVIEW'`, ''],
+    ['keyset page, both open statuses', `'SUBMITTED', 'UNDER_REVIEW'`, `and (created_at, id) > (now() - interval '2 years', 12345)`],
+    ['keyset page, SUBMITTED only', `'SUBMITTED'`, `and (created_at, id) > (now() - interval '2 years', 12345)`],
+  ])('review queue: %s reads dispute_review_queue_idx in order, no seq scan or sort', async (_name, statuses, keyset) => {
+    const plan = await planOf('disputes_app', queueSql(statuses, keyset));
+    expect(plan.map((n) => n['Node Type']).filter((t) => t.includes('Sort') || t === 'Seq Scan')).toEqual([]);
+    expect(plan.some((n) => n['Index Name'] === 'dispute_review_queue_idx')).toBe(true);
   });
 });

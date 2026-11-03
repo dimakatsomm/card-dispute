@@ -711,11 +711,12 @@
       "notes": "bb02edf: contract + prose; redocly lint 0/0; contracts and SPA types regenerated. auth-client typecheck red until BO-03 (pushed together)."
     },
     "BO-01": {
-      "status": "in_review",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [
         "BO-00"
-      ]
+      ],
+      "notes": "Gate PASS 2026-11-03 (security+tests+standards): agent_identity SELECT-only for auth_app (ACL test), partial queue index proven by EXPLAIN (fails without 005), two seeded agents; auth 79, disputes 226, seed 99 tests."
     },
     "BO-02": {
       "status": "todo",

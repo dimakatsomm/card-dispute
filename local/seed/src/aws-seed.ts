@@ -122,6 +122,7 @@ export const runAwsSeed =
     if (!provisioned.ok) return provisioned;
     const mapped = withCognitoSubs(data, provisioned.value.subs);
     if (!mapped.ok) return mapped;
-    const inserted = await insertAll(mapped.value, deps.urlFor);
+    // Mock-issuer agent subs mean nothing to Cognito; dev agents are provisioned with their group by BO-09.
+    const inserted = await insertAll({ ...mapped.value, agentIdentities: [] }, deps.urlFor);
     return inserted.ok ? ok({ ...provisioned.value.counts, ...inserted.value }) : inserted;
   };
