@@ -183,6 +183,16 @@ run "no_role_reaches_another_deployable" {
     ]))
     error_message = "e2e must not deploy, publish or write to queues and buckets."
   }
+
+  # E-03x: PutEvents would let CI forge GuardDuty scan results; that rejection is a manual M3-gate check instead.
+  assert {
+    condition = alltrue(flatten([
+      for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : [
+        for a in s.Action : !startswith(a, "events:") && !startswith(a, "scheduler:")
+      ]
+    ]))
+    error_message = "e2e must not put events or touch schedules."
+  }
 }
 
 run "pass_role_is_limited_to_own_roles_for_ecs" {

@@ -1,7 +1,7 @@
 {
   "_comment": "Orchestrator memory across sessions. Read at session start, written after every task transition. Statuses: todo | in_progress | in_review | done | blocked. This file must reflect reality — a task with a failing test is not done.",
   "milestone": "M1-walking-skeleton",
-  "updatedAt": "2026-11-02",
+  "updatedAt": "2026-11-03",
   "milestones": {
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
@@ -658,7 +658,7 @@
       "agent": "orchestrator",
       "blockedBy": [],
       "status": "done",
-      "notes": "SEED_A_EMAIL, probe --hold, tiros perms (7b3fde0, b22b927)"
+      "notes": "SEED_A_EMAIL, probe --hold, tiros perms (7b3fde0, b22b927); (4) e2e no events:/scheduler: assertion (mutation-checked) + runbook §11.1 manual checks A–C; (5) final-dlq-empty config; (6)(7) done (2026-11-03)"
     },
     "DOC-M3b": {
       "agent": "orchestrator",
