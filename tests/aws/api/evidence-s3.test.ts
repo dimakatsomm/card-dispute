@@ -135,10 +135,11 @@ describe('evidence upload against real S3 (consumes 1 transaction)', () => {
       expect(reply.status).toBe(403);
     });
 
-    it('the exact signed request over plain HTTP is denied by the bucket policy', async () => {
+    it('the exact signed request over plain HTTP is refused', async () => {
       const reply = await put(headersOf(upload(pdf)), pdf.bytes, asHttp(upload(pdf)['url']));
-      expect(s3Code(reply.body), s3Fault(reply.body)).toBe('AccessDenied');
-      expect(reply.status).toBe(403);
+      // S3 checks that SSE-KMS requires TLS (InvalidArgument) before the bucket policy can deny (AccessDenied).
+      expect(['AccessDenied', 'InvalidArgument'], s3Fault(reply.body)).toContain(s3Code(reply.body));
+      expect([400, 403]).toContain(reply.status);
     });
   });
 

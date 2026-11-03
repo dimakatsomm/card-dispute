@@ -260,6 +260,13 @@ locals {
       Condition = { StringEquals = { "aws:RequestTag/${local.insights_tag_key}" = local.e2e_role_name } }
     },
     {
+      Sid    = "ReachabilityEndpoints"
+      Effect = "Allow"
+      # The source and destination ENIs are authorised too, and they carry no request tag.
+      Action   = ["ec2:CreateNetworkInsightsPath"]
+      Resource = ["${local.arn.ec2}:network-interface/*"]
+    },
+    {
       Sid       = "ReachabilityTagOnCreate"
       Effect    = "Allow"
       Action    = ["ec2:CreateTags"]
