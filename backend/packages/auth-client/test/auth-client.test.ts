@@ -2,7 +2,7 @@ import { ok } from '@cd/shared/fp';
 import { describe, expect, it } from 'vitest';
 import { createAuthClient } from '../src/auth-client.ts';
 import { createServiceTokenProvider } from '../src/service-token.ts';
-import { AUTH_ID, fakeFetch, invalidResult, jsonResponse, USER_ID, userPrincipal } from './fakes.ts';
+import { AGENT_ID, agentPrincipal, AUTH_ID, fakeFetch, invalidResult, jsonResponse, USER_ID, userPrincipal } from './fakes.ts';
 
 const T0 = 1_800_000_000_000;
 const secs = (n: number) => n * 1000;
@@ -32,6 +32,17 @@ describe('createAuthClient.validate', () => {
     expect(stub.calls[0]?.headers['authorization']).toBe('Bearer service-token');
     expect(stub.calls[0]?.headers['x-correlation-id']).toBe('corr-12345678');
     expect(JSON.parse(stub.calls[0]?.body ?? '')).toEqual({ token: 'user-jwt' });
+  });
+
+  it('parses an agent result into an agent principal and caches it like any other', async () => {
+    const { stub, client } = setup(() => jsonResponse(200, agentPrincipal(epoch(T0) + 900)));
+    const result = await client.validate('agent-jwt');
+    expect(result).toEqual({
+      ok: true,
+      value: { principalType: 'agent', agentId: AGENT_ID, scopes: [], exp: epoch(T0) + 900 },
+    });
+    await client.validate('agent-jwt');
+    expect(stub.calls).toHaveLength(1);
   });
 
   it('serves a repeated valid token from cache without a request', async () => {

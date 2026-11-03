@@ -726,11 +726,12 @@
       ]
     },
     "BO-03": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "implementer",
       "blockedBy": [
         "BO-00"
-      ]
+      ],
+      "notes": "Gate PASS 2026-11-03: security (incl. Fastify probe: prefixes, HEAD, encoded paths, case) + tests/standards; 86 tests, typecheck, eslint. Hardening logged as BO-H1."
     },
     "BO-04": {
       "status": "done",
@@ -770,6 +771,12 @@
       "blockedBy": [
         "BO-07"
       ]
+    },
+    "BO-H1": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [],
+      "notes": "From BO-03 security review: on agent-opted servers reject routes whose first segment is a :param or *; exempt /health and /ready for GET/HEAD only."
     }
   },
   "decisions": [

@@ -1,7 +1,7 @@
 import { createServers, type Servers, type ServersOptions } from '@cd/shared';
 import type { FastifyInstance, RouteOptions } from 'fastify';
 import type { AuthClient } from './auth-client.ts';
-import { requireService, requireUser, type GuardHook, type GuardKind } from './guards.ts';
+import { requireAgent, requireService, requireUser, type GuardHook, type GuardKind } from './guards.ts';
 
 export type ServiceRoute = RouteOptions & { readonly scope: string };
 
@@ -28,6 +28,18 @@ export const registerPublicRoutes = (
   );
 };
 
+export const registerAgentRoutes = (
+  app: FastifyInstance,
+  authClient: AuthClient,
+  routes: readonly RouteOptions[],
+): void => {
+  const guard = requireAgent(authClient);
+  registerGuarded(
+    app,
+    routes.map((route) => withGuard(route, guard)),
+  );
+};
+
 export const registerServiceRoutes = (
   app: FastifyInstance,
   authClient: AuthClient,
@@ -41,25 +53,41 @@ export const registerServiceRoutes = (
 
 const UNGUARDED_PATHS: ReadonlySet<string> = new Set(['/health', '/ready']);
 
-const hasGuard = (route: RouteOptions, kind: GuardKind): boolean =>
-  [route.onRequest ?? []].flat().some((hook) => (hook as Partial<GuardHook>).guardKind === kind);
+export type PublicGuardKind = Exclude<GuardKind, 'service'>;
 
-export const guardAllRoutes = (app: FastifyInstance, kind: GuardKind): void => {
+export type GuardedServersOptions = ServersOptions & { readonly publicGuards?: readonly PublicGuardKind[] };
+
+const guardKindsOf = (route: RouteOptions): ReadonlySet<GuardKind | undefined> =>
+  new Set([route.onRequest ?? []].flat().map((hook) => (hook as Partial<GuardHook>).guardKind));
+
+const isAgentPath = (url: string): boolean => url === '/agent' || url.startsWith('/agent/');
+
+const backstopViolation = (route: RouteOptions, allowed: readonly GuardKind[]): string | undefined => {
+  if (UNGUARDED_PATHS.has(route.url)) return undefined;
+  const kinds = guardKindsOf(route);
+  if (kinds.has('agent') && !allowed.includes('agent')) return 'agent guard on a server that did not opt in to agents';
+  if (kinds.has('agent') && !isAgentPath(route.url)) return 'agent guard outside /agent/*';
+  if (isAgentPath(route.url) && !kinds.has('agent')) return '/agent/* route without the agent guard';
+  if (!allowed.some((kind) => kinds.has(kind))) return `unguarded: register it through a ${allowed.join('/')} route helper`;
+  return undefined;
+};
+
+export const guardAllRoutes = (app: FastifyInstance, allowed: readonly GuardKind[]): void => {
   app.addHook('onRoute', (route) => {
-    if (UNGUARDED_PATHS.has(route.url) || hasGuard(route, kind)) return;
-    throw new Error(`unguarded ${route.method.toString()} ${route.url}: register it through the ${kind} route helper`);
+    const violation = backstopViolation(route, allowed);
+    if (violation) throw new Error(`${route.method.toString()} ${route.url}: ${violation}`);
   });
 };
 
-export const createGuardedServers = (options: ServersOptions): Servers =>
+export const createGuardedServers = ({ publicGuards = ['user'], ...options }: GuardedServersOptions): Servers =>
   createServers({
     ...options,
     public: (app) => {
-      guardAllRoutes(app, 'user');
+      guardAllRoutes(app, publicGuards);
       return options.public(app);
     },
     service: (app) => {
-      guardAllRoutes(app, 'service');
+      guardAllRoutes(app, ['service']);
       return options.service(app);
     },
   });

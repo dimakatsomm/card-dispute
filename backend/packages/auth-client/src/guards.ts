@@ -1,7 +1,7 @@
 import { commonProblem, problemBody, sendProblem } from '@cd/shared';
 import type { FastifyReply, FastifyRequest, onRequestAsyncHookHandler } from 'fastify';
 import type { AuthClient } from './auth-client.ts';
-import type { Principal, ServicePrincipal, UserPrincipal } from './principal.ts';
+import type { AgentPrincipal, Principal, ServicePrincipal, UserPrincipal } from './principal.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -15,7 +15,7 @@ const BEARER = /^Bearer ([A-Za-z0-9\-._~+/]{1,4096}={0,2})$/i;
 const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const JWT_MIN_LENGTH = 20;
 
-export type GuardKind = 'user' | 'service';
+export type GuardKind = 'user' | 'service' | 'agent';
 export type GuardHook = onRequestAsyncHookHandler & { readonly guardKind: GuardKind };
 
 const unauthorized = (reply: FastifyReply, request: FastifyRequest, detail: string): FastifyReply =>
@@ -66,6 +66,9 @@ const guard = (kind: GuardKind, authClient: AuthClient, authorize: Authorize): G
 export const requireUser = (authClient: AuthClient): GuardHook =>
   guard('user', authClient, (p) => (p.principalType === 'user' ? undefined : 'User token required'));
 
+export const requireAgent = (authClient: AuthClient): GuardHook =>
+  guard('agent', authClient, (p) => (p.principalType === 'agent' ? undefined : 'Agent token required'));
+
 export const requireService = (authClient: AuthClient, scope: string): GuardHook =>
   guard('service', authClient, (p) => {
     if (p.principalType !== 'service') return 'Service token required';
@@ -81,5 +84,10 @@ export const servicePrincipalOf = (request: FastifyRequest): ServicePrincipal =>
   if (request.principal?.principalType !== 'service') {
     throw new Error('service principal missing: route is not guarded');
   }
+  return request.principal;
+};
+
+export const agentPrincipalOf = (request: FastifyRequest): AgentPrincipal => {
+  if (request.principal?.principalType !== 'agent') throw new Error('agent principal missing: route is not guarded');
   return request.principal;
 };
