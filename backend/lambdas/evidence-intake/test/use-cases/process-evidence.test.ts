@@ -33,6 +33,7 @@ const echo = (result: EvidenceResult): Result<RecordOutcome, DisputesError> =>
 
 const fake = (options: FakeOptions = {}) => {
   const calls: Call[] = [];
+  const infos: Array<readonly [object, string]> = [];
   let removeFailures = options.removeFailures ?? 0;
   const deps: IntakeDeps = {
     quarantineBucket: BUCKET,
@@ -65,15 +66,49 @@ const fake = (options: FakeOptions = {}) => {
     resultConflict: () => calls.push(['metric', 'EvidenceResultConflict']),
     newId: () => 'generated-correlation-id',
     log: {
-      info: () => undefined,
+      info: (obj, msg) => infos.push([obj, msg]),
       warn: (_obj, msg) => calls.push(['warn', msg]),
       error: (obj) => calls.push(['error', obj]),
     },
   };
-  return { deps, calls, names: () => calls.map(([name]) => name) };
+  return { deps, calls, infos, names: () => calls.map(([name]) => name) };
 };
 
 const clean = () => scanResultEvent({ bucket: BUCKET, key, eTag: 'etag-1' });
+
+describe('processEvidence: the done log names why a rejection is SCAN_FAILED', () => {
+  it.each([
+    ['scan skipped as unsupported', 'scan:SKIPPED/UNSUPPORTED', scanResultEvent({ bucket: BUCKET, key }, 'UNSUPPORTED'), {}],
+    ['scan access denied', 'scan:SKIPPED/ACCESS_DENIED', scanResultEvent({ bucket: BUCKET, key }, 'ACCESS_DENIED'), {}],
+    ['scan failed', 'scan:FAILED/FAILED', scanResultEvent({ bucket: BUCKET, key }, 'FAILED'), {}],
+    ['no threats but scan skipped', 'scan:SKIPPED/NO_THREATS_FOUND', scanResultEvent({ bucket: BUCKET, key }, 'NO_THREATS_FOUND', 'SKIPPED'), {}],
+    ['HeadObject denied', 'head-denied', clean(), { head: { kind: 'denied' } }],
+    ['HeadObject without ETag', 'no-etag', clean(), { head: { ...pdfHead, eTag: null } }],
+    ['ranged GET denied', 'sniff-denied', clean(), { sniff: { kind: 'denied' } }],
+  ] as const)('%s → %s', async (_name, cause, event, options: FakeOptions) => {
+    const { deps, calls, infos } = fake(options);
+    expect(await processEvidence(deps)(event)).toEqual(ok('REJECTED'));
+    expect(calls.find(([name]) => name === 'record')?.[2]).toEqual({ result: 'REJECTED', reason: 'SCAN_FAILED' });
+    const [summary, msg] = infos.at(-1) ?? [];
+    expect(msg).toBe('evidence intake done');
+    expect(summary).toMatchObject({ outcome: 'REJECTED', reason: 'SCAN_FAILED', scanFailedCause: cause });
+    expect(Object.keys(summary ?? {}).sort()).toEqual(
+      ['claimed', 'correlationId', 'evidenceId', 'outcome', 'reason', 'scanFailedCause', 'transactionId'],
+    );
+  });
+
+  it.each([
+    ['clean PDF', clean(), {}],
+    ['malware', scanResultEvent({ bucket: BUCKET, key }, 'THREATS_FOUND'), {}],
+    ['type mismatch', clean(), { sniff: { kind: 'bytes', head: EXE_BYTES.slice(0, 8) } }],
+  ] as const)('%s: no scanFailedCause', async (_name, event, options: FakeOptions) => {
+    const { deps, infos } = fake(options);
+    await processEvidence(deps)(event);
+    const [summary, msg] = infos.at(-1) ?? [];
+    expect(msg).toBe('evidence intake done');
+    expect((summary as { scanFailedCause?: unknown }).scanFailedCause).toBeUndefined();
+  });
+});
 
 describe('processEvidence: order of effects', () => {
   it('clean PDF: HeadObject, ranged GET, PUT STORED with facts and the event id as correlation id, copy to s3Key, delete', async () => {

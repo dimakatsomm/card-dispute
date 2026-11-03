@@ -2,7 +2,7 @@ import { EVIDENCE_SNIFF_BYTES, detectEvidenceType } from '@cd/dispute-domain';
 import { err, ok, type Result } from '@cd/shared/fp';
 import { resolveCorrelationId } from '@cd/shared/correlation';
 import { decide, type EvidenceResult, type ObservedFacts } from '../core/decide.ts';
-import { parseTrigger, normalizeETag, type Trigger, type TriggerError } from '../core/trigger.ts';
+import { parseTrigger, normalizeETag, type ScanFailedCause, type Trigger, type TriggerError } from '../core/trigger.ts';
 
 export type HeadResult =
   | {
@@ -72,41 +72,52 @@ export type IntakeError = TriggerError | `DISPUTES_${DisputesError}` | 'INCONSIS
 
 type Assessment =
   | { readonly kind: 'skip'; readonly outcome: 'ALREADY_PROCESSED' | 'SUPERSEDED' }
-  | { readonly kind: 'result'; readonly result: EvidenceResult; readonly eTag: string | null };
+  | {
+      readonly kind: 'result';
+      readonly result: EvidenceResult;
+      readonly eTag: string | null;
+      readonly scanFailedCause: ScanFailedCause | null;
+    };
+
+const unobservable = (verdict: 'CLEAN' | 'NOT_SCANNED', cause: ScanFailedCause): Assessment => ({
+  kind: 'result',
+  result: decide({ verdict, facts: 'UNOBSERVABLE' }),
+  eTag: null,
+  scanFailedCause: cause,
+});
 
 const observe = async (
   deps: IntakeDeps,
   trigger: Trigger,
   head: Extract<HeadResult, { kind: 'found' }>,
-): Promise<ObservedFacts | 'UNOBSERVABLE' | 'MISSING'> => {
+): Promise<ObservedFacts | 'SNIFF_DENIED' | 'MISSING'> => {
   const facts = { sizeBytes: head.sizeBytes, sha256Hex: head.sha256Hex, contentType: head.contentType };
   // S3 answers 416 to a range on an empty object.
   if (head.sizeBytes === 0) return { ...facts, detectedType: null };
   const sniffed = await deps.quarantine.sniff(trigger.key, EVIDENCE_SNIFF_BYTES, head.eTag);
   if (sniffed.kind === 'missing') return 'MISSING';
-  if (sniffed.kind === 'denied') return 'UNOBSERVABLE';
+  if (sniffed.kind === 'denied') return 'SNIFF_DENIED';
   return { ...facts, detectedType: detectEvidenceType(sniffed.head) };
 };
 
 const assess = async (deps: IntakeDeps, trigger: Trigger): Promise<Assessment> => {
   const { verdict } = trigger;
   if (verdict === 'MALWARE' || verdict === 'SCAN_FAILED') {
-    return { kind: 'result', result: decide({ verdict }), eTag: null };
+    return { kind: 'result', result: decide({ verdict }), eTag: null, scanFailedCause: trigger.scanFailedCause };
   }
   const head = await deps.quarantine.head(trigger.key);
   if (head.kind === 'missing') return { kind: 'skip', outcome: 'ALREADY_PROCESSED' };
-  if (head.kind === 'denied') return { kind: 'result', result: decide({ verdict, facts: 'UNOBSERVABLE' }), eTag: null };
+  if (head.kind === 'denied') return unobservable(verdict, 'head-denied');
   // Without an ETag the scanned bytes cannot be matched to the stored ones.
-  if (verdict === 'CLEAN' && !head.eTag) {
-    return { kind: 'result', result: decide({ verdict, facts: 'UNOBSERVABLE' }), eTag: null };
-  }
+  if (verdict === 'CLEAN' && !head.eTag) return unobservable(verdict, 'no-etag');
   // A re-upload replaced the scanned object; its own scan event will settle it.
   if (trigger.eTag && head.eTag && normalizeETag(head.eTag) !== trigger.eTag) {
     return { kind: 'skip', outcome: 'SUPERSEDED' };
   }
   const facts = await observe(deps, trigger, head);
   if (facts === 'MISSING') return { kind: 'skip', outcome: 'ALREADY_PROCESSED' };
-  return { kind: 'result', result: decide({ verdict, facts }), eTag: head.eTag };
+  if (facts === 'SNIFF_DENIED') return unobservable(verdict, 'sniff-denied');
+  return { kind: 'result', result: decide({ verdict, facts }), eTag: head.eTag, scanFailedCause: null };
 };
 
 export const processEvidence =
@@ -154,7 +165,8 @@ export const processEvidence =
     const final: IntakeOutcome =
       outcome.kind === 'closed' ? 'CLOSED' : outcome.status === 'STORED' ? 'PROMOTED' : 'REJECTED';
     const reason = result.result === 'REJECTED' ? result.reason : undefined;
-    const summary = { ...context, outcome: final, claimed: result.result, reason };
+    const scanFailedCause = reason === 'SCAN_FAILED' ? (assessment.scanFailedCause ?? undefined) : undefined;
+    const summary = { ...context, outcome: final, claimed: result.result, reason, scanFailedCause };
     if (final === 'CLOSED') deps.log.warn(summary, 'evidence slot expired or erased; quarantine copy deleted');
     else deps.log.info(summary, 'evidence intake done');
     return ok(final);

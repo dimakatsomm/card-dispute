@@ -10,6 +10,7 @@ export type Trigger = {
   readonly evidenceId: string;
   readonly eTag: string | null;
   readonly verdict: Verdict;
+  readonly scanFailedCause: ScanFailedCause | null;
 };
 
 export type TriggerError = 'INVALID_EVENT' | 'WRONG_BUCKET' | 'INVALID_KEY' | 'SCAN_REQUIRED';
@@ -61,12 +62,21 @@ const scanVerdict = (scanStatus: ScanStatus, resultStatus: ScanResultStatus): Ve
   return scanStatus === 'COMPLETED' && resultStatus === 'NO_THREATS_FOUND' ? 'CLEAN' : 'SCAN_FAILED';
 };
 
+export type ScanFailedCause = `scan:${ScanStatus}/${ScanResultStatus}` | 'head-denied' | 'no-etag' | 'sniff-denied';
+
+const scanOutcome = (scanStatus: ScanStatus, resultStatus: ScanResultStatus) => {
+  const verdict = scanVerdict(scanStatus, resultStatus);
+  const scanFailedCause: ScanFailedCause | null = verdict === 'SCAN_FAILED' ? `scan:${scanStatus}/${resultStatus}` : null;
+  return { verdict, scanFailedCause };
+};
+
 type Located = {
   readonly eventId: string;
   readonly bucket: string;
   readonly key: string;
   readonly eTag: string | null;
   readonly verdict: Verdict;
+  readonly scanFailedCause: ScanFailedCause | null;
 };
 
 const locate = (event: z.infer<typeof intakeEvent>): Located =>
@@ -76,7 +86,7 @@ const locate = (event: z.infer<typeof intakeEvent>): Located =>
         bucket: event.detail.s3ObjectDetails.bucketName,
         key: event.detail.s3ObjectDetails.objectKey,
         eTag: normalizeETag(event.detail.s3ObjectDetails.eTag),
-        verdict: scanVerdict(event.detail.scanStatus, event.detail.scanResultDetails.scanResultStatus),
+        ...scanOutcome(event.detail.scanStatus, event.detail.scanResultDetails.scanResultStatus),
       }
     : {
         eventId: event.id,
@@ -84,6 +94,7 @@ const locate = (event: z.infer<typeof intakeEvent>): Located =>
         key: event.detail.object.key,
         eTag: normalizeETag(event.detail.object.etag),
         verdict: 'NOT_SCANNED',
+        scanFailedCause: null,
       };
 
 export const parseTrigger = (event: unknown, policy: TriggerPolicy): Result<Trigger, TriggerError> => {
@@ -103,5 +114,6 @@ export const parseTrigger = (event: unknown, policy: TriggerPolicy): Result<Trig
     evidenceId: match[2],
     eTag: located.eTag,
     verdict: located.verdict,
+    scanFailedCause: located.scanFailedCause,
   });
 };
