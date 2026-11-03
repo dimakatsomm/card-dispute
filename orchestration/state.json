@@ -7,7 +7,8 @@
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
     "M2": "done 2026-10-20 — integration-verifier: M2 MET. 1,182 unit/integration tests across 17 packages; API e2e 42/42 (incl. expired token); Playwright 5/5 twice after fixing the card helper. Scan → STORED/REJECTED on timeline, email to owner on every step, 24 h slot expiry and 1-year erasure incl. file names (clock-injected), poison → both DLQs. Real AWS (GuardDuty, S3 checksum enforcement V-08, SES delivery) is M3.",
     "M3": "in_progress — decomposed 2026-10-20; waves 0–3 offline, wave 4 owner-gated.",
-    "M4": "todo — H-01..H-04 (docs/08 §8)"
+    "M4": "todo — H-01..H-04 (docs/08 §8)",
+    "M5": "todo — back office (ADR-071), decomposed 2026-11-03"
   },
   "tasks": {
     "F-01": {
@@ -702,6 +703,71 @@
         "OWN-4"
       ],
       "notes": "Runbook §4–11. Phase A and B applied (46cfbf4, 2026-10-27); services, Lambdas and seed live; e2e-dev run 2026-11-03 with fixes (54716c2, 3c26341, 4b232e6). Open: e2e-dev not yet recorded green; dispute-notifier SendEmail intermittently AccessDeniedException from 2026-11-03T10:53Z (16 of 52 in owner log; SENT before and between) — cause not yet investigated."
+    },
+    "BO-00": {
+      "status": "todo",
+      "agent": "orchestrator",
+      "blockedBy": []
+    },
+    "BO-01": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "BO-00"
+      ]
+    },
+    "BO-02": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "BO-00",
+        "BO-01"
+      ]
+    },
+    "BO-03": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "BO-00"
+      ]
+    },
+    "BO-04": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [
+        "BO-00"
+      ]
+    },
+    "BO-05": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "BO-02",
+        "BO-03"
+      ]
+    },
+    "BO-06": {
+      "status": "todo",
+      "agent": "frontend",
+      "blockedBy": [
+        "BO-00",
+        "BO-04"
+      ]
+    },
+    "BO-07": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "BO-05",
+        "BO-06"
+      ]
+    },
+    "BO-09": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": [
+        "BO-07"
+      ]
     }
   },
   "decisions": [
