@@ -375,9 +375,10 @@
       "notes": "aws ~>6.67.0, random ~>3.9.1, S3 backend use_lockfile; variables with validations (github_repo placeholder rejected until OWN-3); modules/README.md interface contract for 17 modules. Rulings: edge owns ALB :80 ingress; alb generates fallback origin secret; ecs-cluster creates cd.internal namespace; all DLQs in messaging; ci-roles derive Lambda ARNs by naming. I-WIRE owns .terraform.lock.hcl (multi-platform lock)."
     },
     "OWN-1": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "Inferred 2026-11-03 from git and runtime evidence, not from a pasted preflight: account on the Paid plan (a216f74, ADR-069), bootstrap applied, Aurora PG18, GuardDuty and SES working in eu-north-1."
     },
     "OWN-3": {
       "status": "done",
@@ -386,26 +387,29 @@
       "notes": "repo dimakatsomm/card-dispute public; secret scanning + push protection; branch protection; dev and dev-infra environments; AWS_REGION var (2026-10-22). AWS_ACCOUNT_ID etc. pending OWN-1/OWN-4."
     },
     "OWN-4": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
       "blockedBy": [
         "I-00",
         "OWN-1",
         "OWN-3"
-      ]
+      ],
+      "notes": "Bootstrap applied and state migrated 2026-10-26 (cbcc66f backend.tf); TF_STATE_* and AWS_INFRA_* variables set (owner helper scripts read them back). Runbook §3 marked done (f3ed462)."
     },
     "OWN-5": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "GuardDuty Malware Protection works: owner Lambda logs 2026-11-03 show evidence-intake outcomes PROMOTED and REJECTED from real scan results. Whether manual first-time enablement was needed is not recorded."
     },
     "OWN-6": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "owner",
       "blockedBy": [
         "I-12",
         "I-13"
-      ]
+      ],
+      "notes": "SES identity verified: notifier logs 2026-11-03 show kind SENT with SES message ids. SNS alarm-subscription confirmation not evidenced yet; owner to confirm."
     },
     "I-00": {
       "status": "done",
@@ -690,6 +694,14 @@
         "standards": "pass after fixes"
       },
       "decision": "ADR-070"
+    },
+    "ROLLOUT": {
+      "status": "in_progress",
+      "agent": "owner",
+      "blockedBy": [
+        "OWN-4"
+      ],
+      "notes": "Runbook §4–11. Phase A and B applied (46cfbf4, 2026-10-27); services, Lambdas and seed live; e2e-dev run 2026-11-03 with fixes (54716c2, 3c26341, 4b232e6). Open: e2e-dev not yet recorded green; dispute-notifier SendEmail intermittently AccessDeniedException from 2026-11-03T10:53Z (16 of 52 in owner log; SENT before and between) — cause not yet investigated."
     }
   },
   "decisions": [
