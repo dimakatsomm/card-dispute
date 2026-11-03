@@ -20,6 +20,9 @@ RUN apk upgrade --no-cache && rm -f /etc/nginx/conf.d/default.conf
 COPY frontend/nginx.conf /etc/nginx/nginx.conf
 COPY --chmod=0755 frontend/docker-entrypoint.sh /usr/local/bin/app-entrypoint.sh
 COPY --from=build /repo/frontend/dist /usr/share/nginx/html
+RUN install -d -o 101 -g 101 -m 0755 /tmp/runtime
+# Fargate mounts /tmp empty and root-owned unless the image declares it a volume, which copies this /tmp in.
+VOLUME ["/tmp"]
 USER 101
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
