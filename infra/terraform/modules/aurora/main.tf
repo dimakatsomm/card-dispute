@@ -23,9 +23,11 @@ resource "aws_rds_cluster_parameter_group" "this" {
   family = "aurora-postgresql18"
   tags   = { component = "aurora" }
 
+  # 1 is the aurora-postgresql18 system default, which RDS reads back as pending-reboot; "immediate" would diff forever.
   parameter {
-    name  = "rds.force_ssl"
-    value = "1"
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
   }
 }
 

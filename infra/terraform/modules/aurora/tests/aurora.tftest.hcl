@@ -49,6 +49,11 @@ run "cluster_is_private_encrypted_and_tls_only" {
   }
 
   assert {
+    condition     = one([for p in aws_rds_cluster_parameter_group.this.parameter : p.apply_method if p.name == "rds.force_ssl"]) == "pending-reboot"
+    error_message = "rds.force_ssl must use pending-reboot, the apply method RDS reports for a system-default value; immediate re-plans an update on every run."
+  }
+
+  assert {
     condition     = aws_rds_cluster.this.db_cluster_parameter_group_name == aws_rds_cluster_parameter_group.this.name
     error_message = "The cluster must use the force_ssl parameter group."
   }

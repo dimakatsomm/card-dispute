@@ -146,7 +146,6 @@ locals {
   containers = {
     for key, tool in local.tools : key => {
       name                   = key
-      image                  = var.image_uri
       essential              = true
       command                = tool.command
       user                   = local.container_user
@@ -263,6 +262,11 @@ resource "aws_iam_role_policy" "task" {
   policy   = jsonencode({ Version = "2012-10-17", Statement = local.task_statements[each.key] })
 }
 
+resource "terraform_data" "container" {
+  for_each = toset(local.tool_keys)
+  input    = jsonencode([local.containers[each.key]])
+}
+
 resource "aws_ecs_task_definition" "this" {
   for_each                 = toset(local.tool_keys)
   family                   = "${var.name_prefix}-${each.key}"
@@ -272,9 +276,15 @@ resource "aws_ecs_task_definition" "this" {
   memory                   = "512"
   execution_role_arn       = aws_iam_role.execution[each.key].arn
   task_role_arn            = contains(keys(local.task_statements), each.key) ? aws_iam_role.task[each.key].arn : null
-  container_definitions    = jsonencode([local.containers[each.key]])
+  container_definitions    = jsonencode([merge(local.containers[each.key], { image = var.image_uri })])
   # The dev-tools pipeline registers SHA revisions outside Terraform; keep older ones runnable.
   skip_destroy = true
+
+  # AWS returns its own normalised JSON and the pipeline owns the image: replace only when our image-less rendering changes.
+  lifecycle {
+    ignore_changes       = [container_definitions]
+    replace_triggered_by = [terraform_data.container[each.key]]
+  }
 
   runtime_platform {
     cpu_architecture        = "ARM64"

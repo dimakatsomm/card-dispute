@@ -86,6 +86,14 @@ Phase A applies before any image exists; phase B adds what needs an image.
 - I-WIRE therefore instantiates `lambda-fn` for **all three** keys and passes `image_uri = lookup(lambda_image_uris, key, null)`;
   `evidence-buckets.enable_intake_target` is `contains(keys(var.lambda_image_uris), "evidence-intake")`.
 
+### Task definitions and images
+- Terraform registers each ECS family once with `image_uri` (`<repo>:initial`); the deploy and dev-tools pipelines own
+  the image and register every later revision.
+- `ecs-service` and `dev-tools` set `ignore_changes = [container_definitions]` and `replace_triggered_by` a
+  `terraform_data` holding the container JSON **without** `image`. AWS's normalised echo of the JSON and a new
+  `image_uri` never re-register; any other container change does, and that revision carries the placeholder image,
+  so re-run the owning pipeline after such an apply (task-level settings such as cpu, roles and volumes still diff directly).
+
 ### IAM
 - Policy documents are HCL objects in `locals` rendered with `jsonencode(...)`. Do **not** use
   `data "aws_iam_policy_document"`: under `mock_provider` its `json` is a random string, so tests cannot assert
@@ -103,6 +111,8 @@ Phase A applies before any image exists; phase B adds what needs an image.
 | `ec2:CreateNetworkInterface`, `ec2:DeleteNetworkInterface`, `ec2:AssignPrivateIpAddresses`, `ec2:UnassignPrivateIpAddresses` on `*` | lambda-fn role (VPC functions) | Lambda creates ENIs with unknown ids (`AWSLambdaVPCAccessExecutionRole` documents `*`). |
 | `ec2:DescribeNetworkInterfaces` on `*` | lambda-fn role | Describe actions have no resource-level permission. |
 | `ec2:DescribeNetworkInsightsAnalyses`, `ec2:DescribeNetworkInsightsPaths`, `ec2:DescribeNetworkInterfaces`, `ec2:DescribeSecurityGroups`, `ec2:DescribeSubnets`, `ec2:DescribeVpcs` on `*` | ci-roles `e2e` (Reachability Analyzer read) | EC2 Describe has no resource-level permission; actions enumerated, no `ec2:*`. |
+| `ReachabilityPathComponentRead` on `*`: ~50 enumerated read-only Describe/List/Get/Search actions (ec2, elasticloadbalancing, directconnect, network-firewall, globalaccelerator) | ci-roles `e2e` | Reachability Analyzer reads every hop type as the caller; no resource-level permission. Read-only, explicit list. |
+| Boundary `ReachabilityReads` (`ec2:Describe*`, `elasticloadbalancing:Describe*`, `directconnect:Describe*`, `network-firewall:Describe*/List*`, three named ec2 Get/Search) in eu-north-1; `GlobalAcceleratorReads` (`globalaccelerator:List*`) in us-west-2 | bootstrap permissions boundary | The boundary only caps; roles still enumerate. Globs keep it under the 6,144-char limit. Accepted: `ec2:Describe*` no longer caps `DescribeInstanceAttribute`/`DescribeLaunchTemplateVersions`; no identity policy grants them, and a Deny does not fit the size limit. Global Accelerator's API is served only from us-west-2. |
 | `ec2:CreateNetworkInsightsPath`, `ec2:StartNetworkInsightsAnalysis` on `*` | ci-roles `e2e` | No resource-level permission; condition `aws:RequestTag/<insights tag key> = <e2e role name>` marks what the role may later delete. |
 | `arn:…:secret:cd/dev/seed-users/*` (trailing-`*` partial wildcard on a name prefix) | dev-tools `dev-seed`, ci-roles `e2e`, boundary | Secrets are created at run time by dev-seed, so ARNs are unknown. |
 | `NotAction` region guard with `Resource = "*"` (`DenyOutsideAllowedRegions`; exempts `iam`, `sts`, `cloudfront`, `route53`, `budgets`, `support`) | bootstrap apply role | AWS's documented region-guard pattern; Deny only. |

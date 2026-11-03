@@ -307,3 +307,32 @@ run "image_must_be_dev_tools_repo" {
 
   expect_failures = [var.image_uri]
 }
+
+run "registered_with_placeholder_image" {
+  command = apply
+
+  assert {
+    condition     = alltrue([for td in aws_ecs_task_definition.this : jsondecode(td.container_definitions)[0].image == var.image_uri])
+    error_message = "The first revision of every tool carries image_uri."
+  }
+}
+
+run "image_change_does_not_reregister" {
+  command = plan
+
+  variables {
+    image_uri = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-dev-tools:0123456789abcdef0123456789abcdef01234567"
+  }
+
+  assert {
+    condition     = alltrue([for td in aws_ecs_task_definition.this : jsondecode(td.container_definitions)[0].image == "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-dev-tools:initial"])
+    error_message = "A changed image_uri must not register new tool revisions; the dev-tools pipeline owns the image."
+  }
+
+  assert {
+    condition = alltrue([
+      for d in terraform_data.container : !contains(keys(jsondecode(d.input)[0]), "image") && contains(keys(jsondecode(d.input)[0]), "secrets")
+    ])
+    error_message = "The replacement trigger must carry every container setting except the image, so config changes still register a revision."
+  }
+}

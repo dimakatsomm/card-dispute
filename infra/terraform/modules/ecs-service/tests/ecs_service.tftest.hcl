@@ -464,3 +464,38 @@ run "mixed_condition_statements" {
     error_message = "A list mixing no Condition, StringEquals and ArnLike renders as given; no null Condition key."
   }
 }
+
+run "registered_with_placeholder_image" {
+  command = apply
+
+  assert {
+    condition     = jsondecode(aws_ecs_task_definition.service.container_definitions)[0].image == var.image_uri
+    error_message = "The first revision carries image_uri."
+  }
+}
+
+run "image_change_does_not_reregister" {
+  command = plan
+
+  variables {
+    image_uri = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-disputes:0123456789abcdef0123456789abcdef01234567"
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ecs_task_definition.service.container_definitions)[0].image == "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-disputes:initial" &&
+      jsondecode(aws_ecs_task_definition.migrate[0].container_definitions)[0].image == "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-svc-disputes:initial"
+    )
+    error_message = "A changed image_uri must not register a new revision; the deploy pipeline owns the image."
+  }
+
+  assert {
+    condition = (
+      !contains(keys(jsondecode(terraform_data.service_container.input)[0]), "image") &&
+      contains(keys(jsondecode(terraform_data.service_container.input)[0]), "environment") &&
+      !contains(keys(jsondecode(terraform_data.migrate_container[0].input)[0]), "image") &&
+      contains(keys(jsondecode(terraform_data.migrate_container[0].input)[0]), "command")
+    )
+    error_message = "The replacement trigger must carry every container setting except the image, so config changes still register a revision."
+  }
+}

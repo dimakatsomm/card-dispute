@@ -6,7 +6,8 @@ pipeline (CI-02e). No ECS service. Interface: `../README.md` §4 (`dev-tools` ro
 Every task: ARM64, awsvpc, 0.25 vCPU / 0.5 GB, user `1000:1000`, read-only root + `tmp` volume at `/tmp`,
 all capabilities dropped, awslogs to `/cd/dev/tools/<tool>` (KMS, retention). Roles use `iam_path` and the
 boundary. Each tool has its own execution role: ECR pull on `cd-dev-tools`, its own log group, `GetSecretValue`
-on exactly the secrets it references, `kms:Decrypt` via Secrets Manager.
+on exactly the secrets it references, `kms:Decrypt` via Secrets Manager. `image_uri` only matters at create; the
+dev-tools pipeline owns the image (`../README.md` §1, Task definitions and images).
 
 ## Env and secrets per task
 

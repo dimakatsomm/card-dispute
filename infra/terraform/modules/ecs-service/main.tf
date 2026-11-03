@@ -80,7 +80,6 @@ locals {
 
   container_base = {
     name                   = local.container_name
-    image                  = var.image_uri
     essential              = true
     user                   = local.container_user
     privileged             = false
@@ -214,6 +213,15 @@ resource "aws_iam_role_policy" "task" {
   policy = jsonencode({ Version = "2012-10-17", Statement = local.task_statements })
 }
 
+resource "terraform_data" "service_container" {
+  input = jsonencode([local.service_container])
+}
+
+resource "terraform_data" "migrate_container" {
+  count = local.migrate_enabled ? 1 : 0
+  input = jsonencode([local.migrate_container])
+}
+
 resource "aws_ecs_task_definition" "service" {
   family                   = local.name
   requires_compatibilities = ["FARGATE"]
@@ -222,9 +230,15 @@ resource "aws_ecs_task_definition" "service" {
   memory                   = tostring(var.memory)
   execution_role_arn       = aws_iam_role.execution.arn
   task_role_arn            = aws_iam_role.task.arn
-  container_definitions    = jsonencode([local.service_container])
+  container_definitions    = jsonencode([merge(local.service_container, { image = var.image_uri })])
   # Keeps the revision a rolled-back or ignore_changes-pinned service may still run.
   skip_destroy = true
+
+  # AWS returns its own normalised JSON and the pipeline owns the image: replace only when our image-less rendering changes.
+  lifecycle {
+    ignore_changes       = [container_definitions]
+    replace_triggered_by = [terraform_data.service_container]
+  }
 
   runtime_platform {
     cpu_architecture        = "ARM64"
@@ -246,8 +260,13 @@ resource "aws_ecs_task_definition" "migrate" {
   cpu                      = tostring(var.cpu)
   memory                   = tostring(var.memory)
   execution_role_arn       = aws_iam_role.execution.arn
-  container_definitions    = jsonencode([local.migrate_container])
+  container_definitions    = jsonencode([merge(local.migrate_container, { image = var.image_uri })])
   skip_destroy             = true
+
+  lifecycle {
+    ignore_changes       = [container_definitions]
+    replace_triggered_by = [terraform_data.migrate_container[count.index]]
+  }
 
   runtime_platform {
     cpu_architecture        = "ARM64"
