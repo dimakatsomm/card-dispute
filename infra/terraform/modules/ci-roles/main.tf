@@ -267,6 +267,14 @@ locals {
       Resource = ["${local.arn.ec2}:network-interface/*"]
     },
     {
+      Sid    = "ReachabilityAnalyseOwnPaths"
+      Effect = "Allow"
+      # Starting an analysis also authorises the existing path, which has a resource tag, not a request tag.
+      Action    = ["ec2:StartNetworkInsightsAnalysis"]
+      Resource  = ["${local.arn.ec2}:network-insights-path/*"]
+      Condition = { StringEquals = { "aws:ResourceTag/${local.insights_tag_key}" = local.e2e_role_name } }
+    },
+    {
       Sid       = "ReachabilityTagOnCreate"
       Effect    = "Allow"
       Action    = ["ec2:CreateTags"]
