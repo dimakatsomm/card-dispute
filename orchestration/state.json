@@ -711,7 +711,7 @@
       "notes": "bb02edf: contract + prose; redocly lint 0/0; contracts and SPA types regenerated. auth-client typecheck red until BO-03 (pushed together)."
     },
     "BO-01": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "data-schema",
       "blockedBy": [
         "BO-00"
@@ -750,7 +750,7 @@
       ]
     },
     "BO-06": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "frontend",
       "blockedBy": [
         "BO-00",
