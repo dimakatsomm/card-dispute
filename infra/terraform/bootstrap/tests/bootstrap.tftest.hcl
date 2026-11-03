@@ -322,6 +322,24 @@ run "boundary_caps_workloads" {
     ])
     error_message = "No workload publishes to EventBridge, so the boundary must not allow events:PutEvents."
   }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(aws_iam_policy.boundary.policy).Statement :
+      alltrue([for a in s.Action : can(regex("^[a-z0-9-]+:(Describe|List|Search|GetManagedPrefixListEntries$|GetTransitGatewayRouteTablePropagations$)", a))])
+      && jsonencode(s.Condition) == jsonencode({ StringEquals = { "aws:RequestedRegion" = [s.Sid == "GlobalAcceleratorReads" ? "us-west-2" : "eu-north-1"] } })
+      if contains(["ReachabilityReads", "GlobalAcceleratorReads"], s.Sid)
+    ])
+    error_message = "Reachability Analyzer component reads in the boundary must be read-only and region-conditioned."
+  }
+
+  assert {
+    condition = length(setsubtract(
+      ["directconnect:Describe*", "ec2:Describe*", "ec2:GetManagedPrefixListEntries", "elasticloadbalancing:Describe*", "network-firewall:Describe*", "network-firewall:List*"],
+      flatten([for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Action if s.Sid == "ReachabilityReads"]),
+    )) == 0
+    error_message = "The boundary must allow the path-component reads Reachability Analyzer performs as the e2e role."
+  }
 }
 
 run "no_wildcards_outside_documented_exceptions" {
@@ -347,7 +365,7 @@ run "no_wildcards_outside_documented_exceptions" {
         jsondecode(aws_iam_role_policy.infra_plan.policy).Statement,
         jsondecode(aws_iam_policy.boundary.policy).Statement,
       ) :
-      contains(["NoResourceLevelCreate", "EventSourceMappingCreate", "HostedZoneCreate", "NoResourceLevelActions"], s.Sid)
+      contains(["NoResourceLevelCreate", "EventSourceMappingCreate", "HostedZoneCreate", "NoResourceLevelActions", "ReachabilityReads", "GlobalAcceleratorReads"], s.Sid)
       if s.Effect == "Allow" && contains(flatten([lookup(s, "Resource", [])]), "*")
     ])
     error_message = "Resource * is allowed only in the documented no-resource-level statements."

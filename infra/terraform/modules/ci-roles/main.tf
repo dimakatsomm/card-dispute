@@ -299,6 +299,68 @@ locals {
       Resource = ["*"]
     },
     {
+      Sid    = "ReachabilityPathComponentRead"
+      Effect = "Allow"
+      # AmazonVPCReachabilityAnalyzerPathComponentReadPolicy: the analysis reads every hop type as the caller, present or not.
+      Action = [
+        "directconnect:DescribeConnections",
+        "directconnect:DescribeDirectConnectGatewayAssociations",
+        "directconnect:DescribeDirectConnectGatewayAttachments",
+        "directconnect:DescribeDirectConnectGateways",
+        "directconnect:DescribeVirtualGateways",
+        "directconnect:DescribeVirtualInterfaces",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeCustomerGateways",
+        "ec2:DescribeInstances",
+        "ec2:DescribeInternetGateways",
+        "ec2:DescribeManagedPrefixLists",
+        "ec2:DescribeNatGateways",
+        "ec2:DescribeNetworkAcls",
+        "ec2:DescribePrefixLists",
+        "ec2:DescribeRegions",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeTransitGatewayAttachments",
+        "ec2:DescribeTransitGatewayConnects",
+        "ec2:DescribeTransitGatewayPeeringAttachments",
+        "ec2:DescribeTransitGatewayRouteTables",
+        "ec2:DescribeTransitGatewayVpcAttachments",
+        "ec2:DescribeTransitGateways",
+        "ec2:DescribeVpcAttribute",
+        "ec2:DescribeVpcEndpointServiceConfigurations",
+        "ec2:DescribeVpcEndpoints",
+        "ec2:DescribeVpcPeeringConnections",
+        "ec2:DescribeVpnConnections",
+        "ec2:DescribeVpnGateways",
+        "ec2:GetManagedPrefixListEntries",
+        "ec2:GetTransitGatewayRouteTablePropagations",
+        "ec2:SearchTransitGatewayRoutes",
+        "elasticloadbalancing:DescribeListenerCertificates",
+        "elasticloadbalancing:DescribeListeners",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeRules",
+        "elasticloadbalancing:DescribeTags",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "globalaccelerator:ListAccelerators",
+        "globalaccelerator:ListCustomRoutingAccelerators",
+        "globalaccelerator:ListCustomRoutingEndpointGroups",
+        "globalaccelerator:ListCustomRoutingListeners",
+        "globalaccelerator:ListCustomRoutingPortMappings",
+        "globalaccelerator:ListEndpointGroups",
+        "globalaccelerator:ListListeners",
+        "network-firewall:DescribeFirewall",
+        "network-firewall:DescribeFirewallPolicy",
+        "network-firewall:DescribeResourcePolicy",
+        "network-firewall:DescribeRuleGroup",
+        "network-firewall:ListFirewallPolicies",
+        "network-firewall:ListFirewalls",
+        "network-firewall:ListRuleGroups",
+      ]
+      # Describe/List/Get/Search reads have no resource-level permission.
+      Resource = ["*"]
+    },
+    {
       Sid       = "ReachabilityCleanupOwn"
       Effect    = "Allow"
       Action    = ["ec2:DeleteNetworkInsightsAnalysis", "ec2:DeleteNetworkInsightsPath"]

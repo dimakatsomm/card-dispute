@@ -227,7 +227,7 @@ run "wildcards_only_where_documented" {
   assert {
     condition = alltrue(flatten([
       for k, pol in aws_iam_role_policy.this : [
-        for s in jsondecode(pol.policy).Statement : s.Resource == ["*"] && length(setsubtract(s.Action, lookup({
+        for s in jsondecode(pol.policy).Statement : s.Resource == ["*"] && (k == "e2e" && s.Sid == "ReachabilityPathComponentRead" ? alltrue([for a in s.Action : can(regex("^(directconnect|ec2|elasticloadbalancing|globalaccelerator|network-firewall):(Describe|List|Search|GetManagedPrefixListEntries$|GetTransitGatewayRouteTablePropagations$)", a))]) : length(setsubtract(s.Action, lookup({
           publish     = ["ecr:GetAuthorizationToken"]
           deploy      = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition", "elasticloadbalancing:DescribeTargetHealth"]
           "run-tools" = ["ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition"]
@@ -237,7 +237,7 @@ run "wildcards_only_where_documented" {
             "ec2:DescribeSecurityGroups", "ec2:DescribeSubnets", "ec2:DescribeVpcs",
             "tiros:CreateQuery", "tiros:GetQueryAnswer", "tiros:GetQueryExplanation",
           ]
-        }, startswith(k, "publish-") ? "publish" : startswith(k, "deploy-lambda-") ? "none" : startswith(k, "deploy-") ? "deploy" : k, []))) == 0
+        }, startswith(k, "publish-") ? "publish" : startswith(k, "deploy-lambda-") ? "none" : startswith(k, "deploy-") ? "deploy" : k, []))) == 0)
         if contains(s.Resource, "*")
       ]
     ]))
@@ -257,6 +257,19 @@ run "wildcards_only_where_documented" {
   assert {
     condition     = one([for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : s.Condition if s.Sid == "ReachabilityCleanupOwn"]) == { StringEquals = { "aws:ResourceTag/created-by" = "cd-gha-e2e" } }
     error_message = "e2e may delete only Network Insights resources it tagged."
+  }
+
+  assert {
+    condition = length(setsubtract(
+      ["ec2:DescribeRouteTables", "ec2:DescribeNetworkAcls", "ec2:DescribeInternetGateways", "ec2:DescribeNatGateways", "ec2:DescribeVpcEndpoints", "ec2:DescribeManagedPrefixLists", "ec2:GetManagedPrefixListEntries", "elasticloadbalancing:DescribeLoadBalancers", "elasticloadbalancing:DescribeTargetGroups", "elasticloadbalancing:DescribeListeners"],
+      flatten([for s in jsondecode(aws_iam_role_policy.this["e2e"].policy).Statement : s.Action if s.Sid == "ReachabilityPathComponentRead"]),
+    )) == 0
+    error_message = "e2e must read the path components Reachability Analyzer walks, or the analysis fails with insufficient permissions."
+  }
+
+  assert {
+    condition     = alltrue([for pol in aws_iam_role_policy.this : length(pol.policy) <= 10240])
+    error_message = "An inline role policy exceeds IAM's 10,240-character limit."
   }
 }
 

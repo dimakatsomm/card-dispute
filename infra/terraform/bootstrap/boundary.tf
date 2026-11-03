@@ -40,24 +40,44 @@ locals {
           "ec2:CreateNetworkInsightsPath",
           "ec2:CreateNetworkInterface",
           "ec2:DeleteNetworkInterface",
-          "ec2:DescribeNetworkInsightsAnalyses",
-          "ec2:DescribeNetworkInsightsPaths",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeVpcs",
           "ec2:StartNetworkInsightsAnalysis",
           "ec2:UnassignPrivateIpAddresses",
           "ecr:GetAuthorizationToken",
           "ecs:DescribeTaskDefinition",
           "ecs:RegisterTaskDefinition",
-          "elasticloadbalancing:DescribeTargetHealth",
           "tiros:CreateQuery",
           "tiros:GetQueryAnswer",
           "tiros:GetQueryExplanation",
         ]
         Resource  = "*"
         Condition = local.in_region
+      },
+      {
+        Sid    = "ReachabilityReads"
+        Effect = "Allow"
+        # Ceiling for the e2e role's explicit Reachability Analyzer hop reads; read-only globs keep the boundary under 6,144 chars.
+        Action = [
+          "directconnect:Describe*",
+          "ec2:Describe*",
+          "ec2:GetManagedPrefixListEntries",
+          "ec2:GetTransitGatewayRouteTablePropagations",
+          "ec2:SearchTransitGatewayRoutes",
+          "elasticloadbalancing:Describe*",
+          "network-firewall:Describe*",
+          "network-firewall:List*",
+        ]
+        Resource  = "*"
+        Condition = local.in_region
+      },
+      {
+        Sid    = "GlobalAcceleratorReads"
+        Effect = "Allow"
+        Action = [
+          "globalaccelerator:List*",
+        ]
+        Resource = "*"
+        # The Global Accelerator API is served only from us-west-2, whatever the accelerator's endpoints.
+        Condition = { StringEquals = { "aws:RequestedRegion" = ["us-west-2"] } }
       },
       {
         Sid    = "ReachabilityAnalyzerCleanup"
