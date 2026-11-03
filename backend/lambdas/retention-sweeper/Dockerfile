@@ -22,7 +22,9 @@ RUN dnf upgrade -y --refresh --releasever=latest && dnf clean all && rm -rf /var
       /var/runtime/node_modules/@aws-sdk /var/lang/lib/node_modules/npm /var/lang/bin/npm /var/lang/bin/npx
 # Node no longer trusts the RDS CA by default; the vendored bundle is verified at build (backend/packages/db/certs).
 COPY --chmod=0444 backend/packages/db/certs/rds-global-bundle.pem /etc/ssl/rds/rds-global-bundle.pem
-RUN echo "90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/ssl/rds/rds-global-bundle.pem" | sha256sum -c -
+# BuildKit can give the parent of a COPY --chmod target the file mode (no x), hiding the bundle from non-root users.
+RUN chmod 0755 /etc/ssl/rds \
+ && echo "90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/ssl/rds/rds-global-bundle.pem" | sha256sum -c -
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/rds/rds-global-bundle.pem
 COPY --from=build /repo/backend/lambdas/retention-sweeper/dist/index.mjs ${LAMBDA_TASK_ROOT}/
 CMD ["index.handler"]

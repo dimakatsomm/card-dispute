@@ -503,7 +503,7 @@ and `_app`, plus `disputes_retention`) using the RDS-managed master secret, with
 the nine `cd/dev/db/<role>` secrets and re-sets them on every run, so it is safe to repeat.
 
 ```bash
-gh workflow run dev-tools.yml --ref main --repo "$REPO" -f task=db-bootstrap     # (CI-02) approve under dev
+gh workflow run dev-tools.yml --ref main --repo "$REPO" -f tool=db-bootstrap     # (CI-02) approve under dev
 ```
 
 Approve the run under **Review deployments > dev**, then read the task log:

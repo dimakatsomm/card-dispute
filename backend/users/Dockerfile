@@ -19,7 +19,10 @@ COPY backend/users/migrations backend/users/migrations
 FROM node:24.22.0-alpine3.24 AS runtime
 ENV NODE_ENV=production
 COPY --chmod=0444 backend/packages/db/certs/rds-global-bundle.pem /etc/ssl/rds/rds-global-bundle.pem
-RUN echo "90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/ssl/rds/rds-global-bundle.pem" | sha256sum -c -
+# BuildKit can give the parent of a COPY --chmod target the file mode (no x), hiding the bundle from non-root users.
+RUN chmod 0755 /etc/ssl/rds \
+ && su node -s /bin/sh -c 'test -r /etc/ssl/rds/rds-global-bundle.pem' \
+ && echo "90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b  /etc/ssl/rds/rds-global-bundle.pem" | sha256sum -c -
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/rds/rds-global-bundle.pem
 # Picks up Alpine security fixes released after the pinned base image (Trivy: no fixable HIGH/CRITICAL).
 RUN apk upgrade --no-cache \
