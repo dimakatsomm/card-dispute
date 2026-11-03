@@ -1,0 +1,5 @@
+GET /review-queue api path removed without deprecation
+PUT /dispute/{transactionId}/review api path removed without deprecation
+PUT /dispute/{transactionId}/resolution api path removed without deprecation
+POST /validate added `#/components/schemas/ValidAgent` to the response body `oneOf` list for the response status `200`
+POST /validate added the new `ambiguous_role` enum value to the `oneOf[#/components/schemas/Invalid]/reason` response property for the response status `200`
