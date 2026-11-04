@@ -782,8 +782,10 @@
     "BO-H1": {
       "status": "todo",
       "agent": "implementer",
-      "blockedBy": [],
-      "notes": "From BO-03 security review: on agent-opted servers reject routes whose first segment is a :param or *; exempt /health and /ready for GET/HEAD only."
+      "blockedBy": [
+        "BO-09"
+      ],
+      "notes": "From BO-03 security review: on agent-opted servers reject routes whose first segment is a :param or *; exempt /health and /ready for GET/HEAD only. Owner 2026-11-04: after BO-09, one PR each."
     },
     "BO-05b": {
       "status": "done",
@@ -796,14 +798,18 @@
     "BO-H2": {
       "status": "todo",
       "agent": "service-api",
-      "blockedBy": [],
-      "notes": "auth test teardown race: appPool has no error handler; 57P01 on container stop → unhandled error, exit 1 with 127/127 passed (backend/auth/test/support/db.ts:77-80)."
+      "blockedBy": [
+        "BO-09"
+      ],
+      "notes": "auth test teardown race: appPool has no error handler; 57P01 on container stop → unhandled error, exit 1 with 127/127 passed (backend/auth/test/support/db.ts:77-80). Owner 2026-11-04: after BO-09, one PR each."
     },
     "BO-H3": {
       "status": "todo",
       "agent": "implementer",
-      "blockedBy": [],
-      "notes": "contracts generator adds a redundant code-point length check (zod 4.6 min/max already count code points); remove and regenerate."
+      "blockedBy": [
+        "BO-09"
+      ],
+      "notes": "contracts generator adds a redundant code-point length check (zod 4.6 min/max already count code points); remove and regenerate. Owner 2026-11-04: after BO-09, one PR each."
     },
     "BO-10": {
       "status": "todo",
@@ -1163,7 +1169,8 @@
       "date": "2026-10-21",
       "text": "CloudFront on the default *.cloudfront.net certificate cannot set a TLS 1.2 minimum security policy (AWS forces TLSv1); accepted with no custom domain (ADR-046) — modern browsers negotiate TLS 1.2/1.3. A domain + ACM certificate in us-east-1 is required before real data, together with HTTPS on the internal hop. WAF keeps a label rule blocking oversize bodies outside /api/dispute* (+$1/mo); PriceClass_All."
     },
-    "2026-11-04 owner: BO-09 ASAP; agents in the same Cognito pool with per-agent TOTP; agent evidence viewing scheduled (BO-10)"
+    "2026-11-04 owner: BO-09 ASAP; agents in the same Cognito pool with per-agent TOTP; agent evidence viewing scheduled (BO-10)",
+    "2026-11-04 owner: BO-H1..H3 after BO-09, as separate PRs"
   ],
   "openQuestions": [
     "V-08: Confirm against real S3 in dev that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",
