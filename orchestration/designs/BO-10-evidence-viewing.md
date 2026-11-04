@@ -1,6 +1,6 @@
 # BO-10 — Agent evidence viewing (design note, for peer review)
 
-Status: **draft for review**, 2026-11-04. Owner scheduled it on 2026-11-04 (ADR-071 rulings). No code until this is
+Status: **revised after peer review 03 → recommendation is B′** (see response-03), 2026-11-04. Owner scheduled it on 2026-11-04 (ADR-071 rulings). No code until this is
 reviewed and an ADR is recorded.
 
 ## Goal
@@ -56,7 +56,7 @@ evidence bucket; disputes (or a signer) signs CloudFront URLs with a key pair.
   than A unless the signer is isolated as in B); new distribution/behaviour and key management; SSE-KMS with OAC
   needs a key-policy grant to CloudFront.
 
-## Recommendation
+## Recommendation (superseded by B′ in response-03 — kept for the record)
 **B**, with these specifics:
 - Lambda in the private subnets, reaching auth and disputes like the notifier (internal ALB `:8081`), and S3/KMS via
   NAT (no new endpoints in dev).
