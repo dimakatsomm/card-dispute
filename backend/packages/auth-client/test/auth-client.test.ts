@@ -2,7 +2,7 @@ import { ok } from '@cd/shared/fp';
 import { describe, expect, it } from 'vitest';
 import { createAuthClient } from '../src/auth-client.ts';
 import { createServiceTokenProvider } from '../src/service-token.ts';
-import { AUTH_ID, fakeFetch, invalidResult, jsonResponse, USER_ID, userPrincipal } from './fakes.ts';
+import { AGENT_ID, AGENT_NAME, agentPrincipal, AUTH_ID, fakeFetch, invalidResult, jsonResponse, USER_ID, userPrincipal } from './fakes.ts';
 
 const T0 = 1_800_000_000_000;
 const secs = (n: number) => n * 1000;
@@ -32,6 +32,17 @@ describe('createAuthClient.validate', () => {
     expect(stub.calls[0]?.headers['authorization']).toBe('Bearer service-token');
     expect(stub.calls[0]?.headers['x-correlation-id']).toBe('corr-12345678');
     expect(JSON.parse(stub.calls[0]?.body ?? '')).toEqual({ token: 'user-jwt' });
+  });
+
+  it('parses an agent result into an agent principal and caches it like any other', async () => {
+    const { stub, client } = setup(() => jsonResponse(200, agentPrincipal(epoch(T0) + 900)));
+    const result = await client.validate('agent-jwt');
+    expect(result).toEqual({
+      ok: true,
+      value: { principalType: 'agent', agentId: AGENT_ID, displayName: AGENT_NAME, scopes: [], exp: epoch(T0) + 900 },
+    });
+    await client.validate('agent-jwt');
+    expect(stub.calls).toHaveLength(1);
   });
 
   it('serves a repeated valid token from cache without a request', async () => {
@@ -94,6 +105,17 @@ describe('createAuthClient.validate', () => {
   ])('treats %s as unavailable and does not cache', async (_name, respond) => {
     const { client } = setup(respond);
     expect(await client.validate('user-jwt')).toMatchObject({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it.each([
+    ['without displayName', { ...agentPrincipal(epoch(T0) + 900), displayName: undefined }],
+    ['with an empty displayName', { ...agentPrincipal(epoch(T0) + 900), displayName: '' }],
+    ['with an 81-character displayName', { ...agentPrincipal(epoch(T0) + 900), displayName: 'a'.repeat(81) }],
+  ])('fails closed on an agent result %s', async (_name, body) => {
+    const { stub, client } = setup(() => jsonResponse(200, body));
+    expect(await client.validate('agent-jwt')).toMatchObject({ ok: false, error: { kind: 'unavailable' } });
+    await client.validate('agent-jwt');
+    expect(stub.calls).toHaveLength(2);
   });
 
   it('treats an unreachable auth service as unavailable', async () => {

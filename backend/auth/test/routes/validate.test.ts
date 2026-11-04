@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildServers, type AuthConfig } from '../../src/main.ts';
 import { startAuthDb, type AuthDb } from '../support/db.ts';
 import {
+  AGENT_CLIENTS,
+  agentClaims,
   hs256WithPublicKey,
   ISSUER,
   newKey,
@@ -29,7 +31,16 @@ const DISABLED = {
   username: 'dumisani.zulu',
   userId: '01990000-0000-7000-8000-00000000000d',
 };
-const UNKNOWN_SUB = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const UNKNOWN_SUB = '99999999-9999-4999-8999-999999999999';
+const AGENT = { sub: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', displayName: 'Naledi M.' };
+const DISABLED_AGENT = { sub: 'ffffffff-ffff-4fff-8fff-ffffffffffff', displayName: 'Pieter V.' };
+const AGENT_WITHOUT_ROW = '77777777-7777-4777-8777-777777777777';
+const BOTH_ROLES = {
+  sub: '88888888-8888-4888-8888-888888888888',
+  username: 'both.roles',
+  userId: '01990000-0000-7000-8000-000000000088',
+  displayName: 'Both R.',
+};
 
 const silentLogger = createLogger({ level: 'silent' });
 
@@ -38,12 +49,13 @@ let jwks: JwksServer;
 const key: TestKey = newKey('test-key-1');
 let servers: Servers;
 let activeAuthId: string;
+let agentId: string;
 const fetchedUrls: string[] = [];
 
 const configFor = (jwksUri: string): AuthConfig => ({
   issuer: ISSUER,
   jwksUri,
-  clients: { user: USER_CLIENTS, service: SERVICE_CLIENTS },
+  clients: { user: USER_CLIENTS, service: SERVICE_CLIENTS, agent: AGENT_CLIENTS },
   allowInsecureJwks: true,
 });
 
@@ -75,6 +87,10 @@ beforeAll(async () => {
   [db, jwks] = await Promise.all([startAuthDb(), startJwksServer([key])]);
   activeAuthId = await db.seedIdentity({ ...ACTIVE, status: 'ACTIVE' });
   await db.seedIdentity({ ...DISABLED, status: 'DISABLED' });
+  agentId = await db.seedAgent({ ...AGENT, status: 'ACTIVE' });
+  await db.seedAgent({ ...DISABLED_AGENT, status: 'DISABLED' });
+  await db.seedIdentity({ ...BOTH_ROLES, status: 'ACTIVE' });
+  await db.seedAgent({ ...BOTH_ROLES, status: 'ACTIVE' });
   servers = buildServers(configFor(jwks.url), {
     pool: db.appPool,
     fetch: recordingFetch,
@@ -112,6 +128,11 @@ describe('caller authentication on POST /validate', () => {
     [
       'a user token as caller',
       () => `Bearer ${signJwt(key, userClaims(ACTIVE.sub, { scope: 'auth/validate' }))}`,
+      403,
+    ],
+    [
+      'an agent token as caller',
+      () => `Bearer ${signJwt(key, agentClaims(AGENT.sub, { scope: 'auth/validate' }))}`,
       403,
     ],
     [
@@ -253,7 +274,7 @@ describe('POST /validate results', () => {
   it('refuses to start when a client id is on both allow-lists', () => {
     const overlapping = {
       ...configFor(jwks.url),
-      clients: { user: ['spa', 'svc-users'], service: ['svc-users'] },
+      clients: { user: ['spa', 'svc-users'], service: ['svc-users'], agent: ['backoffice'] },
     };
     expect(() => buildServers(overlapping, { pool: db.appPool, fetch, logger: silentLogger })).toThrow(
       /overlapping_client_ids/,
@@ -278,6 +299,86 @@ describe('POST /validate results', () => {
     } finally {
       await broken.close();
     }
+  });
+});
+
+describe('POST /validate agent principal (ADR-071)', () => {
+  it('returns the agent principal with agentId, displayName and no scopes for a backoffice token in group agents with an ACTIVE row', async () => {
+    const claims = agentClaims(AGENT.sub);
+    const res = await postValidate(servers.service, { token: signJwt(key, claims) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      valid: true,
+      principalType: 'agent',
+      agentId,
+      displayName: AGENT.displayName,
+      scopes: [],
+      exp: claims.exp,
+    });
+    expectContract(res.json());
+  });
+
+  it.each<[string, () => Record<string, unknown>, string]>([
+    ['the agent row is DISABLED', () => agentClaims(DISABLED_AGENT.sub), 'disabled'],
+    ['the sub has no agent row', () => agentClaims(AGENT_WITHOUT_ROW), 'unknown_subject'],
+    ['the sub is only a customer', () => agentClaims(ACTIVE.sub), 'unknown_subject'],
+    [
+      'the token lacks cognito:groups',
+      () => agentClaims(AGENT.sub, { 'cognito:groups': undefined }),
+      'unknown_subject',
+    ],
+    [
+      'cognito:groups lacks agents',
+      () => agentClaims(AGENT.sub, { 'cognito:groups': ['support'] }),
+      'unknown_subject',
+    ],
+    [
+      'cognito:groups is a string',
+      () => agentClaims(AGENT.sub, { 'cognito:groups': 'agents' }),
+      'unknown_subject',
+    ],
+    [
+      'cognito:groups holds a non-string',
+      () => agentClaims(AGENT.sub, { 'cognito:groups': ['agents', 7] }),
+      'unknown_subject',
+    ],
+    ['the sub is both agent and customer', () => agentClaims(BOTH_ROLES.sub), 'ambiguous_role'],
+    [
+      'an agent signs in on the spa client',
+      () => userClaims(AGENT.sub, { 'cognito:groups': ['agents'] }),
+      'unknown_subject',
+    ],
+    [
+      'a spa token for a sub that is both agent and customer',
+      () => userClaims(BOTH_ROLES.sub, { 'cognito:groups': ['agents'] }),
+      'ambiguous_role',
+    ],
+  ])('is invalid when %s', async (_name, claims, reason) => {
+    const res = await postValidate(servers.service, { token: signJwt(key, claims()) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ valid: false, principalType: 'none', reason });
+    expectContract(res.json());
+  });
+
+  it('keeps a spa token carrying group agents a customer, never an agent', async () => {
+    const claims = userClaims(ACTIVE.sub, { 'cognito:groups': ['agents'] });
+    const res = await postValidate(servers.service, { token: signJwt(key, claims) });
+    expect(res.json()).toMatchObject({ valid: true, principalType: 'user', userId: ACTIVE.userId });
+  });
+
+  it('keeps a service-client token carrying group agents and an agent sub a service principal', async () => {
+    const claims = serviceClaims('svc-disputes', 'transactions/read', {
+      sub: AGENT.sub,
+      'cognito:groups': ['agents'],
+    });
+    const res = await postValidate(servers.service, { token: signJwt(key, claims) });
+    expect(res.json()).toEqual({
+      valid: true,
+      principalType: 'service',
+      clientId: 'svc-disputes',
+      scopes: ['transactions/read'],
+      exp: claims.exp,
+    });
   });
 });
 

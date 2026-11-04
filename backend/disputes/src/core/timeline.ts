@@ -101,22 +101,31 @@ const detailOf = (
   }
 };
 
-const toEvent = (entry: HistoryRecord, evidence: ReadonlyArray<EvidenceDetail>): TimelineEvent | null => {
-  const type = timelineTypeOf(entry.action, entry.toStatus);
-  if (type === null) return null;
-  const detail = detailOf(type, entry, evidence);
-  const base = { type, at: entry.createdAt.toISOString(), by: BY[type] };
-  return detail === undefined ? base : { ...base, detail };
+export type TimelineEntry = {
+  readonly type: TimelineType;
+  readonly entry: HistoryRecord;
+  readonly detail: TimelineDetail | undefined;
 };
+
+export const timelineEntries = (
+  history: ReadonlyArray<HistoryRecord>,
+  evidence: ReadonlyArray<EvidenceDetail>,
+): ReadonlyArray<TimelineEntry> =>
+  [...history]
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .flatMap((entry) => {
+      const type = timelineTypeOf(entry.action, entry.toStatus);
+      return type === null ? [] : [{ type, entry, detail: detailOf(type, entry, evidence) }];
+    });
 
 export const buildTimeline = (
   history: ReadonlyArray<HistoryRecord>,
   evidence: ReadonlyArray<EvidenceDetail>,
 ): ReadonlyArray<TimelineEvent> =>
-  [...history]
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    .map((entry) => toEvent(entry, evidence))
-    .filter((event): event is TimelineEvent => event !== null);
+  timelineEntries(history, evidence).map(({ type, entry, detail }) => {
+    const base = { type, at: entry.createdAt.toISOString(), by: BY[type] };
+    return detail === undefined ? base : { ...base, detail };
+  });
 
 export type LatestHistory = {
   readonly action: HistoryAction;

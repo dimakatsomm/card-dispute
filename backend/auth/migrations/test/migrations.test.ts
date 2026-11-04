@@ -76,7 +76,7 @@ afterAll(async () => {
 
 describe('auth migrations', () => {
   it('apply cleanly from empty as auth_migrator and are idempotent on re-run', async () => {
-    expect(firstRun).toEqual({ ok: true, value: { applied: ['001_auth_identity.sql'] } });
+    expect(firstRun).toEqual({ ok: true, value: { applied: ['001_auth_identity.sql', '002_agent_identity.sql'] } });
     expect(await migrateAsMigrator()).toEqual({ ok: true, value: { applied: [] } });
   });
 
@@ -117,5 +117,75 @@ describe('auth migrations', () => {
     ['DELETE', `delete from auth_identity`],
   ])('denies auth_app %s', async (_name, sql) => {
     await expect(asRole('auth_app', sql)).rejects.toMatchObject({ code: PERMISSION_DENIED });
+  });
+});
+
+describe('agent_identity (002)', () => {
+  const insertAgent = (
+    role: Role,
+    row: { sub: string; displayName: string; status?: string },
+  ): Promise<pg.QueryResult> =>
+    asRole(
+      role,
+      `insert into agent_identity (cognito_sub, display_name, status)
+       values ($1, $2, coalesce($3, 'ACTIVE')) returning agent_id`,
+      [row.sub, row.displayName, row.status ?? null],
+    );
+
+  beforeAll(async () => {
+    await insertAgent('auth_migrator', { sub: 'agent-sub-taken', displayName: 'Taken A.' });
+  });
+
+  it('lets auth_app read the access switch', async () => {
+    const r = await asRole('auth_app', `select display_name, status from agent_identity where cognito_sub = 'agent-sub-taken'`);
+    expect(r.rows).toEqual([{ display_name: 'Taken A.', status: 'ACTIVE' }]);
+  });
+
+  it.each([
+    ['INSERT', `insert into agent_identity (cognito_sub, display_name) values ('self-made', 'Self M.')`],
+    ['UPDATE status', `update agent_identity set status = 'ACTIVE'`],
+    ['UPDATE cognito_sub', `update agent_identity set cognito_sub = 'hijack'`],
+    ['DELETE', `delete from agent_identity`],
+    ['TRUNCATE', `truncate agent_identity`],
+  ])('denies auth_app %s', async (_name, sql) => {
+    await expect(asRole('auth_app', sql)).rejects.toMatchObject({ code: PERMISSION_DENIED });
+  });
+
+  it('grants auth_app exactly SELECT on agent_identity, at table and column level', async () => {
+    const r = await asRole(
+      'auth_migrator',
+      `select a.privilege_type from pg_class c cross join aclexplode(c.relacl) a
+        where c.oid = 'auth.agent_identity'::regclass and a.grantee = 'auth_app'::regrole
+       union all
+       select a.privilege_type from pg_attribute t cross join aclexplode(t.attacl) a
+        where t.attrelid = 'auth.agent_identity'::regclass and a.grantee = 'auth_app'::regrole`,
+    );
+    expect(r.rows).toEqual([{ privilege_type: 'SELECT' }]);
+  });
+
+  it.each<[string, { sub: string; displayName: string; status?: string }, string]>([
+    ['duplicate cognito_sub', { sub: 'agent-sub-taken', displayName: 'Other A.' }, UNIQUE_VIOLATION],
+    ['empty cognito_sub', { sub: '', displayName: 'Empty S.' }, CHECK_VIOLATION],
+    ['empty display_name', { sub: 'agent-sub-empty', displayName: '' }, CHECK_VIOLATION],
+    ['blank display_name', { sub: 'agent-sub-blank', displayName: '   ' }, CHECK_VIOLATION],
+    ['81-char display_name', { sub: 'agent-sub-long', displayName: 'x'.repeat(81) }, CHECK_VIOLATION],
+    ['unknown status', { sub: 'agent-sub-status', displayName: 'Status U.', status: 'LOCKED' }, CHECK_VIOLATION],
+  ])('rejects %s', async (_name, row, code) => {
+    await expect(insertAgent('auth_migrator', row)).rejects.toMatchObject({ code });
+  });
+
+  it('accepts an 80-char display_name and bumps updated_at when an operator disables the agent', async () => {
+    const { rows } = await insertAgent('auth_migrator', { sub: 'agent-sub-offboard', displayName: 'é'.repeat(80) });
+    const agentId = (rows[0] as { agent_id: string }).agent_id;
+    await asRole('auth_migrator', `update agent_identity set updated_at = '2000-01-01' where agent_id = $1`, [agentId]);
+
+    await asRole('auth_migrator', `update agent_identity set status = 'DISABLED' where agent_id = $1`, [agentId]);
+
+    const after = await asRole(
+      'auth_app',
+      `select status, updated_at > '2000-01-02' as bumped from agent_identity where agent_id = $1`,
+      [agentId],
+    );
+    expect(after.rows).toEqual([{ status: 'DISABLED', bumped: true }]);
   });
 });

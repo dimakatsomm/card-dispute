@@ -14,7 +14,7 @@ type ZodPluginConfig = Extract<NonNullable<UserConfig['plugins']>[number], { nam
 type StringResolver = NonNullable<NonNullable<ZodPluginConfig['$resolvers']>['string']>;
 type StringContext = Parameters<StringResolver>[0];
 
-// JSON Schema lengths count code points; zod's min/max count UTF-16 code units.
+// JSON Schema lengths count code points; the explicit check keeps that independent of the zod version's own counting.
 const codePointLengthCheck = ({ $, schema }: StringContext) => {
   const issue = (code: 'too_small' | 'too_big', bound: 'minimum' | 'maximum', limit: number) =>
     $('ctx')

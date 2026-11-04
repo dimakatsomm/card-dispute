@@ -1,0 +1,31 @@
+name: Install Trivy
+description: Installs a pinned Trivy release from GitHub, verified against a pinned SHA-256, and puts it on PATH.
+inputs:
+  version:
+    description: Trivy version without the leading v.
+    required: false
+    default: "0.70.0"
+  sha256-linux-arm64:
+    description: SHA-256 of trivy_<version>_Linux-ARM64.tar.gz from the release's checksums file.
+    required: false
+    default: 2f6bb988b553a1bbac6bdd1ce890f5e412439564e17522b88a4541b4f364fc8d
+runs:
+  using: composite
+  steps:
+    # setup-trivy now downloads from get.trivy.dev, which stopped resolving on hosted runners (2026-11-04).
+    - shell: bash
+      env:
+        TRIVY_VERSION: ${{ inputs.version }}
+        TRIVY_SHA256: ${{ inputs.sha256-linux-arm64 }}
+      run: |
+        set -euo pipefail
+        [ "$RUNNER_OS" = "Linux" ] && [ "$RUNNER_ARCH" = "ARM64" ] || { echo "::error::install-trivy pins only Linux ARM64"; exit 1; }
+        tarball="trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"
+        work="$(mktemp -d)"
+        curl -fsSL --retry 3 -o "$work/$tarball" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${tarball}"
+        echo "${TRIVY_SHA256}  ${work}/${tarball}" | sha256sum -c -
+        dest="$HOME/.local/bin/trivy-bin"
+        mkdir -p "$dest"
+        tar -xzf "$work/$tarball" -C "$dest" trivy contrib
+        echo "$dest" >> "$GITHUB_PATH"
+        "$dest/trivy" --version

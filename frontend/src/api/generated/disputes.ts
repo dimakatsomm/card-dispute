@@ -91,10 +91,169 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/agent/review-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Back-office queue — disputes awaiting or under review, oldest first
+         * @description Disputes across all customers, oldest `createdAt` first (ties in creation order). No customer identifiers or
+         *     contact data. `pickedUpBy` is the display name of the agent who moved it to UNDER_REVIEW, if any.
+         */
+        get: operations["listReviewQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/disputes/{transactionId}": {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Dispute detail for an agent, with timeline, evidence metadata and the transaction
+         * @description The transaction is looked up server-side with the dispute's own owner (never client input); `null` when
+         *     transactions is unavailable. Send `version` and `evidenceDigest` back on review/resolution. Each read is logged
+         *     with the agent id and dispute id only.
+         */
+        get: operations["getAgentDispute"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/disputes/{transactionId}/review": {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pick up — SUBMITTED → UNDER_REVIEW
+         * @description Already UNDER_REVIEW → 200 with the stored state (no-op), so a second agent sees who picked it up.
+         *     412 when `expectedVersion` or `expectedEvidenceDigest` is stale (evidence declared or settled since the read).
+         */
+        put: operations["reviewDispute"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/disputes/{transactionId}/resolution": {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Resolve — SUBMITTED / UNDER_REVIEW → RESOLVED_ACCEPTED | RESOLVED_REJECTED
+         * @description Only human agents resolve; nothing automated changes dispute status (ADR-016). The note is shown to the
+         *     customer. Same outcome again → 200 with the stored state and the first note unchanged. Other terminal states
+         *     → 409. 412 as for review.
+         */
+        put: operations["resolveDispute"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        QueueItem: {
+            disputeId: components["schemas"]["Uuid"];
+            transactionId: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "SUBMITTED" | "UNDER_REVIEW";
+            reasonCode: components["schemas"]["ReasonCode"];
+            version: number;
+            createdAt: components["schemas"]["Timestamp"];
+            pickedUpBy: string | null;
+        };
+        /** @description SHA-256 over the dispute's evidence ids and statuses; changes when evidence is declared or settled. */
+        EvidenceDigest: string;
+        AgentTimelineEvent: {
+            type: components["schemas"]["TimelineType"];
+            at: components["schemas"]["Timestamp"];
+            /** @enum {string} */
+            by: "CUSTOMER" | "AGENT" | "SYSTEM";
+            /** @description Present when `by` is AGENT. */
+            agentName?: string;
+            detail?: {
+                fields?: ("description" | "reasonCode")[];
+                fileName?: string;
+                /** @enum {string} */
+                reason?: "MALWARE" | "TYPE_MISMATCH" | "CHECKSUM" | "SIZE" | "SCAN_FAILED";
+                note?: string;
+            };
+        };
+        /** @description What an agent sees. Never includes customer contact details or the customer id. */
+        AgentDisputeDetail: {
+            disputeId: components["schemas"]["Uuid"];
+            transactionId: components["schemas"]["Uuid"];
+            status: components["schemas"]["DisputeStatus"];
+            reasonCode: components["schemas"]["ReasonCode"];
+            description: components["schemas"]["ResponseDescription"];
+            transaction: components["schemas"]["TransactionRef"];
+            evidence: components["schemas"]["Evidence"][];
+            evidenceDigest: components["schemas"]["EvidenceDigest"];
+            version: number;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            resolvedAt: components["schemas"]["Timestamp"] | null;
+            resolutionNote: string | null;
+            pickedUpBy: string | null;
+            /** @description Ascending by `at`. */
+            timeline: components["schemas"]["AgentTimelineEvent"][];
+        };
+        ReviewDisputeRequest: {
+            expectedVersion: number;
+            expectedEvidenceDigest: components["schemas"]["EvidenceDigest"];
+        };
+        ResolveDisputeRequest: {
+            /** @enum {string} */
+            outcome: "ACCEPTED" | "REJECTED";
+            /** @description Shown to the customer on the timeline. */
+            note: string;
+            expectedVersion: number;
+            expectedEvidenceDigest: components["schemas"]["EvidenceDigest"];
+        };
         CreateDisputeRequest: {
             reasonCode: components["schemas"]["ReasonCode"];
             description: string;
@@ -289,6 +448,24 @@ export type components = {
         };
     };
     responses: {
+        /** @description `INVALID_TRANSITION` — not allowed from the current status (e.g. already resolved the other way, or withdrawn). */
+        InvalidTransition: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description `STALE_VERSION` or `STALE_EVIDENCE` — the dispute or its evidence changed since the agent read it; reload. */
+        StaleView: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Validation failed. */
         BadRequest: {
             headers: {
@@ -633,6 +810,141 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    listReviewQueue: {
+        parameters: {
+            query?: {
+                status?: ("SUBMITTED" | "UNDER_REVIEW")[];
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from a previous page's `nextCursor`. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["QueueItem"][];
+                        nextCursor: components["schemas"]["Cursor"] | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getAgentDispute: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dispute */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentDisputeDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    reviewDispute: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description Current state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentDisputeDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InvalidTransition"];
+            412: components["responses"]["StaleView"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    resolveDispute: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description Current state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentDisputeDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["InvalidTransition"];
+            412: components["responses"]["StaleView"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
 }

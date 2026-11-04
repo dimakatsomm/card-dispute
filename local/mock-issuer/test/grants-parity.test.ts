@@ -1,13 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { SPA_CLIENT_ID, loadConfig } from '../src/config.ts';
+import { loadConfig } from '../src/config.ts';
 
 type Grants = Readonly<Record<string, ReadonlyArray<string>>>;
 
 const COGNITO_GRANTS_URL = new URL('../../../infra/terraform/modules/cognito/grants.json', import.meta.url);
-
-// ADR-064: the back office is not in Cognito, so only the mock issuer has this client.
-const MOCK_ONLY_CLIENTS = ['svc-backoffice'];
 
 const normalise = (grants: Grants): Grants =>
   Object.fromEntries(
@@ -23,7 +20,7 @@ const mockGrants = (): Grants =>
         MOCK_ISSUER_CLIENT_SECRET: 'test-secret',
         MOCK_ISSUER_SPA_REDIRECT_URIS: 'http://localhost:5173/',
       })
-        .clients.filter((c) => c.clientId !== SPA_CLIENT_ID)
+        .clients.filter((c) => c.secret !== null)
         .map((c) => [c.clientId, c.allowedScopes]),
     ),
   );
@@ -43,12 +40,7 @@ const describeDifferences = (aws: Grants, mock: Grants): string[] =>
   });
 
 describe('service client scope grants', () => {
-  it('Cognito grants.json equals the mock issuer SERVICE_GRANTS, apart from the back office', () => {
-    const mock = mockGrants();
-    const cognito = cognitoGrants();
-    const mockComparable = Object.fromEntries(Object.entries(mock).filter(([c]) => !MOCK_ONLY_CLIENTS.includes(c)));
-
-    expect(Object.keys(mock).filter((c) => !(c in cognito))).toEqual(MOCK_ONLY_CLIENTS);
-    expect(describeDifferences(cognito, mockComparable)).toEqual([]);
+  it('Cognito grants.json equals the mock issuer SERVICE_GRANTS exactly', () => {
+    expect(describeDifferences(cognitoGrants(), mockGrants())).toEqual([]);
   });
 });

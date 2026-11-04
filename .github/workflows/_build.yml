@@ -115,6 +115,10 @@ jobs:
           docker buildx build --platform linux/arm64 $extra --load \
             --tag "$IMAGE_NAME:ci" --file "$DOCKERFILE" "$BUILD_CONTEXT"
 
+      - name: Install Trivy
+        if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'
+        uses: ./.github/actions/install-trivy
+
       - name: Trivy scan
         if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -125,6 +129,7 @@ jobs:
           trivyignores: .trivyignore
           exit-code: "1"
           cache: false
+          skip-setup-trivy: true
 
       - name: SBOM (SPDX)
         if: steps.pkg.outputs.found == 'true' && steps.pkg.outputs.has_docker == 'true'

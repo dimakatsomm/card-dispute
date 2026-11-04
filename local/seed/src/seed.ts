@@ -65,6 +65,15 @@ const SQL = {
     select r.username from jsonb_to_recordset($1::jsonb) as r(cognito_sub text, username text, user_id uuid)
     left join auth.auth_identity i on i.username = r.username
     where i.cognito_sub is distinct from r.cognito_sub or i.user_id is distinct from r.user_id`,
+  agentIdentity: `
+    insert into auth.agent_identity (agent_id, cognito_sub, display_name, status)
+    select agent_id, cognito_sub, display_name, status
+    from jsonb_to_recordset($1::jsonb) as r(agent_id uuid, cognito_sub text, display_name text, status text)
+    on conflict do nothing`,
+  agentMismatch: `
+    select r.cognito_sub from jsonb_to_recordset($1::jsonb) as r(agent_id uuid, cognito_sub text)
+    left join auth.agent_identity a on a.cognito_sub = r.cognito_sub
+    where a.agent_id is distinct from r.agent_id`,
   transaction: `
     insert into transactions.transaction (transaction_id, user_id, account_id, card_id, amount, currency,
       merchant_name, mcc, type, status, transaction_at, posted_at)
@@ -87,10 +96,10 @@ const SQL = {
   // History has no natural key, so it is written only alongside a dispute inserted in this same transaction.
   history: `
     insert into disputes.dispute_status_history (dispute_id, action, from_status, to_status, actor_type, actor_id,
-      note, after, created_at)
-    select d.id, h.action, h.from_status, h.to_status, h.actor_type, h.actor_id, h.note, h.after, h.created_at
+      actor_label, note, after, created_at)
+    select d.id, h.action, h.from_status, h.to_status, h.actor_type, h.actor_id, h.actor_label, h.note, h.after, h.created_at
     from jsonb_to_recordset($1::jsonb) as h(dispute_id uuid, seq int, action text, from_status text, to_status text,
-      actor_type text, actor_id text, note text, after jsonb, created_at timestamptz)
+      actor_type text, actor_id text, actor_label text, note text, after jsonb, created_at timestamptz)
     join disputes.dispute d on d.dispute_id = h.dispute_id
     where h.dispute_id = any($2::uuid[])
     order by h.dispute_id, h.seq`,
@@ -117,7 +126,12 @@ const inserts = (data: SeedData): Readonly<Record<Service, Insert>> => ({
     if (mismatched.rows.length > 0) {
       throw new Error(`auth_identity differs from the identity provider for ${mismatched.rows.map((r) => r.username).join(', ')}`);
     }
-    return { auth_identity: inserted };
+    const agents = await count(c, SQL.agentIdentity, [json(data.agentIdentities)]);
+    const agentMismatched = await c.query<{ cognito_sub: string }>(SQL.agentMismatch, [json(data.agentIdentities)]);
+    if (agentMismatched.rows.length > 0) {
+      throw new Error(`agent_identity differs from the seed for ${agentMismatched.rows.map((r) => r.cognito_sub).join(', ')}`);
+    }
+    return { auth_identity: inserted, agent_identity: agents };
   },
   transactions: async (c) => ({ transaction: await count(c, SQL.transaction, [json(data.transactions)]) }),
   disputes: async (c) => {

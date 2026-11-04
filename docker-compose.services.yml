@@ -90,6 +90,7 @@ services:
       AUTH_ALLOW_INSECURE_JWKS: 'true'
       AUTH_USER_CLIENT_IDS: ${AUTH_USER_CLIENT_IDS:?set in local/.env.example}
       AUTH_SERVICE_CLIENT_IDS: ${AUTH_SERVICE_CLIENT_IDS:?set in local/.env.example}
+      AUTH_AGENT_CLIENT_IDS: ${AUTH_AGENT_CLIENT_IDS:?set in local/.env.example}
     depends_on:
       postgres:
         condition: service_healthy
@@ -188,6 +189,8 @@ services:
       OIDC_ISSUER: ${MOCK_ISSUER_URL:?set in local/.env.example}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set in local/.env.example}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?set in local/.env.example}
+      OIDC_AGENT_CLIENT_ID: ${OIDC_AGENT_CLIENT_ID:?set in local/.env.example}
+      OIDC_AGENT_REDIRECT_URI: ${OIDC_AGENT_REDIRECT_URI:?set in local/.env.example}
       OIDC_LOGOUT_URL: ${MOCK_ISSUER_URL:?set in local/.env.example}/logout
       OIDC_POST_LOGOUT_URI: ${OIDC_POST_LOGOUT_URI:?set in local/.env.example}
       UPLOAD_ORIGIN: ${UPLOAD_ORIGIN:?set in local/.env.example}

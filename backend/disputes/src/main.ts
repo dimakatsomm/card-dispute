@@ -8,6 +8,7 @@ import type pg from 'pg';
 import { createPool, type Connectable } from './adapters/db.ts';
 import { UPSTREAM_DEADLINE_MS } from './adapters/deadline.ts';
 import { createDisputeRepo } from './adapters/dispute-repo.ts';
+import { sha256EvidenceDigest } from './adapters/evidence-digest.ts';
 import { createEventPublisher, createSqsSend, type SendMessage } from './adapters/event-publisher.ts';
 import { withValidateDeadline } from './adapters/service-client.ts';
 import { createTransactionsClient } from './adapters/transactions-client.ts';
@@ -16,11 +17,14 @@ import { createUsersClient } from './adapters/users-client.ts';
 import { createApp } from './app.ts';
 import { loadDisputesConfig, migrateConfigSchema, type Config } from './config.ts';
 import { addEvidence } from './use-cases/add-evidence.ts';
+import { getAgentDispute } from './use-cases/agent-dispute.ts';
 import { createDispute } from './use-cases/create-dispute.ts';
+import { decideDispute } from './use-cases/decide-dispute.ts';
 import { getDispute } from './use-cases/get-dispute.ts';
 import { listDisputes } from './use-cases/list-disputes.ts';
 import { lookupDisputes } from './use-cases/lookup-disputes.ts';
 import { recordEvidenceResult } from './use-cases/record-evidence-result.ts';
+import { listReviewQueue } from './use-cases/review-queue.ts';
 import { updateDispute } from './use-cases/update-dispute.ts';
 
 export type Infra = {
@@ -86,6 +90,12 @@ export const composeServers = (infra: Infra): Servers => {
 
   const signUploads = guardSigner(infra.presignUploads, logger);
 
+  const agentDispute = getAgentDispute({
+    findForAgent: repo.findForAgent,
+    findTransaction: transactions.findTransaction,
+    evidenceDigest: sha256EvidenceDigest,
+  });
+
   const useCases = {
     createDispute: createDispute({
       findTransaction: transactions.findTransaction,
@@ -113,6 +123,17 @@ export const composeServers = (infra: Infra): Servers => {
     }),
     lookupDisputes: lookupDisputes({ lookupRefs: repo.lookupRefs }),
     recordEvidenceResult: recordEvidenceResult({ transact: repo.transact, publish, newId: infra.newId }),
+    listReviewQueue: listReviewQueue({
+      listReviewQueue: repo.listReviewQueue,
+    }),
+    getAgentDispute: agentDispute,
+    decideDispute: decideDispute({
+      transact: repo.transact,
+      publish,
+      newId: infra.newId,
+      evidenceDigest: sha256EvidenceDigest,
+      getAgentDispute: agentDispute,
+    }),
   };
 
   return createApp({

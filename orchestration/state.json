@@ -1,13 +1,15 @@
 {
   "_comment": "Orchestrator memory across sessions. Read at session start, written after every task transition. Statuses: todo | in_progress | in_review | done | blocked. This file must reflect reality — a task with a failing test is not done.",
-  "milestone": "M1-walking-skeleton",
+  "milestone": "M5-rollout",
   "updatedAt": "2026-11-03",
   "milestones": {
     "M0": "done",
     "M1": "done 2026-10-20 — integration-verifier: M1 MET. 741 unit/integration tests, API e2e 23/23 (expired-token run with MOCK_ISSUER_TEST_HOOKS=true; services recovered from the issuer key change without restart), Playwright smoke passed, lint/typecheck/lint:api/check:api clean. CI greenness unverified until the repo is pushed (no remote).",
     "M2": "done 2026-10-20 — integration-verifier: M2 MET. 1,182 unit/integration tests across 17 packages; API e2e 42/42 (incl. expired token); Playwright 5/5 twice after fixing the card helper. Scan → STORED/REJECTED on timeline, email to owner on every step, 24 h slot expiry and 1-year erasure incl. file names (clock-injected), poison → both DLQs. Real AWS (GuardDuty, S3 checksum enforcement V-08, SES delivery) is M3.",
     "M3": "in_progress — decomposed 2026-10-20; waves 0–3 offline, wave 4 owner-gated.",
-    "M4": "todo — H-01..H-04 (docs/08 §8)"
+    "M4": "todo — H-01..H-04 (docs/08 §8)",
+    "M5": "done 2026-11-04 — integration-verifier: M5 MET locally (report orchestration/reports/M5.md). 1,437 tests/17 packages; e2e m5 15/15; Playwright agent+customer flows; walkthrough 50/51 (1 script error). m2 Lambda-dependent e2e unrunnable here (Lambda base image blocked by proxy).",
+    "M5-rollout": "todo — BO-09 dev rollout (owner-gated) + BO-H1..H3; owner decisions: agent MFA/pool, evidence viewing, rollout timing"
   },
   "tasks": {
     "F-01": {
@@ -375,9 +377,10 @@
       "notes": "aws ~>6.67.0, random ~>3.9.1, S3 backend use_lockfile; variables with validations (github_repo placeholder rejected until OWN-3); modules/README.md interface contract for 17 modules. Rulings: edge owns ALB :80 ingress; alb generates fallback origin secret; ecs-cluster creates cd.internal namespace; all DLQs in messaging; ci-roles derive Lambda ARNs by naming. I-WIRE owns .terraform.lock.hcl (multi-platform lock)."
     },
     "OWN-1": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "Inferred 2026-11-03 from git and runtime evidence, not from a pasted preflight: account on the Paid plan (a216f74, ADR-069), bootstrap applied, Aurora PG18, GuardDuty and SES working in eu-north-1."
     },
     "OWN-3": {
       "status": "done",
@@ -386,26 +389,29 @@
       "notes": "repo dimakatsomm/card-dispute public; secret scanning + push protection; branch protection; dev and dev-infra environments; AWS_REGION var (2026-10-22). AWS_ACCOUNT_ID etc. pending OWN-1/OWN-4."
     },
     "OWN-4": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
       "blockedBy": [
         "I-00",
         "OWN-1",
         "OWN-3"
-      ]
+      ],
+      "notes": "Bootstrap applied and state migrated 2026-10-26 (cbcc66f backend.tf); TF_STATE_* and AWS_INFRA_* variables set (owner helper scripts read them back). Runbook §3 marked done (f3ed462)."
     },
     "OWN-5": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
-      "blockedBy": []
+      "blockedBy": [],
+      "notes": "GuardDuty Malware Protection works: owner Lambda logs 2026-11-03 show evidence-intake outcomes PROMOTED and REJECTED from real scan results. Whether manual first-time enablement was needed is not recorded."
     },
     "OWN-6": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "owner",
       "blockedBy": [
         "I-12",
         "I-13"
-      ]
+      ],
+      "notes": "SES identity verified: notifier logs 2026-11-03 show kind SENT with SES message ids. SNS alarm-subscription confirmation not evidenced yet; owner to confirm."
     },
     "I-00": {
       "status": "done",
@@ -690,6 +696,113 @@
         "standards": "pass after fixes"
       },
       "decision": "ADR-070"
+    },
+    "ROLLOUT": {
+      "status": "in_progress",
+      "agent": "owner",
+      "blockedBy": [
+        "OWN-4"
+      ],
+      "notes": "Runbook §4–11. Phase A and B applied (46cfbf4, 2026-10-27); services, Lambdas and seed live; e2e-dev run 2026-11-03 with fixes (54716c2, 3c26341, 4b232e6). Open: e2e-dev not yet recorded green; dispute-notifier SendEmail intermittently AccessDeniedException from 2026-11-03T10:53Z (16 of 52 in owner log; SENT before and between) — cause not yet investigated."
+    },
+    "BO-00": {
+      "status": "done",
+      "agent": "orchestrator",
+      "blockedBy": [],
+      "notes": "bb02edf: contract + prose; redocly lint 0/0; contracts and SPA types regenerated. auth-client typecheck red until BO-03 (pushed together)."
+    },
+    "BO-01": {
+      "status": "done",
+      "agent": "data-schema",
+      "blockedBy": [
+        "BO-00"
+      ],
+      "notes": "Gate PASS 2026-11-03 (security+tests+standards): agent_identity SELECT-only for auth_app (ACL test), partial queue index proven by EXPLAIN (fails without 005), two seeded agents; auth 79, disputes 226, seed 99 tests."
+    },
+    "BO-02": {
+      "status": "done",
+      "agent": "service-api",
+      "blockedBy": [
+        "BO-00",
+        "BO-01"
+      ],
+      "notes": "Gate PASS 2026-11-04 (security+tests+standards): agent only with agent-list client + cognito:groups ∋ agents + ACTIVE agent_identity; spa/service never agents; ambiguous_role both paths; groups parse fail-safe; fail-closed on DB error (use-case test added); lists disjoint, fail fast. 126 tests. Dev needs AUTH_AGENT_CLIENT_IDS before redeploying auth (BO-09)."
+    },
+    "BO-03": {
+      "status": "done",
+      "agent": "implementer",
+      "blockedBy": [
+        "BO-00"
+      ],
+      "notes": "Gate PASS 2026-11-03: security (incl. Fastify probe: prefixes, HEAD, encoded paths, case) + tests/standards; 86 tests, typecheck, eslint. Hardening logged as BO-H1."
+    },
+    "BO-04": {
+      "status": "done",
+      "agent": "implementer",
+      "blockedBy": [
+        "BO-00"
+      ],
+      "notes": "Gate PASS 2026-11-03 (security+tests+standards, one pass): backoffice client, agents E/F with cognito:groups only on backoffice, svc-backoffice and review/resolve scopes removed, parity exact vs grants.json; 30/30 tests, typecheck, eslint. Follow-ups routed to BO-02 (.env.example, compose) and BO-07 (stack.ts)."
+    },
+    "BO-05": {
+      "status": "done",
+      "agent": "service-api",
+      "blockedBy": [
+        "BO-02",
+        "BO-03"
+      ],
+      "notes": "Gate PASS 2026-11-04 (security+tests+standards, verified on an isolated HEAD worktree): four /agent/* routes, actor from principal, owner-scoped transaction, FOR UPDATE + version + evidence digest, replay safe (NO_OP only), publish after commit, deterministic race tests; 250 tests. Display names via BO-05b."
+    },
+    "BO-06": {
+      "status": "done",
+      "agent": "frontend",
+      "blockedBy": [
+        "BO-00",
+        "BO-04"
+      ],
+      "notes": "Gate PASS 2026-11-04 (security+tests+standards): separate backoffice OIDC client + state prefix, tokens in memory, agent/customer areas exclusive, 412/409 handling; 123 tests, typecheck, eslint, build. Callback wiring covered by BO-07 Playwright; entrypoint test gap predates."
+    },
+    "BO-07": {
+      "status": "done",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "BO-05",
+        "BO-06"
+      ],
+      "notes": "Gate PASS 2026-11-04: m5 API e2e 15/15 (re-run after restart), Playwright agent flow passed twice in BO-07 runs; nginx /api/agent/ → disputes:8080 only. Stack ran on locally rebuilt images (Lambda base image unobtainable through the proxy; notifier via stand-in running the real handler). Full test:e2e 47 pass / 9 m2 fail, all needing the Lambda containers."
+    },
+    "BO-09": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": [
+        "BO-07"
+      ]
+    },
+    "BO-H1": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [],
+      "notes": "From BO-03 security review: on agent-opted servers reject routes whose first segment is a :param or *; exempt /health and /ready for GET/HEAD only."
+    },
+    "BO-05b": {
+      "status": "done",
+      "agent": "multiple",
+      "blockedBy": [
+        "BO-05"
+      ],
+      "notes": "Gate PASS 2026-11-04 after round 2: displayName on ValidAgent → AgentPrincipal → dispute_status_history.actor_label (AGENT rows only, insert-only); timeline agentName and pickedUpBy from actor_label; customers still BANK (test added). auth 127, auth-client 89, disputes 256, seed 99; typecheck, lint, lint:api, contracts regen stable."
+    },
+    "BO-H2": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [],
+      "notes": "auth test teardown race: appPool has no error handler; 57P01 on container stop → unhandled error, exit 1 with 127/127 passed (backend/auth/test/support/db.ts:77-80)."
+    },
+    "BO-H3": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [],
+      "notes": "contracts generator adds a redundant code-point length check (zod 4.6 min/max already count code points); remove and regenerate."
     }
   },
   "decisions": [
@@ -1044,7 +1157,10 @@
     "P-05x follow-up: move the evidence cap-counting statuses (PENDING+STORED) and the ADR-050 declaration-matching rule from disputes core into @cd/dispute-domain (rule 2).",
     "tests/ui: card helper now waits for rows and pages; e2e and UI share user A data, which never resets (disputes are permanent) — reseed occasionally on long-lived local stacks.",
     "ACL-TO follow-up: pass the in-scope deadline signal into getToken({ signal }) at disputes service-client, transactions upstream (UpstreamDeps.getToken type), notifier service-client and intake disputes-client; until then token fetches are bounded by the 5 s provider default.",
-    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch."
+    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch.",
+    "M5: agent pool with MFA required vs per-user TOTP before real data",
+    "M5: evidence viewing for agents (currently out, demo-only)",
+    "M5: BO-09 rollout timing; never deploy auth to dev before BO-09 sets AUTH_AGENT_CLIENT_IDS"
   ],
   "peerReviews": [
     {

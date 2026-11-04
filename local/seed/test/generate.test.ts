@@ -169,6 +169,11 @@ describe('generateSeedData', () => {
     },
   );
 
+  it('never gives an agent a customer sub, which auth would reject as ambiguous_role', () => {
+    const customerSubs = new Set(data.authIdentities.map((i) => i.cognito_sub));
+    expect(data.agentIdentities.filter((a) => customerSubs.has(a.cognito_sub))).toEqual([]);
+  });
+
   it('uses only example.com emails and ZAR', () => {
     expect(data.appUsers.every((u) => u.email.endsWith('@example.com'))).toBe(true);
     expect([...data.accounts, ...data.transactions].every((r) => r.currency === 'ZAR')).toBe(true);

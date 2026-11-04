@@ -100,10 +100,10 @@ Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (o
 - If transactions is down → dispute data is returned with `transaction: null` (degrades, never fails).
 
 ### Resolution
-- Back-office agents list the queue with `GET :8081/review-queue` (SUBMITTED / UNDER_REVIEW, oldest first), pick one
-  with `PUT /dispute/{transactionId}/review` (SUBMITTED → UNDER_REVIEW) and close it with `/resolution`.
+- Back-office agents sign in to the SPA's agent area (ADR-071), list the queue with `GET /agent/review-queue` (SUBMITTED /
+  UNDER_REVIEW, oldest first), pick one up with `PUT /agent/disputes/{transactionId}/review` and close it with `/resolution`.
   **No automation changes dispute status** (ADR-016, ADR-033). Only a human AGENT reviews or resolves.
-- Back-office uses the internal endpoints with scope `disputes/resolve`.
+- Agent routes are on the disputes public port and need an agent token; no service client can change dispute status.
 - Every transition → after commit → `DisputeStatusChanged` → notifier emails the owner.
 
 ## Why these choices

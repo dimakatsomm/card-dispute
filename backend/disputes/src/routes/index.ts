@@ -1,5 +1,6 @@
-import { registerPublicRoutes, registerServiceRoutes, type AuthClient } from '@cd/auth-client';
+import { registerAgentRoutes, registerPublicRoutes, registerServiceRoutes, type AuthClient } from '@cd/auth-client';
 import type { FastifyInstance } from 'fastify';
+import { agentRoutes, type AgentUseCases } from './agent.ts';
 import { addEvidenceRoute, type AddEvidenceUseCase } from './add-evidence.ts';
 import { createDisputeRoute, type CreateDisputeUseCase } from './create.ts';
 import { getDisputeRoute, type GetDisputeUseCase } from './get.ts';
@@ -13,7 +14,8 @@ export type UseCases = {
   readonly updateDispute: UpdateDisputeUseCase;
   readonly getDispute: GetDisputeUseCase;
   readonly listDisputes: ListDisputesUseCase;
-} & ServiceUseCases;
+} & ServiceUseCases &
+  AgentUseCases;
 
 export const registerPublic =
   (authClient: AuthClient, useCases: UseCases) =>
@@ -25,6 +27,7 @@ export const registerPublic =
       getDisputeRoute(useCases.getDispute),
       listDisputesRoute(useCases.listDisputes),
     ]);
+    registerAgentRoutes(app, authClient, agentRoutes(useCases));
   };
 
 export const registerServicePort =

@@ -54,6 +54,7 @@ export const seedHistory = async (
     readonly toStatus: Status;
     readonly actorType: 'USER' | 'SYSTEM_RULE' | 'AGENT';
     readonly actorId: string;
+    readonly actorLabel?: string;
     readonly createdAt: string;
     readonly note?: string;
     readonly before?: unknown;
@@ -62,8 +63,8 @@ export const seedHistory = async (
 ): Promise<void> => {
   await db.appQuery(
     `insert into dispute_status_history
-       (dispute_id, action, from_status, to_status, actor_type, actor_id, note, before, after, created_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz)`,
+       (dispute_id, action, from_status, to_status, actor_type, actor_id, actor_label, note, before, after, created_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz)`,
     [
       rowId,
       h.action,
@@ -71,6 +72,7 @@ export const seedHistory = async (
       h.toStatus,
       h.actorType,
       h.actorId,
+      h.actorLabel ?? null,
       h.note ?? null,
       h.before === undefined ? null : JSON.stringify(h.before),
       h.after === undefined ? null : JSON.stringify(h.after),

@@ -9,9 +9,13 @@ export const URLS = {
 } as const;
 
 const SPA_REDIRECT = 'http://localhost:5173/callback';
+const AGENT_REDIRECT = 'http://localhost:5173/agent/callback';
 const SERVICE_SECRET = process.env['MOCK_ISSUER_CLIENT_SECRET'] ?? 'local-dev-client-secret';
 
 export type UserKey = 'A' | 'B';
+
+// E is the ACTIVE seeded agent, F the DISABLED one (local/README.md).
+export type AgentKey = 'E' | 'F';
 
 export type Reply<T = Json> = {
   readonly status: number;
@@ -50,39 +54,45 @@ export const call = async <T = Json>(
   return { status: res.status, headers: res.headers, body: (await parse(res)) as T };
 };
 
-export const userToken = async (user: UserKey): Promise<string> => {
+const pkceToken = async (clientId: string, redirectUri: string, loginAs: string): Promise<string> => {
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   const authorize = new URL('/oauth2/authorize', URLS.issuer);
   authorize.search = new URLSearchParams({
     response_type: 'code',
-    client_id: 'spa',
-    redirect_uri: SPA_REDIRECT,
+    client_id: clientId,
+    redirect_uri: redirectUri,
     code_challenge: challenge,
     code_challenge_method: 'S256',
-    login_as: user,
+    login_as: loginAs,
   }).toString();
   const redirect = await fetch(authorize, { redirect: 'manual' });
   const location = redirect.headers.get('location');
   const code = location === null ? null : new URL(location).searchParams.get('code');
-  if (code === null) throw new Error(`authorize for user ${user} returned no code (status ${redirect.status})`);
+  if (code === null) throw new Error(`authorize for ${loginAs} on ${clientId} returned no code (status ${redirect.status})`);
   const res = await fetch(new URL('/oauth2/token', URLS.issuer), {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: 'spa',
+      client_id: clientId,
       code,
-      redirect_uri: SPA_REDIRECT,
+      redirect_uri: redirectUri,
       code_verifier: verifier,
     }),
   });
   const token = (await parse(res)) as { access_token?: string };
-  if (typeof token.access_token !== 'string') throw new Error(`token exchange for user ${user} failed (status ${res.status})`);
+  if (typeof token.access_token !== 'string') {
+    throw new Error(`token exchange for ${loginAs} on ${clientId} failed (status ${res.status})`);
+  }
   return token.access_token;
 };
 
-export const serviceToken = async (clientId = 'svc-backoffice'): Promise<string> => {
+export const userToken = (user: UserKey): Promise<string> => pkceToken('spa', SPA_REDIRECT, user);
+
+export const agentToken = (agent: AgentKey): Promise<string> => pkceToken('backoffice', AGENT_REDIRECT, agent);
+
+export const serviceToken = async (clientId: string): Promise<string> => {
   const res = await fetch(new URL('/oauth2/token', URLS.issuer), {
     method: 'POST',
     headers: {
@@ -122,4 +132,15 @@ export const listTransactions = async (token: string, query: Record<string, stri
     cursor = page.body.nextCursor;
   } while (cursor !== null);
   return items;
+};
+
+// Disputes are never deleted, so each run uses up rows: take the first disputable one on a live card.
+export const freshDisputable = async (token: string): Promise<Txn> => {
+  const me = (await call('GET', `${URLS.users}/me`, { token })).body;
+  const cards: Json[] = me['accounts'].flatMap((account: Json) => account['cards']);
+  for (const card of cards.filter((c) => c['expired'] === false && c['status'] === 'ACTIVE')) {
+    const row = (await listTransactions(token, { cardId: card['cardId'] })).find((item) => item.disputable.allowed);
+    if (row !== undefined) return row;
+  }
+  throw new Error('no disputable transaction left on a live card; reseed');
 };

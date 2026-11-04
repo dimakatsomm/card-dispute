@@ -73,6 +73,9 @@ jobs:
           sbom: false
           tags: local/${{ inputs.repo-key }}:${{ github.sha }}
 
+      - name: Install Trivy
+        uses: ./.github/actions/install-trivy
+
       - name: Trivy scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -82,6 +85,7 @@ jobs:
           trivyignores: .trivyignore
           exit-code: "1"
           cache: false
+          skip-setup-trivy: true
 
       - name: SBOM (SPDX)
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3

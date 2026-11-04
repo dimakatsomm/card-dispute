@@ -31,7 +31,8 @@ export const zInvalid = z.object({
         'wrong_client',
         'wrong_token_use',
         'unknown_subject',
-        'disabled'
+        'disabled',
+        'ambiguous_role'
     ])
 });
 
@@ -54,6 +55,50 @@ export const zValidUser = z.object({
     principalType: z.literal('user'),
     authId: zUuid,
     userId: zUuid,
+    scopes: z.array(z.string()),
+    exp: z.int()
+});
+
+/**
+ * A back-office agent (ADR-071): token from a client in the agent allow-list, `cognito:groups` ∋ `agents`, and
+ * an ACTIVE `agent_identity`. Never carries `userId`.
+ *
+ */
+export const zValidAgent = z.object({
+    valid: z.literal(true),
+    principalType: z.literal('agent'),
+    agentId: zUuid,
+    displayName: z.string().check(ctx => {
+        if (ctx.value.length > 160) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length < 1) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 1,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+        if (length > 80) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }),
     scopes: z.array(z.string()),
     exp: z.int()
 });
@@ -111,5 +156,6 @@ export const zValidateTokenHeaders = z.object({
 export const zValidateTokenResponse = z.discriminatedUnion('principalType', [
     zValidUser,
     zValidService,
+    zValidAgent,
     zInvalid
 ]);

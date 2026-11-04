@@ -26,7 +26,7 @@ This doc is the human summary; if they disagree, raise it — do not pick one si
 
 ## Route exposure — two ports, token decides (ADR-026)
 No `/internal` path prefix and no trusted header. Every service runs **two listeners**:
-- **Public port 8080**: attached to the public ALB. Registers **customer routes only**; every route requires a **user** principal.
+- **Public port 8080**: attached to the public ALB. Registers **customer routes**, each requiring a **user** principal; disputes alone also registers **`/agent/*` routes**, each requiring an **agent** principal (ADR-071).
 - **Service port 8081**: reachable only via ECS Service Connect (and the internal ALB for Lambdas). Registers
   **service routes only**; every route requires a **service** principal with the listed scope.
 
@@ -49,9 +49,10 @@ port, so it doesn't exist from the internet (404) even with a stolen service tok
 | disputes | `PUT /dispute/{transactionId}` | public | user | — (edit / withdraw) |
 | disputes | `POST /dispute/{transactionId}/evidence` | public | user | — (declare more files → presigned URLs) |
 | disputes | `PUT /dispute/{transactionId}/evidence/{evidenceId}` | service | service | `disputes/evidence.write` (scan/validation result from evidence-intake) |
-| disputes | `GET /review-queue` | service | service | `disputes/review` (back-office queue) |
-| disputes | `PUT /dispute/{transactionId}/review` | service | service | `disputes/review` |
-| disputes | `PUT /dispute/{transactionId}/resolution` | service | service | `disputes/resolve` |
+| disputes | `GET /agent/review-queue` | public | agent | — (ADR-071) |
+| disputes | `GET /agent/disputes/{transactionId}` | public | agent | — |
+| disputes | `PUT /agent/disputes/{transactionId}/review` | public | agent | — |
+| disputes | `PUT /agent/disputes/{transactionId}/resolution` | public | agent | — |
 | all | `GET /health`, `GET /ready` | both | none | — |
 
 Notation: `GET :8081/transactions` means the service-port route.
@@ -80,11 +81,12 @@ Headers: `Authorization: Bearer <calling service's token with auth/validate>` �
 Request: `{ "token": "<jwt being validated>" }`
 200: `{ "valid": true, "principalType": "user", "authId": "uuid", "userId": "uuid", "scopes": [], "exp": 1760000000 }`
 200 (service): `{ "valid": true, "principalType": "service", "clientId": "…", "scopes": ["users/cards.read"], "exp": … }`
-200 invalid: `{ "valid": false, "principalType": "none", "reason": "expired|bad_signature|wrong_issuer|wrong_client|wrong_token_use|unknown_subject|disabled" }`
+200 (agent, ADR-071): `{ "valid": true, "principalType": "agent", "agentId": "uuid", "displayName": "Naledi M.", "scopes": [], "exp": … }`
+200 invalid: `{ "valid": false, "principalType": "none", "reason": "expired|bad_signature|wrong_issuer|wrong_client|wrong_token_use|unknown_subject|disabled|ambiguous_role" }`
 400: malformed body.
 Rules: only Cognito **access** tokens accepted (id tokens rejected). `client_id` must be in the allow-list.
 `auth_identity.status` is the single access-control switch (PR-01 F7).
-Principal type is decided by which client allow-list the token's `client_id` is on (user clients vs service clients), not by the presence of `sub`. User principals return the token's actual scopes. JWKS unreachable → 500 (callers treat any non-200 as unavailable → 503).
+Principal type is decided by which client allow-list the token's `client_id` is on (user, agent or service clients; pairwise disjoint), not by the presence of `sub`. An agent also needs `cognito:groups` ∋ `agents` and an ACTIVE `agent_identity`; a sub with both an agent and a customer identity is `ambiguous_role`. User principals return the token's actual scopes. JWKS unreachable → 500 (callers treat any non-200 as unavailable → 503).
 
 ## Users — `GET /me`
 200:
@@ -218,7 +220,11 @@ Retry-safe (ADR-050): a declaration matching an existing `PENDING` item of the d
 - `PUT /dispute/{transactionId}/evidence/{evidenceId}` (scope `disputes/evidence.write`, caller: evidence-intake Lambda) → body `{ "result": "STORED" | "REJECTED", "reason"?: "MALWARE|TYPE_MISMATCH|CHECKSUM|SIZE|SCAN_FAILED", "sha256", "sizeBytes", "contentType" }` (the facts evidence-intake observed; required with `STORED`, optional with `REJECTED` because intake cannot observe them when the scan verdict is `ACCESS_DENIED`, `FAILED` or `SKIPPED` or `HeadObject` fails; `reason` is required with `REJECTED`), response 200 `{ "evidenceId", "status": "STORED" | "REJECTED", "s3Key"? }`. disputes compares the reported facts with the declared ones: a `STORED` result whose facts differ is recorded `REJECTED` (`TYPE_MISMATCH`, `SIZE` or `CHECKSUM`) and answered 200 with `status: "REJECTED"`, so the caller acts on the response. `s3Key` = `evidence/{disputeId}/{evidenceId}`, set by disputes only when `STORED` and never read from the body; the caller copies the object there. Writes `EVIDENCE_ADDED` or `EVIDENCE_REJECTED` to the history. Idempotent: the same result again → 200 no-op. An `evidenceId` that is not this dispute's → 404. A result for an `EXPIRED`/`ERASED` item → 409 `EVIDENCE_CLOSED`; one conflicting with the settled result (`STORED` vs `REJECTED`) → 409 `RESULT_CONFLICT` (the first result stands).
 - `GET :8081/transactions?userId=&transactionIds=&accountId?&cardId?` (≤ 100 ids; transactions, scope `transactions/read`) → `{ items: [raw txn] }`, only that user's rows that also match the optional account/card filter (non-matching or missing ids simply absent). Makes no s2s calls.
 - `GET :8081/disputes?userId=&transactionIds=` (≤ 100 ids) → `{ "items": [ { "transactionId", "disputeId", "status", "version" } ] }`. Used by transactions for the `dispute` / `disputable` fields and by the notifier (scope `disputes/read`) to read the current `version` and skip stale status emails (ADR-055).
-- `PUT /dispute/{transactionId}/review` → SUBMITTED → UNDER_REVIEW. Body `{ "actor": {"type":"AGENT","id"}, "expectedVersion", "note"? }` — AGENT only (ADR-033)
-- `GET :8081/review-queue?status=SUBMITTED|UNDER_REVIEW&limit&cursor` (scope `disputes/review`) → disputes across all customers, oldest `createdAt` first, for the back-office
-- `PUT /dispute/{transactionId}/resolution` → `{ "outcome": "ACCEPTED|REJECTED", "note", "actor": {"type":"AGENT","id"}, "expectedVersion" }` — AGENT only.
+- Back office (ADR-071): agent routes are on the disputes **public** port under `/agent/*` and need an agent token; the actor is the token's `agentId`, never a body field.
+  - `GET /agent/review-queue?status=SUBMITTED|UNDER_REVIEW&limit&cursor` → disputes across customers, oldest `createdAt` first, no customer identifiers.
+  - `GET /agent/disputes/{transactionId}` → detail with timeline (agent display names), evidence metadata, `evidenceDigest`, `pickedUpBy`, transaction.
+  - `PUT /agent/disputes/{transactionId}/review` → SUBMITTED → UNDER_REVIEW; body `{ expectedVersion, expectedEvidenceDigest }`.
+  - `PUT /agent/disputes/{transactionId}/resolution` → `{ outcome: ACCEPTED|REJECTED, note (10–2000, customer-visible), expectedVersion, expectedEvidenceDigest }`.
+  - 412 `STALE_VERSION` / `STALE_EVIDENCE`, 409 `INVALID_TRANSITION`; same-state replays → 200 with the stored state.
+- Seeded agents (local mock issuer and seed, BO-01/BO-04): `eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee` `agent.naledi` "Naledi M." ACTIVE; `ffffffff-ffff-4fff-8fff-ffffffffffff` `agent.pieter` "Pieter V." DISABLED.
 All writes idempotent: repeating an applied transition returns 200 with current state. Stale `expectedVersion` → 412.

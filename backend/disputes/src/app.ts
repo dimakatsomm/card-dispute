@@ -13,6 +13,7 @@ export type AppDeps = {
 
 export const createApp = (deps: AppDeps): Servers =>
   createGuardedServers({
+    publicGuards: ['user', 'agent'],
     public: registerPublic(deps.authClient, deps.useCases),
     service: registerServicePort(deps.authClient, deps.useCases),
     ports: deps.ports,

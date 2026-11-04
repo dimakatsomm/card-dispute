@@ -2,6 +2,53 @@
 
 import * as z from 'zod';
 
+/**
+ * SHA-256 over the dispute's evidence ids and statuses; changes when evidence is declared or settled.
+ */
+export const zEvidenceDigest = z.string().regex(/^[a-f0-9]{64}$/);
+
+export const zReviewDisputeRequest = z.strictObject({
+    expectedVersion: z.int().gte(1),
+    expectedEvidenceDigest: zEvidenceDigest
+});
+
+export const zResolveDisputeRequest = z.strictObject({
+    outcome: z.enum(['ACCEPTED', 'REJECTED']),
+    note: z.string().check(ctx => {
+        if (ctx.value.length > 4000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length < 10) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 10,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+        if (length > 2000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }),
+    expectedVersion: z.int().gte(1),
+    expectedEvidenceDigest: zEvidenceDigest
+});
+
 export const zEvidenceDeclaration = z.strictObject({
     fileName: z.string().check(ctx => {
         if (ctx.value.length > 510) {
@@ -274,6 +321,113 @@ export const zEditDispute = z.strictObject({
  */
 export const zTimestamp = z.iso.datetime({ offset: true }).regex(/^(?!0000)[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](.[0-9]+)?(Z|[+-](0[0-9]|1[0-3]):[0-5][0-9]|[+-]14:00)$/);
 
+export const zAgentTimelineEvent = z.strictObject({
+    type: zTimelineType,
+    at: zTimestamp,
+    by: z.enum([
+        'CUSTOMER',
+        'AGENT',
+        'SYSTEM'
+    ]),
+    agentName: z.string().check(ctx => {
+        if (ctx.value.length > 160) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length < 1) {
+            ctx.issues.push({
+                code: 'too_small',
+                origin: 'string',
+                minimum: 1,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+        if (length > 80) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }).optional(),
+    detail: z.strictObject({
+        fields: z.array(z.enum(['description', 'reasonCode'])).min(1).max(2).optional(),
+        fileName: z.string().check(ctx => {
+            if (ctx.value.length > 510) {
+                ctx.issues.push({
+                    code: 'too_big',
+                    origin: 'string',
+                    maximum: 255,
+                    inclusive: true,
+                    input: ctx.value
+                });
+                return;
+            }
+            const length = [...ctx.value].length;
+            if (length < 1) {
+                ctx.issues.push({
+                    code: 'too_small',
+                    origin: 'string',
+                    minimum: 1,
+                    inclusive: true,
+                    input: ctx.value
+                });
+            }
+            if (length > 255) {
+                ctx.issues.push({
+                    code: 'too_big',
+                    origin: 'string',
+                    maximum: 255,
+                    inclusive: true,
+                    input: ctx.value
+                });
+            }
+        }).optional(),
+        reason: z.enum([
+            'MALWARE',
+            'TYPE_MISMATCH',
+            'CHECKSUM',
+            'SIZE',
+            'SCAN_FAILED'
+        ]).optional(),
+        note: z.string().check(ctx => {
+            if (ctx.value.length > 4000) {
+                ctx.issues.push({
+                    code: 'too_big',
+                    origin: 'string',
+                    maximum: 2000,
+                    inclusive: true,
+                    input: ctx.value
+                });
+                return;
+            }
+            if (ctx.value.length <= 2000) {
+                return;
+            }
+            const length = [...ctx.value].length;
+            if (length > 2000) {
+                ctx.issues.push({
+                    code: 'too_big',
+                    origin: 'string',
+                    maximum: 2000,
+                    inclusive: true,
+                    input: ctx.value
+                });
+            }
+        }).optional()
+    }).optional()
+});
+
 export const zTimelineEvent = z.strictObject({
     type: zTimelineType,
     at: zTimestamp,
@@ -354,6 +508,40 @@ export const zTimelineEvent = z.strictObject({
 
 export const zUuid = z.guid();
 
+export const zQueueItem = z.strictObject({
+    disputeId: zUuid,
+    transactionId: zUuid,
+    status: z.enum(['SUBMITTED', 'UNDER_REVIEW']),
+    reasonCode: zReasonCode,
+    version: z.int().gte(1),
+    createdAt: zTimestamp,
+    pickedUpBy: z.string().check(ctx => {
+        if (ctx.value.length > 160) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        if (ctx.value.length <= 80) {
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length > 80) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }).nullable()
+});
+
 export const zUploadInstruction = z.strictObject({
     evidenceId: zUuid,
     method: z.literal('PUT'),
@@ -408,6 +596,75 @@ export const zEvidence = z.strictObject({
         'SIZE',
         'SCAN_FAILED'
     ]).optional()
+});
+
+/**
+ * What an agent sees. Never includes customer contact details or the customer id.
+ */
+export const zAgentDisputeDetail = z.strictObject({
+    disputeId: zUuid,
+    transactionId: zUuid,
+    status: zDisputeStatus,
+    reasonCode: zReasonCode,
+    description: zResponseDescription,
+    transaction: zTransactionRef,
+    evidence: z.array(zEvidence).max(5),
+    evidenceDigest: zEvidenceDigest,
+    version: z.int().gte(1),
+    createdAt: zTimestamp,
+    updatedAt: zTimestamp,
+    resolvedAt: zTimestamp.nullable(),
+    resolutionNote: z.string().check(ctx => {
+        if (ctx.value.length > 4000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        if (ctx.value.length <= 2000) {
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length > 2000) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 2000,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }).nullable(),
+    pickedUpBy: z.string().check(ctx => {
+        if (ctx.value.length > 160) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+            return;
+        }
+        if (ctx.value.length <= 80) {
+            return;
+        }
+        const length = [...ctx.value].length;
+        if (length > 80) {
+            ctx.issues.push({
+                code: 'too_big',
+                origin: 'string',
+                maximum: 80,
+                inclusive: true,
+                input: ctx.value
+            });
+        }
+    }).nullable(),
+    timeline: z.array(zAgentTimelineEvent)
 });
 
 export const zDispute = z.strictObject({
@@ -550,6 +807,15 @@ export const zDisputeSummary = z.strictObject({
 });
 
 /**
+ * Cognito **access token** for a back-office agent (hosted login on the `backoffice` client, authorization code +
+ * PKCE; ADR-071). Valid only with `cognito:groups` ∋ `agents` and an ACTIVE `agent_identity`. Accepted only on
+ * `/agent*` operations of the disputes public port. Customer and service tokens there → 403; agent tokens on
+ * customer routes → 403.
+ *
+ */
+export const zAgentToken = z.unknown();
+
+/**
  * Cognito **access token** for a customer (hosted login, authorization code + PKCE).
  * Accepted only on public-port (8080) operations. A service token on a public route → 403.
  *
@@ -655,3 +921,64 @@ export const zAddEvidencePath = z.object({
 export const zAddEvidenceResponse = z.strictObject({
     uploads: z.array(zUploadInstruction).min(1).max(5)
 });
+
+export const zListReviewQueueHeaders = z.object({
+    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
+});
+
+export const zListReviewQueueQuery = z.object({
+    status: z.array(z.enum(['SUBMITTED', 'UNDER_REVIEW'])).min(1).max(2).optional().default(['SUBMITTED', 'UNDER_REVIEW']),
+    limit: z.int().gte(1).lte(100).optional().default(25),
+    cursor: zCursor.optional()
+});
+
+/**
+ * One page
+ */
+export const zListReviewQueueResponse = z.strictObject({
+    items: z.array(zQueueItem).max(100),
+    nextCursor: zCursor.nullable()
+});
+
+export const zGetAgentDisputeHeaders = z.object({
+    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
+});
+
+export const zGetAgentDisputePath = z.object({
+    transactionId: zUuid
+});
+
+/**
+ * Dispute
+ */
+export const zGetAgentDisputeResponse = zAgentDisputeDetail;
+
+export const zReviewDisputeBody = zReviewDisputeRequest;
+
+export const zReviewDisputeHeaders = z.object({
+    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
+});
+
+export const zReviewDisputePath = z.object({
+    transactionId: zUuid
+});
+
+/**
+ * Current state
+ */
+export const zReviewDisputeResponse = zAgentDisputeDetail;
+
+export const zResolveDisputeBody = zResolveDisputeRequest;
+
+export const zResolveDisputeHeaders = z.object({
+    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
+});
+
+export const zResolveDisputePath = z.object({
+    transactionId: zUuid
+});
+
+/**
+ * Current state
+ */
+export const zResolveDisputeResponse = zAgentDisputeDetail;

@@ -7,6 +7,8 @@ export type AuthSettings = {
   readonly redirectUri: string;
   readonly logoutUrl: string;
   readonly postLogoutUri: string;
+  // Each OIDC client keeps its PKCE state under its own key so a customer and an agent sign-in never mix.
+  readonly stateKeyPrefix?: string;
 };
 
 export type AuthDeps = {
@@ -15,7 +17,7 @@ export type AuthDeps = {
   readonly navigate: (url: string) => void;
 };
 
-export type AuthUser = { readonly subject: string };
+export type AuthUser = { readonly subject: string; readonly groups: ReadonlyArray<string> };
 
 export type SignInError = 'SIGNIN_FAILED';
 
@@ -28,8 +30,11 @@ export type Auth = {
   readonly onChange: (listener: (user: AuthUser | null) => void) => () => void;
 };
 
+const groupsClaim = (value: unknown): ReadonlyArray<string> =>
+  Array.isArray(value) ? value.filter((group): group is string => typeof group === 'string') : [];
+
 const toAuthUser = (user: User | null): AuthUser | null =>
-  user && !user.expired ? { subject: user.profile.sub } : null;
+  user && !user.expired ? { subject: user.profile.sub, groups: groupsClaim(user.profile['cognito:groups']) } : null;
 
 // Only a same-origin path may come back from the redirect state, so it can't become an open redirect.
 const SAME_ORIGIN_PATH = /^\/(?![/\\])[^\\]*$/;
@@ -62,7 +67,10 @@ export const createAuth = (settings: AuthSettings, deps: AuthDeps): Auth => {
     monitorSession: false,
     automaticSilentRenew: true,
     userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
-    stateStore: new WebStorageStateStore({ store: deps.redirectStateStorage }),
+    stateStore: new WebStorageStateStore({
+      store: deps.redirectStateStorage,
+      ...(settings.stateKeyPrefix ? { prefix: settings.stateKeyPrefix } : {}),
+    }),
   });
 
   // Once signing out starts, nothing may start a new sign-in: the IdP session cookie would log the user straight back in.

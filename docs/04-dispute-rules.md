@@ -78,8 +78,9 @@ no-op success, so consumers are idempotent.
 - The clock is the DB's: `now` passed to the domain is `select now()` from the same transaction, never the task clock.
 
 ## Review (ADR-016, ADR-033 — no automation changes status)
-- New disputes stay `SUBMITTED` until a back-office agent picks one from `GET :8081/review-queue` and calls
-  `PUT /dispute/{transactionId}/review` (→ UNDER_REVIEW), then `/resolution`.
+- New disputes stay `SUBMITTED` until a back-office agent picks one from `GET /agent/review-queue` and calls
+  `PUT /agent/disputes/{transactionId}/review` (→ UNDER_REVIEW), then `/resolution` (ADR-071). Agent writes also carry
+  `expectedEvidenceDigest`, because evidence changes do not bump `version`.
 - Nothing auto-accepts, auto-rejects or auto-reviews. `SYSTEM_RULE` actors exist only for evidence and
   retention housekeeping (EVIDENCE_REJECTED, EXPIRED, ERASED), never for status changes.
 - The customer may edit only while SUBMITTED, i.e. until an agent picks it up.

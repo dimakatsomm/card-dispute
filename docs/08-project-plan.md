@@ -107,17 +107,17 @@ Built to **production patterns**:
 | F-EVD-5 | `POST /dispute/{transactionId}/evidence` declares more files later (SUBMITTED/UNDER_REVIEW only). |
 | F-EVD-6 | Unused upload slots → `EXPIRED` after 1 day and stop counting toward the cap. |
 
-### 4.6 Back-office review (F-BO) — ⏸ deferred, contract only
+### 4.6 Back-office review (F-BO) — M5 (ADR-071, owner 2026-11-03)
 > Not built in M1–M4. Disputes stay SUBMITTED unless withdrawn. Seed data includes UNDER_REVIEW and
 > RESOLVED disputes so the customer timeline and resolution note can be tested.
 | # | Requirement |
 |---|---|
-| F-BO-1 | `GET /review-queue` (service port, scope `disputes/review`) lists SUBMITTED / UNDER_REVIEW disputes across customers, oldest first. |
-| F-BO-2 | An agent picks a dispute: `PUT /dispute/{transactionId}/review` → UNDER_REVIEW (from then on the customer can no longer edit). |
-| F-BO-3 | An agent resolves it: `PUT /dispute/{transactionId}/resolution` → RESOLVED_ACCEPTED / RESOLVED_REJECTED with a customer-visible note. |
+| F-BO-1 | `GET /agent/review-queue` (public port, agent token) lists SUBMITTED / UNDER_REVIEW disputes across customers, oldest first. |
+| F-BO-2 | An agent picks a dispute: `PUT /agent/disputes/{transactionId}/review` → UNDER_REVIEW (from then on the customer can no longer edit). |
+| F-BO-3 | An agent resolves it: `PUT /agent/disputes/{transactionId}/resolution` → RESOLVED_ACCEPTED / RESOLVED_REJECTED with a customer-visible note. |
 | F-BO-4 | **Only human agents** (actor type AGENT, Cognito `agents` group) review or resolve. **No automation changes dispute status.** |
-| F-BO-5 | Writes carry `expectedVersion`. Concurrent customer withdraw vs agent action: the first commit wins, the other gets 412/409. |
-| F-BO-6 | Agent access path (Q-17): decided when back-office is scheduled. |
+| F-BO-5 | Writes carry `expectedVersion` and `expectedEvidenceDigest`. Concurrent customer withdraw vs agent action: the first commit wins, the other gets 412/409. |
+| F-BO-6 | Agent access path (Q-17): agent area in the SPA on a dedicated `backoffice` client (ADR-071). |
 
 ### 4.7 Notifications (F-NTF)
 | # | Requirement |
@@ -206,9 +206,10 @@ The frontend client is generated from it, and `contract.yml` blocks breaking cha
 | disputes | `PUT /dispute/{transactionId}` | 8080 | customer | Edit / withdraw |
 | disputes | `POST /dispute/{transactionId}/evidence` | 8080 | customer | More upload URLs |
 | disputes | `GET /disputes` | 8081 | transactions · `disputes/read` | Batch dispute state |
-| disputes | `GET /review-queue` | 8081 | back-office · `disputes/review` | Agent queue |
-| disputes | `PUT /dispute/{transactionId}/review` | 8081 | back-office · `disputes/review` | Pick up |
-| disputes | `PUT /dispute/{transactionId}/resolution` | 8081 | back-office · `disputes/resolve` | Resolve |
+| disputes | `GET /agent/review-queue` | 8080 | agent token | Agent queue |
+| disputes | `GET /agent/disputes/{transactionId}` | 8080 | agent token | Agent detail |
+| disputes | `PUT /agent/disputes/{transactionId}/review` | 8080 | agent token | Pick up |
+| disputes | `PUT /agent/disputes/{transactionId}/resolution` | 8080 | agent token | Resolve |
 | disputes | `PUT /dispute/{transactionId}/evidence/{evidenceId}` | 8081 | evidence-intake · `disputes/evidence.write` | Scan result |
 | all | `GET /health`, `GET /ready` | both | — | Probes |
 
@@ -254,7 +255,7 @@ SUBMITTED ──RESOLVE (agent)──► RESOLVED_*   (allowed; agent may skip r
 Terminal states reject everything (`INVALID_TRANSITION`). A row lock + version guard every change. The DB clock is the only clock.
 
 ### 7.3 Security controls
-- **Identity:** Cognito user pool. One confidential client per caller: svc-users, svc-transactions, svc-disputes, svc-notifier, svc-evidence-intake (60 min tokens); `spa` (15 min) and a dev-only `e2e` client (ADR-062). No back-office client in AWS (ADR-064).
+- **Identity:** Cognito user pool. One confidential client per caller: svc-users, svc-transactions, svc-disputes, svc-notifier, svc-evidence-intake (60 min tokens); `spa` (15 min) and a dev-only `e2e` client (ADR-062). The `backoffice` agent client (ADR-071) is created in AWS by BO-09; until then none exists there.
 - **Network:**
   - CloudFront → internal ALB `:80` → 8080 only; 8081 only from service SGs and the two Lambda SGs (via the ALB's `:8081` listener, ADR-059).
   - Aurora private with TLS forced.
@@ -393,16 +394,12 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | H-02 Runbooks per alarm (the SNS alarm channel ships in I-13; first drafts are in docs/11-dev-runbook.md) |
 | H-03 Full security review + threat-model refresh + dependency audit |
 | H-04 Accessibility pass (WCAG 2.1 AA) on the web app |
-| Deferred beyond the first release: row-level security, load testing, multi-env, DR, back-office UI |
+| Deferred beyond the first release: row-level security, load testing, multi-env, DR |
 
 
-### ⏸ Deferred — Back-office (owner schedules later)
-| Task |
-|---|
-| P-04 `GET /review-queue`, `PUT …/review`, `PUT …/resolution` (AGENT only, expectedVersion) 🔒 |
-| B-01 Agent identity (Cognito `agents` group) + access path (Q-17) 🔒 |
-| Terraform: `svc-backoffice` client + `disputes/review`, `disputes/resolve` scopes and grants (not created in AWS in M3, ADR-064) |
-| Optional back-office UI |
+### M5 — Back office (scheduled 2026-11-03, ADR-071)
+Tasks BO-00..BO-07 and the owner-gated dev rollout BO-09 are in `orchestration/backlog.md` ("M5 — Back office"). There
+is no `svc-backoffice` client and no back-office scope: agents use their own agent tokens on `/agent/*`.
 
 ---
 
@@ -460,7 +457,7 @@ All ADRs, with superseded ones marked, are in `orchestration/state.json`. The on
 ## 12. Open items
 | Id | Item | Type | Needed by |
 |---|---|---|---|
-| Q-17 | Back-office access path — **deferred** with back-office | deferred | — |
+| Q-17 | Back-office access path | agent area in the SPA, `backoffice` client (owner 2026-11-03) | ADR-071 |
 | V-03 | Presigned PUT can sign `x-amz-checksum-sha256`; GuardDuty S3 in eu-north-1 + price; presigner version | verification | before P-01 |
 | V-04 | GitHub required reviewers on a private repo (plan?); Actions minutes; Lambda Node 24 base image; frontend library versions | verification | before CI-01 / W-01 |
 | V-06 | CloudFront VPC origins in eu-north-1 + pricing: **closed by V-M3**, `edge_origin_mode = vpc_origin`, no extra charge | closed | — |

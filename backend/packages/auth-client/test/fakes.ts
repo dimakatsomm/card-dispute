@@ -48,3 +48,15 @@ export const servicePrincipal = (exp: number, scopes: readonly string[]) => ({
   scopes,
   exp,
 });
+
+export const AGENT_ID = '01990000-0000-7000-8000-0000000000c1';
+export const AGENT_NAME = 'Naledi M.';
+
+export const agentPrincipal = (exp: number) => ({
+  valid: true,
+  principalType: 'agent',
+  agentId: AGENT_ID,
+  displayName: AGENT_NAME,
+  scopes: [],
+  exp,
+});

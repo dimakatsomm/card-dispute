@@ -43,18 +43,22 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/ValidUser'
                   - $ref: '#/components/schemas/ValidService'
+                  - $ref: '#/components/schemas/ValidAgent'
                   - $ref: '#/components/schemas/Invalid'
                 discriminator:
                   propertyName: principalType
                   mapping:
                     user: '#/components/schemas/ValidUser'
                     service: '#/components/schemas/ValidService'
+                    agent: '#/components/schemas/ValidAgent'
                     none: '#/components/schemas/Invalid'
               examples:
                 user:
                   value: { valid: true, principalType: user, authId: 0192f0c1-0000-7000-8000-000000000001, userId: 0192f0c1-0000-7000-8000-000000000002, scopes: [], exp: 1760000000 }
                 service:
                   value: { valid: true, principalType: service, clientId: svc-disputes, scopes: [users/cards.read, transactions/read], exp: 1760000000 }
+                agent:
+                  value: { valid: true, principalType: agent, agentId: 0192f0c1-0000-7000-8000-0000000000a1, displayName: Naledi M., scopes: [], exp: 1760000000 }
                 invalid:
                   value: { valid: false, principalType: none, reason: expired }
         '400': { $ref: './common.yaml#/components/responses/BadRequest' }
@@ -83,6 +87,19 @@ components:
         clientId: { type: string, minLength: 1 }
         scopes: { type: array, items: { type: string } }
         exp: { type: integer }
+    ValidAgent:
+      type: object
+      description: |
+        A back-office agent (ADR-071): token from a client in the agent allow-list, `cognito:groups` ∋ `agents`, and
+        an ACTIVE `agent_identity`. Never carries `userId`.
+      required: [valid, principalType, agentId, displayName, scopes, exp]
+      properties:
+        valid: { const: true }
+        principalType: { const: agent }
+        agentId: { $ref: './common.yaml#/components/schemas/Uuid' }
+        displayName: { type: string, minLength: 1, maxLength: 80, description: From agent_identity; disputes records it on history rows the agent writes. }
+        scopes: { type: array, items: { type: string } }
+        exp: { type: integer }
     Invalid:
       type: object
       required: [valid, principalType, reason]
@@ -91,4 +108,4 @@ components:
         principalType: { const: none }
         reason:
           type: string
-          enum: [expired, bad_signature, wrong_issuer, wrong_client, wrong_token_use, unknown_subject, disabled]
+          enum: [expired, bad_signature, wrong_issuer, wrong_client, wrong_token_use, unknown_subject, disabled, ambiguous_role]

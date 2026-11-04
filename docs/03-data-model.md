@@ -32,6 +32,18 @@ with privileges on its own schema only.
 
 No password column: Cognito owns credentials (ADR-004).
 
+### agent_identity (ADR-071)
+| Column | Type | Notes |
+|---|---|---|
+| agent_id | uuid PK default `uuidv7()` | `actor_id` on dispute history rows written by agents |
+| cognito_sub | text UQ not null | Cognito user in group `agents`, signing in on the `backoffice` client |
+| display_name | text not null, 1–80, not blank | shown to agents on the timeline; never to customers |
+| status | text | `ACTIVE | DISABLED` — the agent access switch, like `auth_identity.status` |
+| created_at, updated_at | timestamptz | |
+
+The auth role has SELECT only; agents are provisioned and disabled by an operator (BO-09). A sub may not be both an
+agent and a customer (`/validate` → `ambiguous_role`).
+
 ## users
 ### app_user
 (`user` is a reserved word in PostgreSQL — renamed, PR-01 F6)
@@ -118,7 +130,7 @@ full transaction amount, so there is no amount column.
 | created_by, updated_by | text not null | `USER:<uuid>` / `SYSTEM_RULE:<rule>` / `AGENT:<id>` |
 | created_at, updated_at | timestamptz | |
 
-Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` paging; `(status, created_at)` for the back-office queue.
+Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` paging; `(status, created_at)`; partial `(created_at, id) where status in ('SUBMITTED','UNDER_REVIEW')` for the agent review queue, oldest first across both statuses (migration 005).
 `disputes_app` has no DELETE.
 
 ### dispute_status_history (insert-only)
@@ -136,6 +148,9 @@ Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` pagin
 | created_at | timestamptz | no `updated_at` (insert-only) |
 
 `disputes_app`: INSERT, SELECT only. `disputes_retention`: `UPDATE (note, before, after)` only.
+
+Agent display name (ADR-071, BO-05b): `actor_label text null`, 1–80, set only on rows with `actor_type = AGENT`, copied from
+the agent principal's `displayName` at write time, so disputes never reads `auth`. Shown to agents only; customers see `BANK`.
 
 ### dispute_evidence
 | column | type | notes |

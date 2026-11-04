@@ -4,6 +4,8 @@ set -eu
 RUNTIME_DIR="${RUNTIME_DIR:-/tmp/runtime}"
 API_BASE="${API_BASE:-/api}"
 OIDC_TOKEN_ORIGIN="${OIDC_TOKEN_ORIGIN:-}"
+OIDC_AGENT_CLIENT_ID="${OIDC_AGENT_CLIENT_ID:-}"
+OIDC_AGENT_REDIRECT_URI="${OIDC_AGENT_REDIRECT_URI:-}"
 
 fail() {
     echo "docker-entrypoint: $1" >&2
@@ -50,13 +52,23 @@ check_url OIDC_POST_LOGOUT_URI "$OIDC_POST_LOGOUT_URI"
 check_url UPLOAD_ORIGIN "$UPLOAD_ORIGIN"
 [ -z "$OIDC_TOKEN_ORIGIN" ] || check_url OIDC_TOKEN_ORIGIN "$OIDC_TOKEN_ORIGIN"
 
+# The back-office sign-in (ADR-071) is optional, but both values or neither.
+AGENT_CONFIG=""
+if [ -n "$OIDC_AGENT_CLIENT_ID" ] || [ -n "$OIDC_AGENT_REDIRECT_URI" ]; then
+    [ -n "$OIDC_AGENT_CLIENT_ID" ] || fail "OIDC_AGENT_CLIENT_ID is required with OIDC_AGENT_REDIRECT_URI"
+    [ -n "$OIDC_AGENT_REDIRECT_URI" ] || fail "OIDC_AGENT_REDIRECT_URI is required with OIDC_AGENT_CLIENT_ID"
+    check_chars OIDC_AGENT_CLIENT_ID "$OIDC_AGENT_CLIENT_ID"
+    check_url OIDC_AGENT_REDIRECT_URI "$OIDC_AGENT_REDIRECT_URI"
+    AGENT_CONFIG=$(printf ',"oidcAgentClientId":"%s","oidcAgentRedirectUri":"%s"' "$OIDC_AGENT_CLIENT_ID" "$OIDC_AGENT_REDIRECT_URI")
+fi
+
 CONNECT_SRC="'self' $(origin_of "$UPLOAD_ORIGIN") $(origin_of "$OIDC_ISSUER")"
 [ -z "$OIDC_TOKEN_ORIGIN" ] || CONNECT_SRC="$CONNECT_SRC $(origin_of "$OIDC_TOKEN_ORIGIN")"
 
 mkdir -p "$RUNTIME_DIR"
 
-printf 'window.__APP_CONFIG__ = {"apiBase":"%s","oidcIssuer":"%s","oidcClientId":"%s","oidcRedirectUri":"%s","oidcLogoutUrl":"%s","oidcPostLogoutUri":"%s"};\n' \
-    "$API_BASE" "$OIDC_ISSUER" "$OIDC_CLIENT_ID" "$OIDC_REDIRECT_URI" "$OIDC_LOGOUT_URL" "$OIDC_POST_LOGOUT_URI" \
+printf 'window.__APP_CONFIG__ = {"apiBase":"%s","oidcIssuer":"%s","oidcClientId":"%s","oidcRedirectUri":"%s","oidcLogoutUrl":"%s","oidcPostLogoutUri":"%s"%s};\n' \
+    "$API_BASE" "$OIDC_ISSUER" "$OIDC_CLIENT_ID" "$OIDC_REDIRECT_URI" "$OIDC_LOGOUT_URL" "$OIDC_POST_LOGOUT_URI" "$AGENT_CONFIG" \
     > "$RUNTIME_DIR/config.js"
 
 cat > "$RUNTIME_DIR/security-headers.conf" <<EOF

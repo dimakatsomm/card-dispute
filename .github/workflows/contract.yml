@@ -111,3 +111,5 @@ jobs:
           fail-on: ERR
           # Specs share schemas through relative $refs to common.yaml.
           allow-external-refs: true
+          # Intentional breaks, each named and justified by an ADR in the PR that adds it (ADR-071).
+          err-ignore: docs/openapi/breaking-accepted.txt

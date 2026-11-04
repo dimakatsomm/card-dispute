@@ -13,8 +13,12 @@ export const USER_B = { token: 'hdr.user-b-token.signature', userId: randomUUID(
 export const SERVICE_CALLER = { token: 'hdr.service-caller-token.signature', scopes: ['disputes/read'] };
 export const WRONG_SCOPE_CALLER = {
   token: 'hdr.wrong-scope-caller-token.signature',
-  scopes: ['disputes/review'],
+  scopes: ['transactions/read'],
 };
+export const AGENT_A = { token: 'hdr.agent-a-token.signature', agentId: randomUUID(), displayName: 'Naledi M.' };
+export const AGENT_B = { token: 'hdr.agent-b-token.signature', agentId: randomUUID(), displayName: 'Pieter V.' };
+const AGENTS = [AGENT_A, AGENT_B] as const;
+
 export const INTAKE_CALLER = {
   token: 'hdr.intake-caller-token.signature',
   scopes: ['disputes/evidence.write'],
@@ -141,6 +145,17 @@ export const createFakeUpstreams = () => {
         principalType: 'user',
         authId: `a0a0a0a0${extraUserId.slice(8)}`,
         userId: extraUserId,
+        scopes: [],
+        exp,
+      };
+    }
+    const agent = AGENTS.find((a) => a.token === token);
+    if (agent !== undefined) {
+      return {
+        valid: true,
+        principalType: 'agent',
+        agentId: agent.agentId,
+        displayName: agent.displayName,
         scopes: [],
         exp,
       };

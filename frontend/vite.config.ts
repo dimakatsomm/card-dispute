@@ -20,6 +20,12 @@ const runtimeConfigPlugin = (env: Env): Plugin => ({
         oidcRedirectUri: env['OIDC_REDIRECT_URI'] ?? 'http://localhost:5173/auth/callback',
         oidcLogoutUrl: env['OIDC_LOGOUT_URL'] ?? '',
         oidcPostLogoutUri: env['OIDC_POST_LOGOUT_URI'] ?? 'http://localhost:5173/',
+        ...(env['OIDC_AGENT_CLIENT_ID']
+          ? {
+              oidcAgentClientId: env['OIDC_AGENT_CLIENT_ID'],
+              oidcAgentRedirectUri: env['OIDC_AGENT_REDIRECT_URI'] ?? 'http://localhost:5173/agent/callback',
+            }
+          : {}),
       };
       res.setHeader('Content-Type', 'text/javascript');
       res.setHeader('Cache-Control', 'no-store');
@@ -40,6 +46,7 @@ export default defineConfig(({ mode }) => {
         '/api/me': proxyTo(env['DEV_USERS_URL'] ?? fallback),
         '/api/transactions': proxyTo(env['DEV_TRANSACTIONS_URL'] ?? fallback),
         '^/api/disputes?(/|$|\\?)': proxyTo(env['DEV_DISPUTES_URL'] ?? fallback),
+        '/api/agent/': proxyTo(env['DEV_DISPUTES_URL'] ?? fallback),
       },
     },
     build: {
