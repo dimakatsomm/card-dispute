@@ -6,7 +6,7 @@ import type { QueueMessage, SendMessage } from '../../src/adapters/event-publish
 import { createUploadSigner, type PresignUploads } from '../../src/adapters/upload-signer.ts';
 import { loadDisputesConfig } from '../../src/config.ts';
 import { composeServers, type Infra } from '../../src/main.ts';
-import { URLS, type FakeUpstreams } from './fakes.ts';
+import { fakeAgentNames, URLS, type FakeUpstreams } from './fakes.ts';
 
 export const QUARANTINE_BUCKET = 'cd-evidence-quarantine';
 export const QUEUE_URL = 'http://sqs.test/000000000000/dispute-notifications';
@@ -26,6 +26,7 @@ export type TestServiceOptions = {
   // Lets a test fault one upstream; anything it returns undefined for goes to the fakes.
   readonly fault?: (url: URL, body: string, init?: RequestInit) => Promise<Response> | undefined;
   readonly presign?: PresignUploads;
+  readonly resolveAgentNames?: Infra['resolveAgentNames'];
 };
 
 export const startTestService = async (options: TestServiceOptions): Promise<TestService> => {
@@ -74,6 +75,7 @@ export const startTestService = async (options: TestServiceOptions): Promise<Tes
     now,
     newId: randomUUID,
     sleep: async () => undefined,
+    resolveAgentNames: options.resolveAgentNames ?? fakeAgentNames,
   });
   await Promise.all([servers.public.ready(), servers.service.ready()]);
   return {

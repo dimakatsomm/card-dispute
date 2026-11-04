@@ -36,3 +36,26 @@ export const decodeCursor = (cursor: string): Result<CursorPosition, CursorError
     ? ok({ updatedAt, disputeId })
     : err('INVALID_CURSOR');
 };
+
+export type QueuePosition = { readonly createdAt: string; readonly rowId: string };
+
+const ROW_ID = /^[1-9][0-9]{0,18}$/;
+const MAX_BIGINT = 9_223_372_036_854_775_807n;
+
+const isRowId = (id: string): boolean => ROW_ID.test(id) && BigInt(id) <= MAX_BIGINT;
+
+export const encodeQueueCursor = (position: QueuePosition): string =>
+  Buffer.from(JSON.stringify([position.createdAt, position.rowId])).toString('base64url');
+
+export const decodeQueueCursor = (cursor: string): Result<QueuePosition, CursorError> => {
+  const value = parseJson(Buffer.from(cursor, 'base64url').toString('utf8'));
+  if (!Array.isArray(value) || value.length !== 2) return err('INVALID_CURSOR');
+  const [createdAt, rowId] = value as readonly unknown[];
+  return typeof createdAt === 'string' &&
+    typeof rowId === 'string' &&
+    AT.test(createdAt) &&
+    isRowId(rowId) &&
+    isStorableInstant(createdAt)
+    ? ok({ createdAt, rowId })
+    : err('INVALID_CURSOR');
+};

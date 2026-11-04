@@ -9,6 +9,7 @@ import {
 import { err, ok } from '@cd/shared/fp';
 import type pg from 'pg';
 import { z } from 'zod';
+import type { QueueRecord } from '../core/agent-view.ts';
 import type { DisputeRecord, EvidenceRecord, HistoryRecord } from '../core/types.ts';
 import type { EvidenceDetail } from '../core/timeline.ts';
 import type {
@@ -22,6 +23,7 @@ import type {
   EvidenceSettlement,
   NewDispute,
   NewHistory,
+  ReviewQueueQuery,
   VersionedUpdate,
 } from '../use-cases/ports.ts';
 import { inTransaction, type Connectable } from './db.ts';
@@ -155,6 +157,50 @@ const refRow = z.object({
 // Microsecond text, because a millisecond Date would skip or repeat rows that tie within the same millisecond.
 const CURSOR_AT = `to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at`;
 
+const queueRow = z
+  .object({
+    row_id: z.string(),
+    dispute_id: z.string(),
+    transaction_id: z.string(),
+    status: z.enum(['SUBMITTED', 'UNDER_REVIEW']),
+    reason_code: z.enum(REASON_CODES),
+    version: z.number().int(),
+    created_at: z.date(),
+    cursor_at: z.string(),
+    reviewer_id: z.string().nullable(),
+  })
+  .transform(
+    (r): QueueRecord => ({
+      disputeId: r.dispute_id,
+      transactionId: r.transaction_id,
+      status: r.status,
+      reasonCode: r.reason_code,
+      version: r.version,
+      createdAt: r.created_at,
+      reviewerId: r.reviewer_id,
+      position: { createdAt: r.cursor_at, rowId: r.row_id },
+    }),
+  );
+
+// The literal IN mirrors the partial index predicate, so the planner can prove the index applies (migration 005).
+export const reviewQueueSql = (keyset: boolean): string =>
+  `select d.id::text as row_id, d.dispute_id::text as dispute_id, d.transaction_id::text as transaction_id,
+     d.status, d.reason_code, d.version, d.created_at,
+     to_char(d.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at, r.reviewer_id
+   from dispute d
+   left join lateral (
+     select actor_id as reviewer_id from dispute_status_history
+     where dispute_id = d.id and action = 'REVIEW' and actor_type = 'AGENT'
+     order by created_at desc, id desc limit 1
+   ) r on true
+   where d.status in ('SUBMITTED', 'UNDER_REVIEW') and d.status = any($1::text[])
+     ${keyset ? 'and (d.created_at, d.id) > ($3::timestamptz, $4::bigint)' : ''}
+   order by d.created_at, d.id
+   limit $2`;
+
+export const reviewQueueParams = (q: ReviewQueueQuery): ReadonlyArray<unknown> =>
+  q.after === null ? [q.statuses, q.limit] : [q.statuses, q.limit, q.after.createdAt, q.after.rowId];
+
 type Filter = { readonly where: ReadonlyArray<string>; readonly params: ReadonlyArray<unknown> };
 
 const addFilter = (
@@ -184,7 +230,9 @@ const pageFilter = (q: DisputePageQuery): Filter => {
       );
 };
 
-const keyPredicate = (key: DisputeKey): { readonly sql: string; readonly params: ReadonlyArray<string> } =>
+type Predicate = { readonly sql: string; readonly params: ReadonlyArray<string> };
+
+const keyPredicate = (key: DisputeKey): Predicate =>
   'transactionId' in key
     ? { sql: 'transaction_id = $1 and user_id = $2', params: [key.transactionId, key.userId] }
     : { sql: 'dispute_id = $1 and user_id = $2', params: [key.disputeId, key.userId] };
@@ -236,6 +284,12 @@ const txOps = (client: Queryable): DisputeTx => ({
     ]);
     return firstDispute(res.rows);
   },
+
+  lockForAgent: async (transactionId) =>
+    firstDispute(
+      (await client.query(`select ${DISPUTE_COLUMNS} from dispute where transaction_id = $1 for update`, [transactionId]))
+        .rows,
+    ),
 
   insertDispute: async (d: NewDispute) => {
     try {
@@ -344,8 +398,7 @@ const txOps = (client: Queryable): DisputeTx => ({
   },
 });
 
-const readWithHistory = async (client: Queryable, key: DisputeKey): Promise<DisputeWithHistory | null> => {
-  const where = keyPredicate(key);
+const readWithHistory = async (client: Queryable, where: Predicate): Promise<DisputeWithHistory | null> => {
   const dispute = firstDispute(
     (await client.query(`select ${DISPUTE_COLUMNS} from dispute where ${where.sql}`, [...where.params])).rows,
   );
@@ -366,26 +419,37 @@ const readWithHistory = async (client: Queryable, key: DisputeKey): Promise<Disp
   };
 };
 
+// One snapshot, so the version, digest and timeline can never come from different commits.
+const readSnapshot = async (pool: Connectable, where: Predicate): Promise<DisputeWithHistory | null> => {
+  const client = await pool.connect();
+  let broken = false;
+  try {
+    await client.query('begin isolation level repeatable read read only');
+    const found = await readWithHistory(client, where);
+    await client.query('commit');
+    return found;
+  } catch (e) {
+    await client.query('rollback').catch(() => {
+      broken = true;
+    });
+    throw e;
+  } finally {
+    client.release(broken);
+  }
+};
+
 export const createDisputeRepo = (pool: Connectable & Pick<pg.Pool, 'query'>): DisputeRepo => ({
   transact: (work) => inTransaction(pool, (client) => work(txOps(client))),
 
-  // One snapshot, so the ETag (version) and the timeline can never come from different commits.
-  findLatestWithHistory: async (key): Promise<DisputeWithHistory | null> => {
-    const client = await pool.connect();
-    let broken = false;
-    try {
-      await client.query('begin isolation level repeatable read read only');
-      const found = await readWithHistory(client, key);
-      await client.query('commit');
-      return found;
-    } catch (e) {
-      await client.query('rollback').catch(() => {
-        broken = true;
-      });
-      throw e;
-    } finally {
-      client.release(broken);
-    }
+  findLatestWithHistory: (key) => readSnapshot(pool, keyPredicate(key)),
+
+  // Unscoped by owner on purpose: only the agent routes call this (ADR-071).
+  findForAgent: (transactionId) => readSnapshot(pool, { sql: 'transaction_id = $1', params: [transactionId] }),
+
+  // Unnamed on purpose: a named statement may switch to a generic plan, which cannot use the partial index.
+  listReviewQueue: async (query) => {
+    const res = await pool.query(reviewQueueSql(query.after !== null), [...reviewQueueParams(query)]);
+    return res.rows.map((r) => queueRow.parse(r));
   },
 
   listTransactionIds: async (userId, statuses) => {

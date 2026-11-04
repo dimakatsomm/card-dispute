@@ -1,8 +1,10 @@
 import {
+  zAgentDisputeDetail,
   zAddEvidenceResponse,
   zCreateDisputeResponse,
   zGetDisputeResponse,
   zListMyDisputesResponse,
+  zListReviewQueueResponse,
   zUpdateDisputeResponse,
 } from '@cd/contracts/disputes.public';
 import { zLookupDisputesResponse, zRecordEvidenceResultResponse } from '@cd/contracts/disputes.service';
@@ -16,6 +18,8 @@ const RESPONSES = {
   detail: zGetDisputeResponse,
   lookup: zLookupDisputesResponse,
   recordEvidenceResult: zRecordEvidenceResultResponse,
+  reviewQueue: zListReviewQueueResponse,
+  agentDetail: zAgentDisputeDetail,
 } as const;
 
 // Public responses are strict, so an extra field fails here as well as a missing or malformed one (ADR-057).

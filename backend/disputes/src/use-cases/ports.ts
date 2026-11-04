@@ -10,7 +10,9 @@ import type {
   Transaction,
   UploadInstruction,
 } from '../core/types.ts';
-import type { CursorPosition } from '../core/cursor.ts';
+import type { AgentNames, QueueRecord, QueueStatus } from '../core/agent-view.ts';
+import type { CursorPosition, QueuePosition } from '../core/cursor.ts';
+import type { DigestInput } from '../core/evidence-digest.ts';
 import type { EvidenceOutcome } from '../core/evidence-result.ts';
 import type { EvidenceDetail, LatestHistory } from '../core/timeline.ts';
 
@@ -85,6 +87,8 @@ export type DisputeTx = {
   readonly now: () => Promise<Date>;
   readonly findByTransaction: (transactionId: string, userId: string) => Promise<DisputeRecord | null>;
   readonly lockForUpdate: (key: DisputeKey) => Promise<DisputeRecord | null>;
+  // Agent routes only: agents work the queue across customers (ADR-071).
+  readonly lockForAgent: (transactionId: string) => Promise<DisputeRecord | null>;
   readonly insertDispute: (dispute: NewDispute) => Promise<Result<DisputeRecord, 'ALREADY_DISPUTED'>>;
   readonly insertHistory: (entry: NewHistory) => Promise<void>;
   readonly insertEvidence: (
@@ -140,9 +144,27 @@ export type LookupDisputeRefs = (
   transactionIds: ReadonlyArray<string>,
 ) => Promise<ReadonlyArray<DisputeRef>>;
 
+export type ReviewQueueQuery = {
+  readonly statuses: ReadonlyArray<QueueStatus>;
+  readonly after: QueuePosition | null;
+  readonly limit: number;
+};
+
+export type ListReviewQueue = (query: ReviewQueueQuery) => Promise<ReadonlyArray<QueueRecord>>;
+
+export type FindForAgent = (transactionId: string) => Promise<DisputeWithHistory | null>;
+
+// One function for the detail read and the decision check, so the two digests can only differ if the evidence did.
+export type EvidenceDigest = (evidence: ReadonlyArray<DigestInput>) => string;
+
+// Display names live with auth; disputes never reads that schema, so names arrive through this port.
+export type ResolveAgentNames = (agentIds: ReadonlyArray<string>) => Promise<AgentNames>;
+
 export type DisputeRepo = {
   readonly transact: Transact;
   readonly findLatestWithHistory: (key: DisputeKey) => Promise<DisputeWithHistory | null>;
+  readonly findForAgent: FindForAgent;
+  readonly listReviewQueue: ListReviewQueue;
   readonly listTransactionIds: ListDisputeTransactionIds;
   readonly listPage: ListDisputePage;
   readonly lookupRefs: LookupDisputeRefs;

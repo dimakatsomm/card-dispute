@@ -8,6 +8,7 @@ import type pg from 'pg';
 import { createPool, type Connectable } from './adapters/db.ts';
 import { UPSTREAM_DEADLINE_MS } from './adapters/deadline.ts';
 import { createDisputeRepo } from './adapters/dispute-repo.ts';
+import { sha256EvidenceDigest } from './adapters/evidence-digest.ts';
 import { createEventPublisher, createSqsSend, type SendMessage } from './adapters/event-publisher.ts';
 import { withValidateDeadline } from './adapters/service-client.ts';
 import { createTransactionsClient } from './adapters/transactions-client.ts';
@@ -16,11 +17,15 @@ import { createUsersClient } from './adapters/users-client.ts';
 import { createApp } from './app.ts';
 import { loadDisputesConfig, migrateConfigSchema, type Config } from './config.ts';
 import { addEvidence } from './use-cases/add-evidence.ts';
+import { getAgentDispute } from './use-cases/agent-dispute.ts';
 import { createDispute } from './use-cases/create-dispute.ts';
+import { decideDispute } from './use-cases/decide-dispute.ts';
 import { getDispute } from './use-cases/get-dispute.ts';
 import { listDisputes } from './use-cases/list-disputes.ts';
 import { lookupDisputes } from './use-cases/lookup-disputes.ts';
+import type { ResolveAgentNames } from './use-cases/ports.ts';
 import { recordEvidenceResult } from './use-cases/record-evidence-result.ts';
+import { listReviewQueue } from './use-cases/review-queue.ts';
 import { updateDispute } from './use-cases/update-dispute.ts';
 
 export type Infra = {
@@ -33,7 +38,11 @@ export type Infra = {
   readonly now: () => Date;
   readonly newId: () => string;
   readonly sleep: (ms: number) => Promise<void>;
+  readonly resolveAgentNames: ResolveAgentNames;
 };
+
+// BO-05 gap: no documented source of agent display names yet (disputes may not read auth.agent_identity).
+export const noAgentNames: ResolveAgentNames = async () => new Map();
 
 export const composeServers = (infra: Infra): Servers => {
   const { config, logger } = infra;
@@ -86,6 +95,13 @@ export const composeServers = (infra: Infra): Servers => {
 
   const signUploads = guardSigner(infra.presignUploads, logger);
 
+  const agentDispute = getAgentDispute({
+    findForAgent: repo.findForAgent,
+    findTransaction: transactions.findTransaction,
+    resolveAgentNames: infra.resolveAgentNames,
+    evidenceDigest: sha256EvidenceDigest,
+  });
+
   const useCases = {
     createDispute: createDispute({
       findTransaction: transactions.findTransaction,
@@ -113,6 +129,18 @@ export const composeServers = (infra: Infra): Servers => {
     }),
     lookupDisputes: lookupDisputes({ lookupRefs: repo.lookupRefs }),
     recordEvidenceResult: recordEvidenceResult({ transact: repo.transact, publish, newId: infra.newId }),
+    listReviewQueue: listReviewQueue({
+      listReviewQueue: repo.listReviewQueue,
+      resolveAgentNames: infra.resolveAgentNames,
+    }),
+    getAgentDispute: agentDispute,
+    decideDispute: decideDispute({
+      transact: repo.transact,
+      publish,
+      newId: infra.newId,
+      evidenceDigest: sha256EvidenceDigest,
+      getAgentDispute: agentDispute,
+    }),
   };
 
   return createApp({
@@ -166,6 +194,7 @@ export const startService = async (env: Env): Promise<{ readonly close: () => Pr
       new Promise((resolve) => {
         setTimeout(resolve, ms);
       }),
+    resolveAgentNames: noAgentNames,
   });
   await servers.listen();
   return {

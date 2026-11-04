@@ -13,8 +13,16 @@ export const USER_B = { token: 'hdr.user-b-token.signature', userId: randomUUID(
 export const SERVICE_CALLER = { token: 'hdr.service-caller-token.signature', scopes: ['disputes/read'] };
 export const WRONG_SCOPE_CALLER = {
   token: 'hdr.wrong-scope-caller-token.signature',
-  scopes: ['disputes/review'],
+  scopes: ['transactions/read'],
 };
+export const AGENT_A = { token: 'hdr.agent-a-token.signature', agentId: randomUUID(), displayName: 'Naledi M.' };
+export const AGENT_B = { token: 'hdr.agent-b-token.signature', agentId: randomUUID(), displayName: 'Pieter V.' };
+const AGENTS = [AGENT_A, AGENT_B] as const;
+
+// Stands in for wherever agent display names end up coming from (BO-05 gap); keyed by agentId only.
+export const fakeAgentNames = async (agentIds: ReadonlyArray<string>): Promise<ReadonlyMap<string, string>> =>
+  new Map(AGENTS.filter((a) => agentIds.includes(a.agentId)).map((a) => [a.agentId, a.displayName]));
+
 export const INTAKE_CALLER = {
   token: 'hdr.intake-caller-token.signature',
   scopes: ['disputes/evidence.write'],
@@ -145,6 +153,8 @@ export const createFakeUpstreams = () => {
         exp,
       };
     }
+    const agent = AGENTS.find((a) => a.token === token);
+    if (agent !== undefined) return { valid: true, principalType: 'agent', agentId: agent.agentId, scopes: [], exp };
     const caller = SERVICE_CALLERS.find((c) => c.token === token);
     if (caller !== undefined) {
       return { valid: true, principalType: 'service', clientId: caller.clientId, scopes: caller.scopes, exp };

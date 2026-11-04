@@ -1,4 +1,6 @@
 import type {
+  zAgentDisputeDetail,
+  zAgentTimelineEvent,
   zDispute,
   zDisputeCreated,
   zDisputeDetail,
@@ -6,6 +8,8 @@ import type {
   zEvidence,
   zEvidenceDeclaration,
   zListMyDisputesResponse,
+  zListReviewQueueResponse,
+  zQueueItem,
   zTimelineEvent,
   zTransactionSnapshot,
   zUploadInstruction,
@@ -102,3 +106,11 @@ export type DisputeSummary = Wire<typeof zDisputeSummary>;
 export type DisputePage = Wire<typeof zListMyDisputesResponse>;
 
 export type TimelineEvent = Wire<typeof zTimelineEvent>;
+
+export type AgentDisputeDetail = Wire<typeof zAgentDisputeDetail>;
+
+export type AgentTimelineEvent = Wire<typeof zAgentTimelineEvent>;
+
+export type QueueItem = Wire<typeof zQueueItem>;
+
+export type ReviewQueuePage = Wire<typeof zListReviewQueueResponse>;
