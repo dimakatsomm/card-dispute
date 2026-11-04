@@ -269,12 +269,12 @@ describe('M1 outcome: token and principal rules on the public ports', () => {
   });
 
   it('a service token on a public customer route gets 403', async () => {
-    const token = await serviceToken();
+    const token = await serviceToken('svc-notifier');
     expect((await get(`${URLS.users}/me`, token)).status).toBe(403);
   });
 
   it('service-only GET /cards does not exist on the public port (404 for user and service tokens)', async () => {
-    const service = await serviceToken();
+    const service = await serviceToken('svc-notifier');
     const withUser = await get(`${URLS.users}/cards?userId=${me['userId']}`, tokenA);
     const withService = await get(`${URLS.users}/cards?userId=${me['userId']}`, service);
     expect([withUser.status, withService.status]).toEqual([404, 404]);

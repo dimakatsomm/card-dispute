@@ -17,7 +17,7 @@ import {
   until,
   type SentEmail,
 } from '../src/async.ts';
-import { call, listTransactions, serviceToken, URLS, userToken, type Json, type Txn } from '../src/stack.ts';
+import { call, freshDisputable, serviceToken, URLS, userToken, type Json, type Txn } from '../src/stack.ts';
 
 const QUARANTINE = 'cd-evidence-quarantine';
 const EVIDENCE = 'cd-evidence';
@@ -58,16 +58,6 @@ let tokenA: string;
 let userIdA: string;
 let contactEmailA: string;
 
-const freshDisputable = async (): Promise<Txn> => {
-  const me = (await call('GET', `${URLS.users}/me`, { token: tokenA })).body;
-  const cards: Json[] = me['accounts'].flatMap((account: Json) => account['cards']);
-  const live = cards.find((card) => card['expired'] === false && card['status'] === 'ACTIVE') ?? {};
-  const rows = await listTransactions(tokenA, { cardId: live['cardId'] });
-  const row = rows.find((item) => item.disputable.allowed);
-  if (row === undefined) throw new Error('no disputable transaction left for user A on the live card; reseed');
-  return row;
-};
-
 const detail = async (transactionId: string): Promise<Json> => {
   const reply = await call('GET', `${URLS.disputes}/dispute/${transactionId}`, { token: tokenA });
   expect(reply.status).toBe(200);
@@ -103,7 +93,7 @@ describe('M2 outcome: evidence uploaded with the presigned PUT is scanned, check
   let final: Json;
 
   it('creates a dispute with three declared files and the real bytes go up with exactly the returned headers', async () => {
-    target = await freshDisputable();
+    target = await freshDisputable(tokenA);
     const reply = await call('POST', `${URLS.disputes}/dispute/${target.transactionId}`, {
       token: tokenA,
       body: {
@@ -170,7 +160,7 @@ describe('M2 outcome: evidence uploaded with the presigned PUT is scanned, check
 
 describe('M2 outcome: re-declaring a pending file is retry-safe', () => {
   it('the same declaration returns the same evidenceId, a different file gets a new one', async () => {
-    const target = await freshDisputable();
+    const target = await freshDisputable(tokenA);
     const file: File = { fileName: 'pending-e2e.pdf', bytes: text(`%PDF-1.4 pending ${randomUUID()}`) };
     const created = await call('POST', `${URLS.disputes}/dispute/${target.transactionId}`, {
       token: tokenA,
@@ -201,7 +191,7 @@ describe('M2 outcome: the customer is emailed on every event, and only the owner
   let disputeId: string;
 
   it('mail for submitted, evidence added and evidence rejected arrives for a fresh dispute', async () => {
-    target = await freshDisputable();
+    target = await freshDisputable(tokenA);
     const good: File = { fileName: 'mail-ok-e2e.pdf', bytes: text(`%PDF-1.4 mail ${randomUUID()}`) };
     const bad: File = { fileName: 'mail-bad-e2e.pdf', bytes: EICAR };
     const reply = await call('POST', `${URLS.disputes}/dispute/${target.transactionId}`, {
