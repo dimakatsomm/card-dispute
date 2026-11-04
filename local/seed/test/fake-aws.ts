@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import {
+  AdminAddUserToGroupCommand,
   AdminCreateUserCommand,
   AdminDisableUserCommand,
   AdminGetUserCommand,
   AdminInitiateAuthCommand,
+  AdminSetUserMFAPreferenceCommand,
   AdminSetUserPasswordCommand,
   AdminUpdateUserAttributesCommand,
   type CognitoIdentityProviderClient,
@@ -16,7 +18,16 @@ import {
   type SecretsManagerClient,
 } from '@aws-sdk/client-secrets-manager';
 
-type FakeUser = { sub: string; enabled: boolean; status: 'FORCE_CHANGE_PASSWORD' | 'CONFIRMED'; password: string | null; email: string };
+type FakeUser = {
+  sub: string;
+  enabled: boolean;
+  status: 'FORCE_CHANGE_PASSWORD' | 'CONFIRMED';
+  password: string | null;
+  email: string;
+  groups: Set<string>;
+  totpVerified: boolean;
+  totpEnabled: boolean;
+};
 type FakeSecret = { value: string; kmsKeyId: string | undefined; tags: unknown };
 
 export type Call = { readonly command: string; readonly input: Record<string, unknown> };
@@ -26,6 +37,7 @@ const awsError = (name: string): Error => Object.assign(new Error(name), { name 
 // In-memory Cognito + Secrets Manager behind the SDK `send` boundary, recording every command it receives.
 export const fakeAws = () => {
   const users = new Map<string, FakeUser>();
+  const groups = new Set(['agents']);
   const secrets = new Map<string, FakeSecret>();
   const calls: Call[] = [];
   const record = (command: { constructor: { name: string }; input: object }): void => {
@@ -41,14 +53,24 @@ export const fakeAws = () => {
     if (command instanceof AdminGetUserCommand) {
       record(command);
       const u = user(command.input.Username ?? '');
-      return { Username: command.input.Username, Enabled: u.enabled, UserStatus: u.status, UserAttributes: [{ Name: 'sub', Value: u.sub }, { Name: 'email', Value: u.email }] };
+      const mfa = u.totpEnabled ? { UserMFASettingList: ['SOFTWARE_TOKEN_MFA'], PreferredMfaSetting: 'SOFTWARE_TOKEN_MFA' } : {};
+      return { Username: command.input.Username, Enabled: u.enabled, UserStatus: u.status, UserAttributes: [{ Name: 'sub', Value: u.sub }, { Name: 'email', Value: u.email }], ...mfa };
     }
     if (command instanceof AdminCreateUserCommand) {
       record(command);
       const username = command.input.Username ?? '';
       if (users.has(username)) throw awsError('UsernameExistsException');
       const email = command.input.UserAttributes?.find((a) => a.Name === 'email')?.Value ?? '';
-      users.set(username, { sub: randomUUID(), enabled: true, status: 'FORCE_CHANGE_PASSWORD', password: null, email });
+      users.set(username, {
+        sub: randomUUID(),
+        enabled: true,
+        status: 'FORCE_CHANGE_PASSWORD',
+        password: null,
+        email,
+        groups: new Set(),
+        totpVerified: false,
+        totpEnabled: false,
+      });
       return {};
     }
     if (command instanceof AdminSetUserPasswordCommand) {
@@ -67,6 +89,22 @@ export const fakeAws = () => {
     if (command instanceof AdminDisableUserCommand) {
       record(command);
       user(command.input.Username ?? '').enabled = false;
+      return {};
+    }
+    if (command instanceof AdminAddUserToGroupCommand) {
+      record(command);
+      const u = user(command.input.Username ?? '');
+      if (!groups.has(command.input.GroupName ?? '')) throw awsError('ResourceNotFoundException');
+      u.groups.add(command.input.GroupName ?? '');
+      return {};
+    }
+    // Like Cognito: TOTP can be enabled only after the user verified a software token from their own session.
+    if (command instanceof AdminSetUserMFAPreferenceCommand) {
+      record(command);
+      const u = user(command.input.Username ?? '');
+      const enable = command.input.SoftwareTokenMfaSettings?.Enabled;
+      if (enable === true && !u.totpVerified) throw awsError('InvalidParameterException');
+      u.totpEnabled = enable ?? u.totpEnabled;
       return {};
     }
     if (command instanceof AdminInitiateAuthCommand) {
@@ -110,6 +148,7 @@ export const fakeAws = () => {
 
   return {
     users,
+    groups,
     secrets,
     calls,
     cognito: { send: cognitoSend } as unknown as Pick<CognitoIdentityProviderClient, 'send'>,
@@ -125,6 +164,8 @@ export const MUTATING = [
   'AdminSetUserPasswordCommand',
   'AdminDisableUserCommand',
   'AdminUpdateUserAttributesCommand',
+  'AdminAddUserToGroupCommand',
+  'AdminSetUserMFAPreferenceCommand',
   'CreateSecretCommand',
   'PutSecretValueCommand',
 ] as const;
