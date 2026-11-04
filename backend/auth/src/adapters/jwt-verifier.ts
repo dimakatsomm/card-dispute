@@ -37,13 +37,21 @@ const claimsSchema = z.object({
   sub: optional(z.string()),
   scope: optional(z.string()),
   exp: optional(z.number().int()),
+  'cognito:groups': optional(z.array(z.string())),
 });
 
 const headerSchema = z.object({ alg: z.literal('RS256') });
 
 const toClaims = (payload: unknown): VerifiedClaims => {
   const c = claimsSchema.parse(payload);
-  return { tokenUse: c.token_use, clientId: c.client_id, sub: c.sub, scope: c.scope, exp: c.exp };
+  return {
+    tokenUse: c.token_use,
+    clientId: c.client_id,
+    sub: c.sub,
+    scope: c.scope,
+    exp: c.exp,
+    groups: c['cognito:groups'],
+  };
 };
 
 // Cognito signs with RS256 only; pinning it shuts out alg=none and HS256-with-public-key confusion.

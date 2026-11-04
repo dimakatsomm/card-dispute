@@ -12,6 +12,7 @@ import type { AddressInfo } from 'node:net';
 export const ISSUER = 'http://localhost:55900';
 export const USER_CLIENTS = ['spa'] as const;
 export const SERVICE_CLIENTS = ['svc-users', 'svc-transactions', 'svc-disputes', 'svc-notifier'] as const;
+export const AGENT_CLIENTS = ['backoffice'] as const;
 
 export type TestKey = { readonly privateKey: KeyObject; readonly kid: string };
 
@@ -53,6 +54,15 @@ export const accessClaims = (overrides: Readonly<Record<string, unknown>>): Reco
 
 export const userClaims = (sub: string, overrides: Readonly<Record<string, unknown>> = {}) =>
   accessClaims({ sub, client_id: 'spa', scope: 'openid profile email', ...overrides });
+
+export const agentClaims = (sub: string, overrides: Readonly<Record<string, unknown>> = {}) =>
+  accessClaims({
+    sub,
+    client_id: 'backoffice',
+    scope: 'openid profile email',
+    'cognito:groups': ['agents'],
+    ...overrides,
+  });
 
 export const serviceClaims = (
   clientId: string,

@@ -11,6 +11,7 @@ import {
 import type { FastifyBaseLogger } from 'fastify';
 import pg from 'pg';
 import { z } from 'zod';
+import { createAgentRepo } from './adapters/agent-repo.ts';
 import { createIdentityRepo } from './adapters/identity-repo.ts';
 import { createJwtVerifier } from './adapters/jwt-verifier.ts';
 import { clientAllowList, type ClientIds } from './core/token.ts';
@@ -32,6 +33,16 @@ const clientIds = z
   )
   .pipe(z.array(z.string()).min(1));
 
+const clientIdsOf = (c: {
+  readonly AUTH_USER_CLIENT_IDS: ReadonlyArray<string>;
+  readonly AUTH_SERVICE_CLIENT_IDS: ReadonlyArray<string>;
+  readonly AUTH_AGENT_CLIENT_IDS: ReadonlyArray<string>;
+}): ClientIds => ({
+  user: c.AUTH_USER_CLIENT_IDS,
+  service: c.AUTH_SERVICE_CLIENT_IDS,
+  agent: c.AUTH_AGENT_CLIENT_IDS,
+});
+
 export const configSchema = serverConfigSchema
   .extend({
     DATABASE_URL: z.string().min(1),
@@ -44,15 +55,16 @@ export const configSchema = serverConfigSchema
     AUTH_JWKS_URI: z.url().optional(),
     AUTH_USER_CLIENT_IDS: clientIds,
     AUTH_SERVICE_CLIENT_IDS: clientIds,
+    AUTH_AGENT_CLIENT_IDS: clientIds,
     // Local compose only: the mock issuer is plain http.
     AUTH_ALLOW_INSECURE_JWKS: z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
   })
-  .refine((c) => clientAllowList({ user: c.AUTH_USER_CLIENT_IDS, service: c.AUTH_SERVICE_CLIENT_IDS }).ok, {
-    message: 'a client id cannot be both a user and a service client',
-    path: ['AUTH_SERVICE_CLIENT_IDS'],
+  .refine((c) => clientAllowList(clientIdsOf(c)).ok, {
+    message:
+      'AUTH_USER_CLIENT_IDS, AUTH_SERVICE_CLIENT_IDS and AUTH_AGENT_CLIENT_IDS must be pairwise disjoint',
   })
   .refine((c) => c.AUTH_ALLOW_INSECURE_JWKS || isHttps(c.AUTH_ISSUER_URL), {
     message: 'must be https unless AUTH_ALLOW_INSECURE_JWKS=true',
@@ -80,7 +92,7 @@ export type AuthRuntime = {
 export const toAuthConfig = (c: z.output<typeof configSchema>): AuthConfig => ({
   issuer: c.AUTH_ISSUER_URL,
   jwksUri: c.AUTH_JWKS_URI ?? `${c.AUTH_ISSUER_URL.replace(/\/$/, '')}/.well-known/jwks.json`,
-  clients: { user: c.AUTH_USER_CLIENT_IDS, service: c.AUTH_SERVICE_CLIENT_IDS },
+  clients: clientIdsOf(c),
   allowInsecureJwks: c.AUTH_ALLOW_INSECURE_JWKS,
   ports: { public: c.PUBLIC_PORT, service: c.SERVICE_PORT },
 });
@@ -95,6 +107,7 @@ export const buildServers = (config: AuthConfig, runtime: AuthRuntime): Servers 
     allowInsecureJwks: config.allowInsecureJwks,
   });
   const identities = createIdentityRepo(runtime.pool);
+  const agents = createAgentRepo(runtime.pool);
   return createServers({
     // Auth exposes no customer routes (ADR-026).
     public: () => undefined,
@@ -103,6 +116,7 @@ export const buildServers = (config: AuthConfig, runtime: AuthRuntime): Servers 
       validateToken: validateToken({
         verifyToken: verifier.verify,
         findIdentityBySub: identities.findBySub,
+        findAgentBySub: agents.findBySub,
         clients: clients.value,
       }),
     }),

@@ -719,12 +719,13 @@
       "notes": "Gate PASS 2026-11-03 (security+tests+standards): agent_identity SELECT-only for auth_app (ACL test), partial queue index proven by EXPLAIN (fails without 005), two seeded agents; auth 79, disputes 226, seed 99 tests."
     },
     "BO-02": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [
         "BO-00",
         "BO-01"
-      ]
+      ],
+      "notes": "Gate PASS 2026-11-04 (security+tests+standards): agent only with agent-list client + cognito:groups ∋ agents + ACTIVE agent_identity; spa/service never agents; ambiguous_role both paths; groups parse fail-safe; fail-closed on DB error (use-case test added); lists disjoint, fail fast. 126 tests. Dev needs AUTH_AGENT_CLIENT_IDS before redeploying auth (BO-09)."
     },
     "BO-03": {
       "status": "done",

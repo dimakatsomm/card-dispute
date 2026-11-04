@@ -19,6 +19,11 @@ export type AuthDb = {
     readonly userId: string;
     readonly status: 'ACTIVE' | 'DISABLED';
   }) => Promise<string>;
+  readonly seedAgent: (row: {
+    readonly sub: string;
+    readonly displayName: string;
+    readonly status: 'ACTIVE' | 'DISABLED';
+  }) => Promise<string>;
   readonly stop: () => Promise<void>;
 };
 
@@ -49,6 +54,10 @@ export const startAuthDb = async (): Promise<AuthDb> => {
   if (!migrated.ok) throw new Error(`migrate failed: ${migrated.error.kind}`);
 
   const appPool = new pg.Pool({ connectionString: roleUrl(adminUrl, 'auth_app', passwords.auth_app) });
+  // auth_app may only read agent_identity; agents are provisioned out of band, as here by the schema owner.
+  const operatorPool = new pg.Pool({
+    connectionString: roleUrl(adminUrl, 'auth_migrator', passwords.auth_migrator),
+  });
   return {
     appPool,
     seedIdentity: async (row) => {
@@ -58,7 +67,15 @@ export const startAuthDb = async (): Promise<AuthDb> => {
       );
       return rows[0]?.auth_id ?? '';
     },
+    seedAgent: async (row) => {
+      const { rows } = await operatorPool.query<{ agent_id: string }>(
+        `insert into auth.agent_identity (cognito_sub, display_name, status) values ($1, $2, $3) returning agent_id`,
+        [row.sub, row.displayName, row.status],
+      );
+      return rows[0]?.agent_id ?? '';
+    },
     stop: async () => {
+      await operatorPool.end();
       await appPool.end();
       await pgc.stop();
     },

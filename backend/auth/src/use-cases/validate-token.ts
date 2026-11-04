@@ -1,8 +1,10 @@
 import { ok, type Result } from '@cd/shared/fp';
 import {
+  agentPrincipal,
   classifyClaims,
   servicePrincipal,
   userPrincipal,
+  type AgentIdentity,
   type ClientAllowList,
   type Identity,
   type InvalidReason,
@@ -14,6 +16,7 @@ import {
 export type ValidateTokenDeps = {
   readonly verifyToken: (token: string) => Promise<Result<VerifiedClaims, SignatureRejection>>;
   readonly findIdentityBySub: (cognitoSub: string) => Promise<Identity | null>;
+  readonly findAgentBySub: (cognitoSub: string) => Promise<AgentIdentity | null>;
   readonly clients: ClientAllowList;
 };
 
@@ -25,5 +28,11 @@ export const validateToken =
     const subject = classifyClaims(verified.value, deps.clients);
     if (!subject.ok) return subject;
     if (subject.value.kind === 'service') return ok(servicePrincipal(subject.value));
-    return userPrincipal(subject.value, await deps.findIdentityBySub(subject.value.sub));
+    const [identity, agent] = await Promise.all([
+      deps.findIdentityBySub(subject.value.sub),
+      deps.findAgentBySub(subject.value.sub),
+    ]);
+    return subject.value.kind === 'agent'
+      ? agentPrincipal(subject.value, agent, identity)
+      : userPrincipal(subject.value, identity, agent);
   };
