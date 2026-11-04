@@ -751,12 +751,13 @@
       ]
     },
     "BO-06": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "frontend",
       "blockedBy": [
         "BO-00",
         "BO-04"
-      ]
+      ],
+      "notes": "Gate PASS 2026-11-04 (security+tests+standards): separate backoffice OIDC client + state prefix, tokens in memory, agent/customer areas exclusive, 412/409 handling; 123 tests, typecheck, eslint, build. Callback wiring covered by BO-07 Playwright; entrypoint test gap predates."
     },
     "BO-07": {
       "status": "todo",

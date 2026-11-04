@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
+import type { ApiClient } from '../api/client';
 import { Button, Loading, cardClass, cx, pageGutterClass } from '../components/ui';
 import type { Auth, AuthUser } from './auth';
 
-const SessionPage = ({ children }: { readonly children: ReactNode }) => (
+export const SessionPage = ({ children }: { readonly children: ReactNode }) => (
   <div className={cx(pageGutterClass, 'py-8 sm:py-10')}>{children}</div>
 );
 
@@ -19,30 +20,59 @@ export const useAuth = (): Auth => {
   return auth;
 };
 
-type SessionState =
+export type AgentArea = { readonly auth: Auth; readonly api: ApiClient };
+
+const AgentAreaContext = createContext<AgentArea | null>(null);
+
+export const AgentAreaProvider = ({
+  agent,
+  children,
+}: {
+  readonly agent: AgentArea | null;
+  readonly children: ReactNode;
+}) => <AgentAreaContext.Provider value={agent}>{children}</AgentAreaContext.Provider>;
+
+export const useAgentArea = (): AgentArea | null => useContext(AgentAreaContext);
+
+export type Session =
   | { readonly status: 'checking' }
   | { readonly status: 'signed-in'; readonly user: AuthUser }
-  | { readonly status: 'redirecting' };
+  | { readonly status: 'signed-out' };
 
-export const RequireAuth = ({ children }: { readonly children: ReactNode }) => {
-  const auth = useAuth();
-  const location = useLocation();
-  const [session, setSession] = useState<SessionState>({ status: 'checking' });
-  const returnTo = `${location.pathname}${location.search}`;
+// `recheck` re-reads the session on navigation so an expired one is renewed or dropped.
+export const useSession = (auth: Auth | null, recheck: string): Session => {
+  const [session, setSession] = useState<Session>(auth ? { status: 'checking' } : { status: 'signed-out' });
 
   useEffect(() => {
+    if (!auth) return undefined;
+    let active = true;
     const apply = (user: AuthUser | null): void => {
-      if (user) {
-        setSession({ status: 'signed-in', user });
-        return;
-      }
-      setSession({ status: 'redirecting' });
-      void auth.signIn(returnTo);
+      if (active) setSession(user ? { status: 'signed-in', user } : { status: 'signed-out' });
     };
     const unsubscribe = auth.onChange(apply);
     void auth.currentUser().then(apply);
-    return unsubscribe;
-  }, [auth, returnTo]);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [auth, recheck]);
+
+  return session;
+};
+
+export const useReturnTo = (): string => {
+  const location = useLocation();
+  return `${location.pathname}${location.search}`;
+};
+
+export const RequireAuth = ({ children }: { readonly children: ReactNode }) => {
+  const auth = useAuth();
+  const returnTo = useReturnTo();
+  const session = useSession(auth, returnTo);
+
+  useEffect(() => {
+    if (session.status === 'signed-out') void auth.signIn(returnTo);
+  }, [auth, returnTo, session.status]);
 
   switch (session.status) {
     case 'signed-in':
@@ -53,7 +83,7 @@ export const RequireAuth = ({ children }: { readonly children: ReactNode }) => {
           <Loading>Checking your session…</Loading>
         </SessionPage>
       );
-    case 'redirecting':
+    case 'signed-out':
       return (
         <SessionPage>
           <Loading>Redirecting to sign in…</Loading>
@@ -64,8 +94,7 @@ export const RequireAuth = ({ children }: { readonly children: ReactNode }) => {
 
 type CallbackState = { readonly status: 'pending' } | { readonly status: 'failed' };
 
-export const AuthCallback = () => {
-  const auth = useAuth();
+const SignInCallback = ({ auth, retryPath }: { readonly auth: Auth; readonly retryPath: string }) => {
   const navigate = useNavigate();
   const [state, setState] = useState<CallbackState>({ status: 'pending' });
   // The authorization code is single-use; StrictMode's double effect must not redeem it twice.
@@ -92,9 +121,16 @@ export const AuthCallback = () => {
       ) : (
         <div role="alert" className={cx(cardClass, 'mx-auto max-w-md space-y-4 p-6')}>
           <p className="font-medium">We couldn't sign you in.</p>
-          <Button onClick={() => void auth.signIn('/')}>Try again</Button>
+          <Button onClick={() => void auth.signIn(retryPath)}>Try again</Button>
         </div>
       )}
     </SessionPage>
   );
+};
+
+export const AuthCallback = () => <SignInCallback auth={useAuth()} retryPath="/" />;
+
+export const AgentAuthCallback = ({ retryPath }: { readonly retryPath: string }) => {
+  const agent = useAgentArea();
+  return agent ? <SignInCallback auth={agent.auth} retryPath={retryPath} /> : null;
 };

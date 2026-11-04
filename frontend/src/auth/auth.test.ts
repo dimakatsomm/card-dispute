@@ -23,10 +23,23 @@ const idToken = [
   'signature',
 ].join('.');
 
+const agentIdToken = [
+  base64url({ alg: 'RS256', typ: 'JWT' }),
+  base64url({
+    sub: 'agent-e',
+    iss: issuer,
+    aud: 'backoffice',
+    exp: 4_102_444_800,
+    iat: 1_760_000_000,
+    'cognito:groups': ['agents', 7],
+  }),
+  'signature',
+].join('.');
+
 const json = (body: object): Response =>
   new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
-const stubIssuer = (): ReadonlyArray<string> => {
+const stubIssuer = (tokenIdToken: string = idToken): ReadonlyArray<string> => {
   const tokenRequests: string[] = [];
   vi.stubGlobal(
     'fetch',
@@ -39,7 +52,7 @@ const stubIssuer = (): ReadonlyArray<string> => {
         tokenRequests.push(String(init?.body));
         return json({
           access_token: accessToken,
-          id_token: idToken,
+          id_token: tokenIdToken,
           refresh_token: refreshToken,
           token_type: 'Bearer',
           expires_in: 900,
@@ -134,6 +147,37 @@ describe('auth: OIDC authorization code + PKCE, tokens in memory only', () => {
     expect(tokens).toEqual([accessToken, accessToken, accessToken]);
     const refreshes = tokenRequests.filter((body) => body.includes('grant_type=refresh_token'));
     expect(refreshes).toHaveLength(1);
+  });
+});
+
+describe('auth: the back-office client keeps its own sign-in state', () => {
+  it('stores PKCE state under its own key and exposes the cognito:groups claim', async () => {
+    stubIssuer(agentIdToken);
+    const agentRedirect = 'http://localhost:3000/agent/callback';
+    const customer = createAuth(settings, { redirectStateStorage: window.sessionStorage, navigate: vi.fn() });
+    const agent = createAuth(
+      { ...settings, clientId: 'backoffice', redirectUri: agentRedirect, stateKeyPrefix: 'oidc-agent.' },
+      { redirectStateStorage: window.sessionStorage, navigate: vi.fn() },
+    );
+    void agent.signIn('/agent');
+    const agentKey = await vi.waitFor(() => {
+      const key = storageKeys(sessionStorage).find((k) => k.startsWith('oidc-agent.'));
+      if (!key) throw new Error('no agent redirect state yet');
+      return key;
+    });
+    const state = agentKey.slice('oidc-agent.'.length);
+
+    expect(redirectStateKey()).toBeUndefined();
+    expect(await customer.completeSignIn(`${redirectUri}?code=auth-code&state=${state}`)).toEqual({
+      ok: false,
+      error: 'SIGNIN_FAILED',
+    });
+    expect(await agent.completeSignIn(`${agentRedirect}?code=auth-code&state=${state}`)).toEqual({
+      ok: true,
+      value: '/agent',
+    });
+    expect(await agent.currentUser()).toEqual({ subject: 'agent-e', groups: ['agents'] });
+    expect(await customer.currentUser()).toBeNull();
   });
 });
 

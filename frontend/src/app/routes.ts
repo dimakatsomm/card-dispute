@@ -7,3 +7,8 @@ export const routes = {
   disputeDetail: (transactionId: string) => `/disputes/${encodeURIComponent(transactionId)}`,
   addEvidence: (transactionId: string) => `/disputes/${encodeURIComponent(transactionId)}/evidence`,
 } as const;
+
+export const agentRoutes = {
+  queue: () => '/agent',
+  dispute: (transactionId: string) => `/agent/disputes/${encodeURIComponent(transactionId)}`,
+} as const;

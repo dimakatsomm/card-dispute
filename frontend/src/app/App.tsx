@@ -4,25 +4,28 @@ import { RouterProvider } from 'react-router';
 import { ApiProvider } from '../api/ApiProvider';
 import type { ApiClient } from '../api/client';
 import type { Auth } from '../auth/auth';
-import { AuthProvider } from '../auth/AuthProvider';
+import { AgentAreaProvider, AuthProvider, type AgentArea } from '../auth/AuthProvider';
 import { createAppRouter } from './router';
 
 export type AppProps = {
   readonly auth: Auth;
   readonly api: ApiClient;
   readonly callbackPath: string;
+  readonly agent: (AgentArea & { readonly callbackPath: string }) | null;
 };
 
-export const App = ({ auth, api, callbackPath }: AppProps) => {
+export const App = ({ auth, api, callbackPath, agent }: AppProps) => {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1 } } }));
-  const [router] = useState(() => createAppRouter(callbackPath));
+  const [router] = useState(() => createAppRouter({ callbackPath, agentCallbackPath: agent?.callbackPath ?? null }));
   return (
     <AuthProvider auth={auth}>
-      <ApiProvider client={api}>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
-      </ApiProvider>
+      <AgentAreaProvider agent={agent}>
+        <ApiProvider client={api}>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
+        </ApiProvider>
+      </AgentAreaProvider>
     </AuthProvider>
   );
 };
