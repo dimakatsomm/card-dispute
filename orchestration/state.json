@@ -1,6 +1,6 @@
 {
   "_comment": "Orchestrator memory across sessions. Read at session start, written after every task transition. Statuses: todo | in_progress | in_review | done | blocked. This file must reflect reality — a task with a failing test is not done.",
-  "milestone": "M1-walking-skeleton",
+  "milestone": "M5-rollout",
   "updatedAt": "2026-11-03",
   "milestones": {
     "M0": "done",
@@ -8,7 +8,8 @@
     "M2": "done 2026-10-20 — integration-verifier: M2 MET. 1,182 unit/integration tests across 17 packages; API e2e 42/42 (incl. expired token); Playwright 5/5 twice after fixing the card helper. Scan → STORED/REJECTED on timeline, email to owner on every step, 24 h slot expiry and 1-year erasure incl. file names (clock-injected), poison → both DLQs. Real AWS (GuardDuty, S3 checksum enforcement V-08, SES delivery) is M3.",
     "M3": "in_progress — decomposed 2026-10-20; waves 0–3 offline, wave 4 owner-gated.",
     "M4": "todo — H-01..H-04 (docs/08 §8)",
-    "M5": "in_progress — BO-00..07 + BO-05b done; milestone-close next"
+    "M5": "done 2026-11-04 — integration-verifier: M5 MET locally (report orchestration/reports/M5.md). 1,437 tests/17 packages; e2e m5 15/15; Playwright agent+customer flows; walkthrough 50/51 (1 script error). m2 Lambda-dependent e2e unrunnable here (Lambda base image blocked by proxy).",
+    "M5-rollout": "todo — BO-09 dev rollout (owner-gated) + BO-H1..H3; owner decisions: agent MFA/pool, evidence viewing, rollout timing"
   },
   "tasks": {
     "F-01": {
@@ -790,6 +791,18 @@
         "BO-05"
       ],
       "notes": "Gate PASS 2026-11-04 after round 2: displayName on ValidAgent → AgentPrincipal → dispute_status_history.actor_label (AGENT rows only, insert-only); timeline agentName and pickedUpBy from actor_label; customers still BANK (test added). auth 127, auth-client 89, disputes 256, seed 99; typecheck, lint, lint:api, contracts regen stable."
+    },
+    "BO-H2": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [],
+      "notes": "auth test teardown race: appPool has no error handler; 57P01 on container stop → unhandled error, exit 1 with 127/127 passed (backend/auth/test/support/db.ts:77-80)."
+    },
+    "BO-H3": {
+      "status": "todo",
+      "agent": "implementer",
+      "blockedBy": [],
+      "notes": "contracts generator adds a redundant code-point length check (zod 4.6 min/max already count code points); remove and regenerate."
     }
   },
   "decisions": [
@@ -1144,7 +1157,10 @@
     "P-05x follow-up: move the evidence cap-counting statuses (PENDING+STORED) and the ADR-050 declaration-matching rule from disputes core into @cd/dispute-domain (rule 2).",
     "tests/ui: card helper now waits for rows and pages; e2e and UI share user A data, which never resets (disputes are permanent) — reseed occasionally on long-lived local stacks.",
     "ACL-TO follow-up: pass the in-scope deadline signal into getToken({ signal }) at disputes service-client, transactions upstream (UpstreamDeps.getToken type), notifier service-client and intake disputes-client; until then token fetches are bounded by the 5 s provider default.",
-    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch."
+    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch.",
+    "M5: agent pool with MFA required vs per-user TOTP before real data",
+    "M5: evidence viewing for agents (currently out, demo-only)",
+    "M5: BO-09 rollout timing; never deploy auth to dev before BO-09 sets AUTH_AGENT_CLIENT_IDS"
   ],
   "peerReviews": [
     {

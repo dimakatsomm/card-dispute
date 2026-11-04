@@ -26,7 +26,7 @@ This doc is the human summary; if they disagree, raise it — do not pick one si
 
 ## Route exposure — two ports, token decides (ADR-026)
 No `/internal` path prefix and no trusted header. Every service runs **two listeners**:
-- **Public port 8080**: attached to the public ALB. Registers **customer routes only**; every route requires a **user** principal.
+- **Public port 8080**: attached to the public ALB. Registers **customer routes**, each requiring a **user** principal; disputes alone also registers **`/agent/*` routes**, each requiring an **agent** principal (ADR-071).
 - **Service port 8081**: reachable only via ECS Service Connect (and the internal ALB for Lambdas). Registers
   **service routes only**; every route requires a **service** principal with the listed scope.
 
@@ -81,11 +81,12 @@ Headers: `Authorization: Bearer <calling service's token with auth/validate>` �
 Request: `{ "token": "<jwt being validated>" }`
 200: `{ "valid": true, "principalType": "user", "authId": "uuid", "userId": "uuid", "scopes": [], "exp": 1760000000 }`
 200 (service): `{ "valid": true, "principalType": "service", "clientId": "…", "scopes": ["users/cards.read"], "exp": … }`
-200 invalid: `{ "valid": false, "principalType": "none", "reason": "expired|bad_signature|wrong_issuer|wrong_client|wrong_token_use|unknown_subject|disabled" }`
+200 (agent, ADR-071): `{ "valid": true, "principalType": "agent", "agentId": "uuid", "displayName": "Naledi M.", "scopes": [], "exp": … }`
+200 invalid: `{ "valid": false, "principalType": "none", "reason": "expired|bad_signature|wrong_issuer|wrong_client|wrong_token_use|unknown_subject|disabled|ambiguous_role" }`
 400: malformed body.
 Rules: only Cognito **access** tokens accepted (id tokens rejected). `client_id` must be in the allow-list.
 `auth_identity.status` is the single access-control switch (PR-01 F7).
-Principal type is decided by which client allow-list the token's `client_id` is on (user clients vs service clients), not by the presence of `sub`. User principals return the token's actual scopes. JWKS unreachable → 500 (callers treat any non-200 as unavailable → 503).
+Principal type is decided by which client allow-list the token's `client_id` is on (user, agent or service clients; pairwise disjoint), not by the presence of `sub`. An agent also needs `cognito:groups` ∋ `agents` and an ACTIVE `agent_identity`; a sub with both an agent and a customer identity is `ambiguous_role`. User principals return the token's actual scopes. JWKS unreachable → 500 (callers treat any non-200 as unavailable → 503).
 
 ## Users — `GET /me`
 200:

@@ -255,7 +255,7 @@ SUBMITTED ──RESOLVE (agent)──► RESOLVED_*   (allowed; agent may skip r
 Terminal states reject everything (`INVALID_TRANSITION`). A row lock + version guard every change. The DB clock is the only clock.
 
 ### 7.3 Security controls
-- **Identity:** Cognito user pool. One confidential client per caller: svc-users, svc-transactions, svc-disputes, svc-notifier, svc-evidence-intake (60 min tokens); `spa` (15 min) and a dev-only `e2e` client (ADR-062). No back-office client in AWS (ADR-064).
+- **Identity:** Cognito user pool. One confidential client per caller: svc-users, svc-transactions, svc-disputes, svc-notifier, svc-evidence-intake (60 min tokens); `spa` (15 min) and a dev-only `e2e` client (ADR-062). The `backoffice` agent client (ADR-071) is created in AWS by BO-09; until then none exists there.
 - **Network:**
   - CloudFront → internal ALB `:80` → 8080 only; 8081 only from service SGs and the two Lambda SGs (via the ALB's `:8081` listener, ADR-059).
   - Aurora private with TLS forced.
@@ -394,7 +394,7 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | H-02 Runbooks per alarm (the SNS alarm channel ships in I-13; first drafts are in docs/11-dev-runbook.md) |
 | H-03 Full security review + threat-model refresh + dependency audit |
 | H-04 Accessibility pass (WCAG 2.1 AA) on the web app |
-| Deferred beyond the first release: row-level security, load testing, multi-env, DR, back-office UI |
+| Deferred beyond the first release: row-level security, load testing, multi-env, DR |
 
 
 ### M5 — Back office (scheduled 2026-11-03, ADR-071)
