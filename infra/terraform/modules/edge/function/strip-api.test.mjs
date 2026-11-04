@@ -12,6 +12,7 @@ const run = (uri) => handler({ request: { uri, querystring: {}, headers: {} } })
 test('strips the /api prefix', () => {
   assert.equal(run('/api/me'), '/me');
   assert.equal(run('/api/dispute/abc/evidence'), '/dispute/abc/evidence');
+  assert.equal(run('/api/agent/review-queue'), '/agent/review-queue');
   assert.equal(run('/api/'), '/');
 });
 
@@ -22,6 +23,7 @@ test('keeps the query part intact', () => {
 test('leaves non-/api paths alone', () => {
   assert.equal(run('/'), '/');
   assert.equal(run('/callback'), '/callback');
+  assert.equal(run('/agent/callback'), '/agent/callback');
   assert.equal(run('/apidocs'), '/apidocs');
   assert.equal(run('/assets/api/x.js'), '/assets/api/x.js');
 });

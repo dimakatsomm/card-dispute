@@ -49,8 +49,15 @@ export type ProvisionError = {
 
 export const ROTATE_ACTION = 'Cognito holds a password the secret does not; re-run dev-seed with SEED_ROTATE_USER_PASSWORDS=true';
 
-type CognitoUser = { readonly sub: string; readonly email: string | undefined; readonly enabled: boolean; readonly confirmed: boolean };
-type Step<T> = Promise<Result<T, ProvisionError>>;
+export type CognitoUser = {
+  readonly sub: string;
+  readonly email: string | undefined;
+  readonly enabled: boolean;
+  readonly confirmed: boolean;
+  readonly mfaEnabled: ReadonlyArray<string>;
+  readonly preferredMfa: string | undefined;
+};
+export type Step<T> = Promise<Result<T, ProvisionError>>;
 
 const ZERO: ProvisionCounts = {
   cognito_user_created: 0,
@@ -64,7 +71,7 @@ const ZERO: ProvisionCounts = {
 const errorName = (e: unknown): string => (e instanceof Error ? e.name : 'UnknownError');
 
 // Only the SDK error name is kept, so no message text can reach the logs.
-const attempt = async <T>(username: string, step: string, fn: () => Promise<T>): Step<T> => {
+export const attempt = async <T>(username: string, step: string, fn: () => Promise<T>): Step<T> => {
   try {
     return ok(await fn());
   } catch (e) {
@@ -74,14 +81,21 @@ const attempt = async <T>(username: string, step: string, fn: () => Promise<T>):
 
 const isNotFound = (e: unknown, name: string): boolean => e instanceof Error && e.name === name;
 
-const getUser = (deps: ProvisionDeps, username: string): Step<CognitoUser | null> =>
+export const findCognitoUser = (deps: ProvisionDeps, username: string): Step<CognitoUser | null> =>
   attempt(username, 'AdminGetUser', async () => {
     try {
       const out = await deps.cognito.send(new AdminGetUserCommand({ UserPoolId: deps.userPoolId, Username: username }));
       const attribute = (name: string): string | undefined => out.UserAttributes?.find((a) => a.Name === name)?.Value;
       const sub = attribute('sub');
       if (sub === undefined || sub === '') throw Object.assign(new Error('missing sub'), { name: 'MissingSub' });
-      return { sub, email: attribute('email'), enabled: out.Enabled !== false, confirmed: out.UserStatus === 'CONFIRMED' };
+      return {
+        sub,
+        email: attribute('email'),
+        enabled: out.Enabled !== false,
+        confirmed: out.UserStatus === 'CONFIRMED',
+        mfaEnabled: out.UserMFASettingList ?? [],
+        preferredMfa: out.PreferredMfaSetting,
+      };
     } catch (e) {
       if (isNotFound(e, 'UserNotFoundException')) return null;
       throw e;
@@ -214,7 +228,7 @@ const provisionOne = async (
   deps: ProvisionDeps,
   user: SeedUser,
 ): Step<{ readonly sub: string; readonly counts: Partial<ProvisionCounts> }> => {
-  const found = await getUser(deps, user.username);
+  const found = await findCognitoUser(deps, user.username);
   if (!found.ok) return found;
   const created = found.value === null;
   if (created) {
@@ -222,7 +236,7 @@ const provisionOne = async (
     if (!made.ok) return made;
   }
   // The sub is read back from AdminGetUser so auth_identity always maps the identity Cognito actually issued.
-  const current = created ? await getUser(deps, user.username) : found;
+  const current = created ? await findCognitoUser(deps, user.username) : found;
   if (!current.ok) return current;
   if (current.value === null) return err({ kind: 'provision', username: user.username, step: 'AdminGetUser', name: 'UserNotFoundException' });
   const cognitoUser = current.value;

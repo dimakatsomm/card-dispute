@@ -130,6 +130,9 @@ mock_provider "aws" {
   mock_resource "aws_sns_topic" {
     defaults = { arn = "arn:aws:sns:eu-north-1:123456789012:cd-alarms" }
   }
+  mock_resource "aws_sesv2_configuration_set" {
+    defaults = { arn = "arn:aws:ses:eu-north-1:123456789012:configuration-set/cd-dev" }
+  }
 }
 
 mock_provider "aws" {
@@ -147,6 +150,12 @@ override_resource {
   target          = module.security.aws_kms_key.this["evidence"]
   override_during = plan
   values          = { arn = "arn:aws:kms:eu-north-1:123456789012:key/11111111-1111-1111-1111-111111111111" }
+}
+
+override_resource {
+  target          = module.cognito.aws_cognito_user_pool_client.backoffice
+  override_during = plan
+  values          = { id = "backofficeclientid00000000" }
 }
 
 # ci-roles finds the net-probe pair by role name, so these two need their real names.
@@ -241,6 +250,48 @@ run "phase_a_no_functions" {
       if contains(s.Action, "s3:ListBucket") && s.Resource == [module.evidence_buckets.quarantine_bucket_arn]
     ]) == 1
     error_message = "intake needs s3:ListBucket on the quarantine bucket so a missing object is 404, not 403."
+  }
+}
+
+run "back_office_wiring" {
+  command = plan
+
+  assert {
+    condition     = local.service_environment["auth"]["AUTH_AGENT_CLIENT_IDS"] == "backofficeclientid00000000"
+    error_message = "auth needs AUTH_AGENT_CLIENT_IDS = the backoffice client id (it fails fast without it)."
+  }
+
+  assert {
+    condition = (
+      local.service_environment["web"]["OIDC_AGENT_CLIENT_ID"] == "backofficeclientid00000000" &&
+      local.service_environment["web"]["OIDC_AGENT_REDIRECT_URI"] == "https://d111111abcdef8.cloudfront.net/agent/callback" &&
+      local.service_environment["web"]["OIDC_POST_LOGOUT_URI"] == "https://d111111abcdef8.cloudfront.net/"
+    )
+    error_message = "web needs both OIDC_AGENT_* values (docker-entrypoint takes both or neither)."
+  }
+
+  assert {
+    condition = (
+      module.cognito.agents_group_name == "agents" &&
+      length([for k, v in local.service_environment : k if contains(keys(v), "AUTH_AGENT_CLIENT_IDS")]) == 1
+    )
+    error_message = "The agents group exists and only auth gets the agent allow-list."
+  }
+
+  assert {
+    condition = (
+      length([for s in local.lambda_policy_statements["dispute-notifier"] : s if contains(s.Action, "ses:SendEmail")]) == 1 &&
+      toset(one([for s in local.lambda_policy_statements["dispute-notifier"] : s.Resource if contains(s.Action, "ses:SendEmail")])) == toset([
+        "arn:aws:ses:eu-north-1:123456789012:identity/*",
+        "arn:aws:ses:eu-north-1:123456789012:configuration-set/cd-dev",
+      ])
+    )
+    error_message = "notifier SendEmail: identities in this account and region (sandbox recipients) plus the configuration set only."
+  }
+
+  assert {
+    condition     = module.lambda["dispute-notifier"].log_group_name == "/aws/lambda/cd-dispute-notifier"
+    error_message = "The EmailUndeliverable filter reads the notifier log group from lambda-fn, so it is created after the group."
   }
 }
 

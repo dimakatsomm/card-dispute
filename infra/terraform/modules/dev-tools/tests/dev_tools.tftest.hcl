@@ -47,9 +47,10 @@ variables {
       disputes_retention    = "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/db/disputes_retention-A1b2C3"
     }
   }
-  cognito_user_pool_arn        = "arn:aws:cognito-idp:eu-north-1:123456789012:userpool/eu-north-1_AbCdEfGhI"
-  cognito_user_pool_id         = "eu-north-1_AbCdEfGhI"
-  seed_user_secret_name_prefix = "cd/dev/seed-users/"
+  cognito_user_pool_arn         = "arn:aws:cognito-idp:eu-north-1:123456789012:userpool/eu-north-1_AbCdEfGhI"
+  cognito_user_pool_id          = "eu-north-1_AbCdEfGhI"
+  seed_user_secret_name_prefix  = "cd/dev/seed-users/"
+  agent_user_secret_name_prefix = "cd/dev/agent-users/"
   probe_environment = {
     SERVICE_PORT_BASE_URL = "http://internal-cd-alb-123.eu-north-1.elb.amazonaws.com:8081"
     TOKEN_URL             = "https://cd-dev.auth.eu-north-1.amazoncognito.com/oauth2/token"
@@ -169,6 +170,11 @@ run "seed_uses_migrator_urls_and_cognito_env" {
     )
     error_message = "seed must run with SEED_TARGET=aws, AWS_REGION and the pool id."
   }
+
+  assert {
+    condition     = !contains([for e in jsondecode(aws_ecs_task_definition.this["dev-seed"].container_definitions)[0].environment : e.name], "SEED_AGENT_SECRET_PREFIX")
+    error_message = "SEED_AGENT_SECRET_PREFIX comes only from the workflow override when an agent is configured; the seed refuses it otherwise."
+  }
 }
 
 run "cognito_permissions_scoped_to_pool" {
@@ -188,6 +194,20 @@ run "cognito_permissions_scoped_to_pool" {
       "cognito-idp:AdminDisableUser", "cognito-idp:AdminUpdateUserAttributes",
     ])
     error_message = "seed gets exactly the five admin actions."
+  }
+
+  assert {
+    condition = toset(one([for s in jsondecode(aws_iam_role_policy.task["dev-seed"].policy).Statement : s.Action if s.Sid == "ProvisionAgentsInPool"])) == toset([
+      "cognito-idp:AdminAddUserToGroup", "cognito-idp:AdminSetUserMFAPreference",
+    ])
+    error_message = "seed may add agents to a group and set their MFA preference, nothing more (no group removal, sign-out or group admin)."
+  }
+
+  assert {
+    condition = alltrue(flatten([for k, p in aws_iam_role_policy.task : [
+      for s in jsondecode(p.policy).Statement : !anytrue([for a in s.Action : contains(["cognito-idp:AdminAddUserToGroup", "cognito-idp:AdminSetUserMFAPreference"], a)])
+    ] if k != "dev-seed"]))
+    error_message = "Only dev-seed may provision agents."
   }
 
   assert {
@@ -237,10 +257,32 @@ run "secrets_access_limited_to_referenced_arns" {
   assert {
     condition = alltrue(flatten([for p in aws_iam_role_policy.task : [
       for s in jsondecode(p.policy).Statement : alltrue([
-        for r in s.Resource : startswith(r, "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/")
+        for r in s.Resource : startswith(r, "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/") || startswith(r, "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/agent-users/")
       ]) if anytrue([for a in s.Action : startswith(a, "secretsmanager:")])
     ]]))
-    error_message = "Task roles touch only seed-user secrets."
+    error_message = "Task roles touch only seed-user and agent-user secrets."
+  }
+
+  assert {
+    condition = alltrue([for sid in ["CreateSeedUserSecretsWithDataKey", "MaintainSeedUserSecrets"] :
+      toset(one([for s in jsondecode(aws_iam_role_policy.task["dev-seed"].policy).Statement : s.Resource if s.Sid == sid])) == toset([
+        "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/*",
+        "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/agent-users/*",
+      ])
+      ]) && toset(one([for s in jsondecode(aws_iam_role_policy.task["dev-seed"].policy).Statement : s.Condition.StringLike["kms:EncryptionContext:SecretARN"] if s.Sid == "SeedUserSecretsDataKey"])) == toset([
+      "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/*",
+      "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/agent-users/*",
+    ])
+    error_message = "dev-seed gets the same secret and cd-data key access on cd/dev/agent-users/* as on cd/dev/seed-users/*."
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for s in jsondecode(aws_iam_role_policy.task["net-probe"].policy).Statement : [
+        for r in s.Resource : !strcontains(r, "agent-users")
+      ]
+    ]))
+    error_message = "net-probe must never reach agent passwords."
   }
 
   assert {
@@ -275,9 +317,9 @@ run "no_wildcards_except_documented" {
 
   assert {
     condition = alltrue(flatten([for p in concat(values(aws_iam_role_policy.execution), values(aws_iam_role_policy.task)) : [
-      for s in jsondecode(p.policy).Statement : [for r in s.Resource : r == "*" || !endswith(r, "*") || r == "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/*" || endswith(r, ":log-stream:*")]
+      for s in jsondecode(p.policy).Statement : [for r in s.Resource : r == "*" || !endswith(r, "*") || contains(["arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/*", "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/agent-users/*"], r) || endswith(r, ":log-stream:*")]
     ]]))
-    error_message = "Partial wildcards are only the seed-user prefix and own log streams."
+    error_message = "Partial wildcards are only the seed-user and agent-user prefixes and own log streams."
   }
 
   assert {
@@ -335,4 +377,14 @@ run "image_change_does_not_reregister" {
     ])
     error_message = "The replacement trigger must carry every container setting except the image, so config changes still register a revision."
   }
+}
+
+run "rejects_agent_prefix_under_seed_users" {
+  command = plan
+
+  variables {
+    agent_user_secret_name_prefix = "cd/dev/seed-users/agents/"
+  }
+
+  expect_failures = [var.agent_user_secret_name_prefix]
 }

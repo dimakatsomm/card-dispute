@@ -4,11 +4,22 @@ import type { SendEmail, SendFailure } from '../use-cases/ports.ts';
 
 export type SesSenderDeps = { readonly client: Pick<SESv2Client, 'send'>; readonly sender: string };
 
-const REJECTED = new Set(['MessageRejected', 'MailFromDomainNotVerifiedException', 'AccountSuspendedException', 'SendingPausedException']);
+// Refusals tied to this recipient or message: a retry gets the same answer, so the message is acknowledged.
+const UNDELIVERABLE = new Set(['MessageRejected', 'BadRequestException']);
+// Account or IAM faults go to the DLQ so they stay visible and can be redriven once fixed.
+const REJECTED = new Set([
+  'AccessDeniedException',
+  'MailFromDomainNotVerifiedException',
+  'AccountSuspendedException',
+  'SendingPausedException',
+]);
 const THROTTLED = new Set(['TooManyRequestsException', 'ThrottlingException', 'LimitExceededException']);
 
-const classify = (name: string): SendFailure['kind'] =>
-  REJECTED.has(name) ? 'rejected' : THROTTLED.has(name) ? 'throttled' : 'unavailable';
+export const classifySesError = (name: string): SendFailure['kind'] => {
+  if (UNDELIVERABLE.has(name)) return 'undeliverable';
+  if (REJECTED.has(name)) return 'rejected';
+  return THROTTLED.has(name) ? 'throttled' : 'unavailable';
+};
 
 const utf8 = (Data: string) => ({ Data, Charset: 'UTF-8' });
 
@@ -29,6 +40,6 @@ export const createSesSender =
       return ok({ messageId: out.MessageId ?? '' });
     } catch (error) {
       const errorName = error instanceof Error ? error.name : 'UnknownError';
-      return err({ kind: classify(errorName), errorName });
+      return err({ kind: classifySesError(errorName), errorName });
     }
   };

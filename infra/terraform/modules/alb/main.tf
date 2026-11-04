@@ -22,7 +22,7 @@ locals {
     {
       users         = { priority = 10, api = true, paths = ["/me"], target = "users-8080" }
       transactions  = { priority = 20, api = true, paths = ["/transactions", "/transactions/*"], target = "transactions-8080" }
-      disputes      = { priority = 30, api = true, paths = ["/disputes", "/dispute/*"], target = "disputes-8080" }
+      disputes      = { priority = 30, api = true, paths = ["/disputes", "/dispute/*", "/agent/*"], target = "disputes-8080" }
       api-not-found = { priority = 90, api = true, paths = [], target = null }
     },
     local.vpc_origin ? {} : {

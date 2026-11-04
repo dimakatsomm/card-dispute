@@ -133,7 +133,16 @@ describe('probe mode A (--expect-unreachable)', () => {
 describe('probe token sources', () => {
   it('gets the user token with ADMIN_USER_PASSWORD_AUTH on the e2e client using the seed-user secret', async () => {
     const aws = fakeAws();
-    aws.users.set('thandi.nkosi', { sub: 'sub-a', enabled: true, status: 'CONFIRMED', password: 'Fake-Passw0rd-123!', email: 'thandi.nkosi@example.com' });
+    aws.users.set('thandi.nkosi', {
+      sub: 'sub-a',
+      enabled: true,
+      status: 'CONFIRMED',
+      password: 'Fake-Passw0rd-123!',
+      email: 'thandi.nkosi@example.com',
+      groups: new Set(),
+      totpVerified: false,
+      totpEnabled: false,
+    });
     aws.secrets.set('cd/dev/seed-users/thandi.nkosi', {
       value: encodeSeedUserSecret({ username: 'thandi.nkosi', password: 'Fake-Passw0rd-123!' }),
       kmsKeyId: undefined,

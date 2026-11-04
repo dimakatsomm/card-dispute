@@ -31,7 +31,9 @@ const handleRecord = async (notify: Notify, log: Log, record: QueueRecord): Prom
   if (!result) return false;
   if (result.ok) {
     const { ref, ...outcome } = result.value;
-    log.info({ messageId, ...ref, ...outcome }, 'notification handled');
+    const fields = { messageId, ...ref, ...outcome };
+    if (outcome.kind === 'EMAIL_UNDELIVERABLE') log.warn(fields, 'email undeliverable; message acknowledged without retry');
+    else log.info(fields, 'notification handled');
     return true;
   }
   log.warn({ messageId, ...result.error }, 'notification failed');

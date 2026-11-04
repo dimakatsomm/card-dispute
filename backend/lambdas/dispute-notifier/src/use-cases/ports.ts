@@ -23,7 +23,10 @@ export type LookupDisputes = (
 
 export type OutgoingEmail = EmailContent & { readonly to: string };
 
-export type SendFailure = { readonly kind: 'rejected' | 'throttled' | 'unavailable'; readonly errorName: string };
+export type SendFailure = {
+  readonly kind: 'undeliverable' | 'rejected' | 'throttled' | 'unavailable';
+  readonly errorName: string;
+};
 
 export type SendEmail = (email: OutgoingEmail) => Promise<Result<{ readonly messageId: string }, SendFailure>>;
 
