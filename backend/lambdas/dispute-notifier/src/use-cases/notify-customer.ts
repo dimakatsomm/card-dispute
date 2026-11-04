@@ -16,7 +16,8 @@ export type EventRef = { readonly eventId: string; readonly eventType: EventType
 
 export type NotifyOutcome =
   | { readonly kind: 'SENT'; readonly ref: EventRef; readonly sesMessageId: string }
-  | { readonly kind: 'SKIPPED_STALE'; readonly ref: EventRef; readonly eventVersion: number; readonly currentVersion: number };
+  | { readonly kind: 'SKIPPED_STALE'; readonly ref: EventRef; readonly eventVersion: number; readonly currentVersion: number }
+  | { readonly kind: 'EMAIL_UNDELIVERABLE'; readonly ref: EventRef; readonly errorName: string };
 
 export type NotifyFailure =
   | { readonly kind: 'INVALID_MESSAGE'; readonly issues: ReadonlyArray<string> }
@@ -46,7 +47,9 @@ const parseBody = (body: string): Result<DisputeEvent, NotifyFailure> => {
   return event.ok ? event : err({ kind: 'INVALID_MESSAGE', issues: event.error.issues });
 };
 
-const EMAIL_FAILURE: Readonly<Record<SendFailure['kind'], 'EMAIL_REJECTED' | 'EMAIL_THROTTLED' | 'EMAIL_FAILED'>> = {
+const EMAIL_FAILURE: Readonly<
+  Record<Exclude<SendFailure['kind'], 'undeliverable'>, 'EMAIL_REJECTED' | 'EMAIL_THROTTLED' | 'EMAIL_FAILED'>
+> = {
   rejected: 'EMAIL_REJECTED',
   throttled: 'EMAIL_THROTTLED',
   unavailable: 'EMAIL_FAILED',
@@ -77,6 +80,11 @@ export const notifyCustomer =
     if (contact.value.userId !== event.userId) return err({ kind: 'CONTACT_MISMATCH', ref });
 
     const sent = await deps.sendEmail({ to: contact.value.email, ...renderEmail(event, contact.value.name) });
-    if (!sent.ok) return err({ kind: EMAIL_FAILURE[sent.error.kind], ref, errorName: sent.error.errorName });
+    if (!sent.ok) {
+      const { kind, errorName } = sent.error;
+      // The DB already holds the change; retrying a refusal SES will repeat only ends in the DLQ.
+      if (kind === 'undeliverable') return ok({ kind: 'EMAIL_UNDELIVERABLE', ref, errorName });
+      return err({ kind: EMAIL_FAILURE[kind], ref, errorName });
+    }
     return ok({ kind: 'SENT', ref, sesMessageId: sent.value.messageId });
   };
