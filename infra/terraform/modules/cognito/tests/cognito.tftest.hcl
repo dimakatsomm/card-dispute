@@ -18,6 +18,7 @@ mock_provider "random" {}
 variables {
   name_prefix         = "cd"
   callback_urls       = ["https://d111111abcdef8.cloudfront.net/callback"]
+  agent_callback_urls = ["https://d111111abcdef8.cloudfront.net/agent/callback"]
   logout_urls         = ["https://d111111abcdef8.cloudfront.net/"]
   enable_e2e_client   = false
   secrets_kms_key_arn = "arn:aws:kms:eu-north-1:123456789012:key/00000000-0000-0000-0000-000000000000"
@@ -144,6 +145,76 @@ run "spa_is_public_code_pkce" {
     condition     = aws_cognito_user_pool_client.spa.access_token_validity == 15 && aws_cognito_user_pool_client.spa.refresh_token_validity == 1 && aws_cognito_user_pool_client.spa.prevent_user_existence_errors == "ENABLED"
     error_message = "SPA: access 15 min, refresh 1 day, user existence errors prevented."
   }
+}
+
+run "agents_group_and_backoffice_client" {
+  command = apply
+
+  assert {
+    condition     = aws_cognito_user_group.agents.name == "agents" && aws_cognito_user_group.agents.user_pool_id == aws_cognito_user_pool.this.id && output.agents_group_name == "agents"
+    error_message = "The agents group must exist in the same pool (owner ruling 2026-11-04)."
+  }
+
+  assert {
+    condition     = aws_cognito_user_pool.this.mfa_configuration == "OPTIONAL"
+    error_message = "Pool MFA stays OPTIONAL; agent TOTP is per user by provisioning."
+  }
+
+  assert {
+    condition = (
+      !aws_cognito_user_pool_client.backoffice.generate_secret &&
+      aws_cognito_user_pool_client.backoffice.allowed_oauth_flows_user_pool_client &&
+      toset(aws_cognito_user_pool_client.backoffice.allowed_oauth_flows) == toset(["code"]) &&
+      toset(aws_cognito_user_pool_client.backoffice.explicit_auth_flows) == toset(["ALLOW_REFRESH_TOKEN_AUTH"]) &&
+      toset(aws_cognito_user_pool_client.backoffice.supported_identity_providers) == toset(["COGNITO"])
+    )
+    error_message = "backoffice must be public (no secret), authorization code only, no password flows."
+  }
+
+  assert {
+    condition     = toset(aws_cognito_user_pool_client.backoffice.allowed_oauth_scopes) == toset(aws_cognito_user_pool_client.spa.allowed_oauth_scopes)
+    error_message = "backoffice scopes must mirror spa."
+  }
+
+  assert {
+    condition = (
+      toset(aws_cognito_user_pool_client.backoffice.callback_urls) == toset(["https://d111111abcdef8.cloudfront.net/agent/callback"]) &&
+      toset(aws_cognito_user_pool_client.backoffice.logout_urls) == toset(aws_cognito_user_pool_client.spa.logout_urls)
+    )
+    error_message = "backoffice: callback /agent/callback only; sign-out URL equals the SPA post-logout URI."
+  }
+
+  assert {
+    condition = (
+      aws_cognito_user_pool_client.backoffice.access_token_validity == aws_cognito_user_pool_client.spa.access_token_validity &&
+      aws_cognito_user_pool_client.backoffice.id_token_validity == aws_cognito_user_pool_client.spa.id_token_validity &&
+      aws_cognito_user_pool_client.backoffice.refresh_token_validity == aws_cognito_user_pool_client.spa.refresh_token_validity &&
+      aws_cognito_user_pool_client.backoffice.token_validity_units[0] == aws_cognito_user_pool_client.spa.token_validity_units[0] &&
+      aws_cognito_user_pool_client.backoffice.enable_token_revocation &&
+      aws_cognito_user_pool_client.backoffice.prevent_user_existence_errors == "ENABLED"
+    )
+    error_message = "backoffice token lifetimes and revocation must equal spa."
+  }
+
+  assert {
+    condition = (
+      output.backoffice_client_id == aws_cognito_user_pool_client.backoffice.id &&
+      output.agent_client_ids == [aws_cognito_user_pool_client.backoffice.id] &&
+      !contains(output.user_client_ids, aws_cognito_user_pool_client.backoffice.id) &&
+      !contains(values(output.service_client_ids), aws_cognito_user_pool_client.backoffice.id)
+    )
+    error_message = "backoffice is the only agent client and in neither the user nor the service list."
+  }
+}
+
+run "rejects_agent_callback_outside_agent_path" {
+  command = plan
+
+  variables {
+    agent_callback_urls = ["https://d111111abcdef8.cloudfront.net/callback"]
+  }
+
+  expect_failures = [var.agent_callback_urls]
 }
 
 run "e2e_absent_by_default" {

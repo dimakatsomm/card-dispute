@@ -159,9 +159,14 @@ run "vpc_origin" {
     condition = (
       toset(flatten([for c in aws_lb_listener_rule.web["users"].condition : [for p in c.path_pattern : p.values]])) == toset(["/me"]) &&
       toset(flatten([for c in aws_lb_listener_rule.web["transactions"].condition : [for p in c.path_pattern : p.values]])) == toset(["/transactions", "/transactions/*"]) &&
-      toset(flatten([for c in aws_lb_listener_rule.web["disputes"].condition : [for p in c.path_pattern : p.values]])) == toset(["/disputes", "/dispute/*"])
+      toset(flatten([for c in aws_lb_listener_rule.web["disputes"].condition : [for p in c.path_pattern : p.values]])) == toset(["/disputes", "/dispute/*", "/agent/*"])
     )
     error_message = ":80 API path patterns must match the routing table."
+  }
+
+  assert {
+    condition     = [for k, r in aws_lb_listener_rule.web : k if contains(flatten([for c in r.condition : [for p in c.path_pattern : p.values]]), "/agent/*")] == ["disputes"]
+    error_message = "Only the :80 disputes API rule (x-cd-route api) may match /agent/*; SPA /agent pages fall through to web (ADR-071)."
   }
 
   assert {

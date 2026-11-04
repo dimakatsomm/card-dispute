@@ -178,10 +178,10 @@ locals {
   # Shared by both roles: ReadOnlyAccess would otherwise reach these.
   read_guardrail_statements = [
     {
-      Sid      = "DenySeedUserSecretValues"
+      Sid      = "DenySeedSecretValues"
       Effect   = "Deny"
       Action   = ["secretsmanager:GetSecretValue"]
-      Resource = ["${local.arn.secrets}:secret:${local.p}/dev/seed-users/*"]
+      Resource = ["${local.arn.secrets}:secret:${local.p}/dev/seed-users/*", "${local.arn.secrets}:secret:${local.p}/dev/agent-users/*"]
     },
     {
       Sid    = "DenyEvidenceObjectReads"

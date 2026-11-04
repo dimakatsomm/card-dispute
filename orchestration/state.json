@@ -772,12 +772,12 @@
       "notes": "Gate PASS 2026-11-04: m5 API e2e 15/15 (re-run after restart), Playwright agent flow passed twice in BO-07 runs; nginx /api/agent/ → disputes:8080 only. Stack ran on locally rebuilt images (Lambda base image unobtainable through the proxy; notifier via stand-in running the real handler). Full test:e2e 47 pass / 9 m2 fail, all needing the Lambda containers."
     },
     "BO-09": {
-      "status": "in_progress",
+      "status": "in_review",
       "agent": "owner",
       "blockedBy": [
         "BO-07"
       ],
-      "notes": "Owner 2026-11-04: run ASAP; same Cognito pool, TOTP per agent."
+      "notes": "Code done 2026-11-04 (notifier 1c7c694, dev-seed b08bf88, Terraform + runbook this commit); all gated. Awaiting owner apply: bootstrap → infra → auth/disputes/web → dev-seed agent. TOTP enforcement needs BO-11."
     },
     "BO-H1": {
       "status": "todo",

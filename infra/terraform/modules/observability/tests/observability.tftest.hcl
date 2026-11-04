@@ -38,6 +38,7 @@ variables {
   }
   aurora_cluster_identifier = "cd-aurora"
   aurora_max_acu            = 2
+  notifier_log_group_name   = "/aws/lambda/cd-dispute-notifier"
 }
 
 run "alarms_topic_and_budget" {
@@ -55,6 +56,7 @@ run "alarms_topic_and_budget" {
       "cd-retention-failed",
       "cd-evidence-not-scanned",
       "cd-evidence-result-conflict",
+      "cd-email-undeliverable",
       "cd-event-publish-failed",
       "cd-alb-target-5xx",
       "cd-alb-target-p95",
@@ -66,7 +68,7 @@ run "alarms_topic_and_budget" {
       "cd-alb-unhealthy-disputes-8081",
       "cd-aurora-max-acu",
     ])
-    error_message = "Alarm set differs from the I-13 acceptance list."
+    error_message = "Alarm set differs from the I-13 acceptance list (+ BO-09 email-undeliverable)."
   }
 
   assert {
@@ -201,7 +203,7 @@ run "alarms_topic_and_budget" {
   }
 
   assert {
-    condition     = output.dashboard_name == "cd-dev" && length(output.alarm_arns) == 20
+    condition     = output.dashboard_name == "cd-dev" && length(output.alarm_arns) == 21
     error_message = "Outputs must expose the cd-dev dashboard and every alarm ARN."
   }
 
@@ -250,4 +252,49 @@ run "no_lambdas_yet" {
     condition     = !contains([for w in jsondecode(aws_cloudwatch_dashboard.main.dashboard_body).widgets : w.properties.title], "Lambda invocations, errors, throttles")
     error_message = "Dashboard must omit the Lambda widget when no function exists."
   }
+}
+
+run "email_undeliverable_alarm" {
+  command = apply
+
+  assert {
+    condition = (
+      aws_cloudwatch_log_metric_filter.email_undeliverable.log_group_name == "/aws/lambda/cd-dispute-notifier" &&
+      aws_cloudwatch_log_metric_filter.email_undeliverable.pattern == "{ $.kind = \"EMAIL_UNDELIVERABLE\" }" &&
+      aws_cloudwatch_log_metric_filter.email_undeliverable.metric_transformation[0].value == "1"
+    )
+    error_message = "The filter must count notifier log lines whose kind is EMAIL_UNDELIVERABLE."
+  }
+
+  assert {
+    condition = (
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].namespace == aws_cloudwatch_log_metric_filter.email_undeliverable.metric_transformation[0].namespace &&
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].metric_name == aws_cloudwatch_log_metric_filter.email_undeliverable.metric_transformation[0].name &&
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].metric_name == "EmailUndeliverable" &&
+      length(aws_cloudwatch_metric_alarm.metric["email-undeliverable"].dimensions) == 0
+    )
+    error_message = "The alarm must watch the filter's dimensionless EmailUndeliverable metric."
+  }
+
+  assert {
+    condition = (
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].statistic == "Sum" &&
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].period == 900 &&
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].threshold == 1 &&
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].comparison_operator == "GreaterThanOrEqualToThreshold" &&
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].treat_missing_data == "notBreaching" &&
+      aws_cloudwatch_metric_alarm.metric["email-undeliverable"].alarm_actions == toset([aws_sns_topic.alarms.arn])
+    )
+    error_message = "One undeliverable email in 15 minutes must notify the alarm topic."
+  }
+}
+
+run "rejects_non_lambda_log_group" {
+  command = plan
+
+  variables {
+    notifier_log_group_name = "/cd/dev/notifier"
+  }
+
+  expect_failures = [var.notifier_log_group_name]
 }

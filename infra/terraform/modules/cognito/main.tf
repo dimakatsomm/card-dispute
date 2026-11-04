@@ -106,6 +106,38 @@ resource "aws_cognito_user_pool_client" "spa" {
   }
 }
 
+resource "aws_cognito_user_group" "agents" {
+  name         = "agents"
+  user_pool_id = aws_cognito_user_pool.this.id
+  description  = "Back-office agents (ADR-071); membership alone grants nothing without an ACTIVE agent_identity row."
+}
+
+# Separate client so auth can tell agent tokens from customer tokens by client_id (ADR-071).
+resource "aws_cognito_user_pool_client" "backoffice" {
+  name         = "${var.name_prefix}-backoffice"
+  user_pool_id = aws_cognito_user_pool.this.id
+
+  generate_secret                      = false
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = var.agent_callback_urls
+  logout_urls                          = var.logout_urls
+  explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH"]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+  access_token_validity         = 15
+  id_token_validity             = 15
+  refresh_token_validity        = 1
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+}
+
 resource "aws_cognito_user_pool_client" "service" {
   for_each = local.grants
 

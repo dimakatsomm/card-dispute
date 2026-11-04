@@ -179,6 +179,11 @@ run "vpc_origin" {
   }
 
   assert {
+    condition     = [for b in aws_cloudfront_distribution.this.ordered_cache_behavior : b.path_pattern if b.target_origin_id == "alb-api"] == ["/api/*"]
+    error_message = "Only /api/* may reach alb-api, so the SPA's /agent pages stay on alb-web and only /api/agent/* reaches the disputes API rule (ADR-071)."
+  }
+
+  assert {
     condition = (
       length(aws_cloudfront_distribution.this.origin) == 2
       && alltrue([

@@ -78,3 +78,13 @@ variable "aurora_max_acu" {
     error_message = "aurora_max_acu must be at least 1."
   }
 }
+
+variable "notifier_log_group_name" {
+  description = "dispute-notifier log group; its EMAIL_UNDELIVERABLE lines become the EmailUndeliverable metric."
+  type        = string
+
+  validation {
+    condition     = can(regex("^/aws/lambda/[A-Za-z0-9_-]+$", var.notifier_log_group_name))
+    error_message = "notifier_log_group_name must be a /aws/lambda/<function> log group."
+  }
+}

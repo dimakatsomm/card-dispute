@@ -140,6 +140,16 @@ variable "seed_user_secret_name_prefix" {
   }
 }
 
+variable "agent_user_secret_name_prefix" {
+  description = "Name prefix of the agent password secrets dev-seed creates at run time, e.g. cd/dev/agent-users/; IAM only, the env value is a workflow override."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+/dev/agent-users/$", var.agent_user_secret_name_prefix))
+    error_message = "agent_user_secret_name_prefix must look like <prefix>/dev/agent-users/."
+  }
+}
+
 variable "probe_environment" {
   description = "Plain net-probe env from I-WIRE: SERVICE_PORT_BASE_URL (alb :8081 base), TOKEN_URL, E2E_CLIENT_ID, SERVICE_CLIENT_ID (svc-notifier). Merged over the module defaults."
   type        = map(string)

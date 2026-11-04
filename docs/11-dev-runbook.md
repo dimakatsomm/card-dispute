@@ -681,6 +681,59 @@ If either `put-object` prints nothing, run it again without the `grep` to see th
 also prints nothing). Then check `aws s3api head-object --bucket "$Q" --key <key>`. If the object exists, the
 policy is wrong: delete it (`aws s3 rm "s3://$Q/<key>"`) and stop.
 
+## 12. Back office rollout (BO-09, ADR-071)
+
+Ships the agent area to dev. **Order matters**: auth refuses to start without `AUTH_AGENT_CLIENT_IDS`, which only
+step 2 puts in its task definition. Never approve an auth deploy before step 2 has been applied.
+
+**1. Re-apply bootstrap (you, admin credentials).** It adds Cognito group actions to the apply role and, in the
+workload boundary, `AdminAddUserToGroup`, `AdminSetUserMFAPreference` and writes under `cd/dev/agent-users/*`. Use the
+3.1 commands; the plan must show only in-place updates to the boundary and apply-role policies (the S3 statements are
+merged and six Sids renamed with no change in effect). Anything else: stop and ask.
+
+**2. Infra apply** (`infra.yml`, plan → approve under `dev-infra`). Creates the `agents` group and the public
+`backoffice` client (code + PKCE, callback `<web origin>/agent/callback`), adds `/agent/*` to the disputes API rule,
+sets `AUTH_AGENT_CLIENT_IDS` (auth) and `OIDC_AGENT_CLIENT_ID` / `OIDC_AGENT_REDIRECT_URI` (web), widens the
+notifier's SES resource to this account's identities (sender still pinned by `ses:FromAddress`), and adds the
+`cd-email-undeliverable` alarm.
+
+**3. Deploy auth, then disputes and web** (approve under `dev`; migrations run first). Disputes applies
+`005_review_queue_index` and `006_history_actor_label`; auth applies `002_agent_identity`.
+
+**4. Provision the agent.** Environment `dev` variables `SEED_AGENT_USERNAME` (lowercase), `SEED_AGENT_DISPLAY_NAME`
+and secret `SEED_AGENT_EMAIL` (prompted, never on the command line):
+
+```bash
+gh variable set SEED_AGENT_USERNAME --env dev --body "<agent.username>" --repo "$REPO"
+gh variable set SEED_AGENT_DISPLAY_NAME --env dev --body "<Name S.>" --repo "$REPO"
+gh secret set SEED_AGENT_EMAIL --env dev --repo "$REPO"
+gh workflow run dev-tools.yml --ref main -f tool=dev-seed --repo "$REPO"     # approve under dev
+```
+
+The seed creates (or reuses) the Cognito user with a verified email, writes the `agent_identity` row, then adds the
+user to `agents`. Its password is in Secrets Manager under `cd/dev/agent-users/<username>`, a prefix neither the e2e
+role nor the infra plan/apply roles can read. A username or sub that is already a customer is refused (`ambiguous_role`). The run logs only counts
+and `agent: {status, totp}`.
+
+**5. TOTP (owner ruling: same pool, TOTP per agent).** The pool's MFA stays optional, so Cognito does not prompt
+enrolment, and enrolling needs the agent's own session. Until BO-11 adds an "Set up authenticator" screen, agents
+sign in with a password only (demo). After the agent has enrolled (BO-11), set `SEED_AGENT_REQUIRE_TOTP=true` and
+re-run dev-seed: it turns TOTP MFA on for that agent, and fails with a clear message if they have not enrolled yet.
+
+**6. Check.** Sign in at `https://<distribution>/agent` with "Agent sign-in": the queue loads, pick up and resolve a
+seeded dispute, the customer sees the note by "The bank", and the status mail arrives.
+
+**Offboarding an agent (operator credentials, not CI).** In this order, so access ends within about a minute:
+
+```bash
+psql "<auth migrator connection>" -c "update agent_identity set status = 'DISABLED' where cognito_sub = '<sub>'"   # ≤ 60 s (auth-client cache)
+aws cognito-idp admin-remove-user-from-group --user-pool-id <pool> --username <agent.username> --group-name agents
+aws cognito-idp admin-user-global-sign-out --user-pool-id <pool> --username <agent.username>
+```
+
+A DISABLED row is never re-enabled by the seed. Removing the group alone takes up to 15 minutes (token lifetime),
+which is why the row is disabled first.
+
 ---
 
 ## Park and unpark
@@ -796,7 +849,8 @@ tools `/cd/dev/tools/<task>`. Tail one with `aws logs tail <group> --since 30m -
 
 | Alarm | Means | First check |
 |---|---|---|
-| DLQ depth >= 1: `cd-dispute-notifications-dlq` | A status-change email failed 5 times | `/aws/lambda/cd-dispute-notifier` errors: SES `MessageRejected` (identity unverified, step 10), a users `:8081` or token failure, or a recipient not verified (sandbox). Fix, then redrive |
+| DLQ depth >= 1: `cd-dispute-notifications-dlq` | A status-change email failed 5 times | `/aws/lambda/cd-dispute-notifier` errors: SES `AccessDenied` (notifier IAM, step 12.2), throttling or an outage, a paused account, or a users `:8081` or token failure. Fix, then redrive |
+| `cd-email-undeliverable` >= 1 in 15 min | SES refused a message for good (`MessageRejected`, `BadRequest`), e.g. an unverified recipient in the sandbox; it was logged and dropped, not retried | Log line `EMAIL_UNDELIVERABLE` in `/aws/lambda/cd-dispute-notifier` (dispute id, error name). Verify the recipient (sandbox) or request SES production access; the dispute itself is unaffected |
 | DLQ depth >= 1: `cd-evidence-intake-dlq` | The scan-result event or an intake run failed after retries | `/aws/lambda/cd-evidence-intake`; then GuardDuty plan status and the EventBridge rule. Until it is replayed the evidence stays `PENDING` and the 1-day quarantine lifecycle will delete the object |
 | DLQ depth >= 1: `cd-retention-scheduler-dlq` | The nightly sweeper could not be invoked | The schedule `cd-retention-sweeper` in EventBridge Scheduler and the function's state; re-invoke by hand |
 | Lambda errors / throttles | A function raised or hit the concurrency limit | The function's log group; for throttles `aws lambda get-account-settings` (new-account concurrency quota) |

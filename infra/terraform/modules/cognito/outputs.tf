@@ -33,6 +33,21 @@ output "spa_client_id" {
   value       = aws_cognito_user_pool_client.spa.id
 }
 
+output "backoffice_client_id" {
+  description = "backoffice client id (OIDC_AGENT_CLIENT_ID, AUTH_AGENT_CLIENT_IDS)."
+  value       = aws_cognito_user_pool_client.backoffice.id
+}
+
+output "agent_client_ids" {
+  description = "Agent-token client ids: backoffice only (AUTH_AGENT_CLIENT_IDS)."
+  value       = [aws_cognito_user_pool_client.backoffice.id]
+}
+
+output "agents_group_name" {
+  description = "Cognito group that agent users join."
+  value       = aws_cognito_user_group.agents.name
+}
+
 output "e2e_client_id" {
   description = "e2e client id, or null when enable_e2e_client is false."
   value       = one(aws_cognito_user_pool_client.e2e[*].id)
