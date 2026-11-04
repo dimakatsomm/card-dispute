@@ -14,9 +14,8 @@ claims are tagged [recall] by the reviewer and stay unverified here.
   existing `requireAgent` guard on a new `GET /agent/disputes/{transactionId}/evidence/{evidenceId}/download`, checks
   the dispute and that the item is STORED, writes an audit row, enforces a per-agent rate cap, then **invokes the
   viewer Lambda directly via IAM** (`lambda:InvokeFunction` on that one function) with `{transactionId, evidenceId}`
-  only. The viewer derives the key itself as `evidence/<disputeId>/<evidenceId>` from a disputes lookup is NOT needed:
-  the key shape is fixed (`evidence/{disputeId}/{evidenceId}`), so disputes passes `{disputeId, evidenceId}` and the
-  viewer validates both as UUIDs and builds the key — disputes cannot pass an arbitrary key. Response is `{url}` JSON;
+  only. The key shape is fixed (`evidence/{disputeId}/{evidenceId}`), so disputes passes `{disputeId, evidenceId}`
+  and the viewer validates both as UUIDs and builds the key itself: disputes cannot pass an arbitrary key. Response is `{url}` JSON;
   the SPA opens it from the click handler (no `await` before `window.open`; it pre-opens the tab then sets location).
 - **F5 audit** → an insert-only `evidence_view` audit table in disputes (agent_id, dispute_id, evidence_id, at),
   written **before** signing and failing closed; plus CloudTrail S3 **data events** on the evidence bucket so the
