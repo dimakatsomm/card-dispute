@@ -80,6 +80,7 @@ export type Identity = {
 
 export type AgentIdentity = {
   readonly agentId: string;
+  readonly displayName: string;
   readonly status: IdentityStatus;
 };
 
@@ -100,6 +101,7 @@ export type Principal =
   | {
       readonly principalType: 'agent';
       readonly agentId: string;
+      readonly displayName: string;
       readonly scopes: ReadonlyArray<string>;
       readonly exp: number;
     };
@@ -161,7 +163,13 @@ export const agentPrincipal = (
   if (agent === null) return err('unknown_subject');
   if (identity !== null) return err('ambiguous_role');
   if (agent.status !== 'ACTIVE') return err('disabled');
-  return ok({ principalType: 'agent', agentId: agent.agentId, scopes: [], exp: subject.exp });
+  return ok({
+    principalType: 'agent',
+    agentId: agent.agentId,
+    displayName: agent.displayName,
+    scopes: [],
+    exp: subject.exp,
+  });
 };
 
 export const servicePrincipal = (subject: Extract<TokenSubject, { kind: 'service' }>): Principal => ({

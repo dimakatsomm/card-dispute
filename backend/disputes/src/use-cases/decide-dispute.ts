@@ -16,6 +16,7 @@ export type DecideDisputeDeps = {
 
 export type DecideDisputeInput = {
   readonly agentId: string;
+  readonly agentName: string;
   readonly transactionId: string;
   readonly decision: AgentDecision;
   readonly expectedVersion: number;
@@ -36,14 +37,15 @@ const historyFor = (
   decision: AgentDecision,
   current: DisputeRecord,
   to: DisputeRecord['status'],
-  agentId: string,
+  input: Pick<DecideDisputeInput, 'agentId' | 'agentName'>,
 ): NewHistory => ({
   disputeRowId: current.id,
   action: decision.type,
   fromStatus: current.status,
   toStatus: to,
   actorType: 'AGENT',
-  actorId: agentId,
+  actorId: input.agentId,
+  actorLabel: input.agentName,
   note: decision.type === 'RESOLVE' ? decision.note : null,
 });
 
@@ -65,7 +67,7 @@ export const decideDispute =
       }
 
       if (current.version !== input.expectedVersion) return err('STALE_VERSION');
-      // The dispute row lock serialises evidence writes, so this digest is the one the decision is made against.
+      // The dispute row lock serialises evidence declarations and results against this check.
       if (deps.evidenceDigest(await tx.listEvidence(current.id)) !== input.expectedEvidenceDigest) {
         return err('STALE_EVIDENCE');
       }
@@ -78,7 +80,7 @@ export const decideDispute =
         updatedBy: `AGENT:${input.agentId}`,
       });
       if (!updated.ok) return updated;
-      await tx.insertHistory(historyFor(input.decision, current, to, input.agentId));
+      await tx.insertHistory(historyFor(input.decision, current, to, input));
       return ok({
         dispute: updated.value,
         change: { from: current.status, eventType: 'DisputeStatusChanged' },

@@ -1,13 +1,11 @@
 import { ok, type Result } from '@cd/shared/fp';
-import { queueReviewerIds, toQueuePage, type QueueStatus } from '../core/agent-view.ts';
+import { toQueuePage, type QueueStatus } from '../core/agent-view.ts';
 import { decodeQueueCursor, type CursorError } from '../core/cursor.ts';
 import type { ReviewQueuePage } from '../core/types.ts';
-import { namesOrNone } from './agent-dispute.ts';
-import type { ListReviewQueue, ResolveAgentNames } from './ports.ts';
+import type { ListReviewQueue } from './ports.ts';
 
 export type ReviewQueueDeps = {
   readonly listReviewQueue: ListReviewQueue;
-  readonly resolveAgentNames: ResolveAgentNames;
 };
 
 export type ReviewQueueInput = {
@@ -26,6 +24,5 @@ export const listReviewQueue =
       after: after.value,
       limit: input.limit + 1,
     });
-    const names = await namesOrNone(deps.resolveAgentNames, queueReviewerIds(rows.slice(0, input.limit)));
-    return ok(toQueuePage(rows, input.limit, names));
+    return ok(toQueuePage(rows, input.limit));
   };

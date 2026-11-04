@@ -36,6 +36,7 @@ const history = (
   toStatus,
   actorType,
   actorId,
+  actorLabel: null,
   note: null,
   before: null,
   after: null,
@@ -91,16 +92,16 @@ describe('queue cursor', () => {
       reasonCode: 'FRAUD',
       version: 1,
       createdAt: at(n),
-      reviewerId: null,
+      reviewerName: null,
       position: { createdAt: `2026-10-01T08:0${n}:00.000000Z`, rowId: String(n + 1) },
     });
-    const page = toQueuePage([row(0), row(1), row(2)], 2, new Map());
+    const page = toQueuePage([row(0), row(1), row(2)], 2);
     expect(page.items).toHaveLength(2);
     expect(page.nextCursor === null ? null : decodeQueueCursor(page.nextCursor)).toEqual({
       ok: true,
       value: row(1).position,
     });
-    expect(toQueuePage([row(0)], 2, new Map()).nextCursor).toBeNull();
+    expect(toQueuePage([row(0)], 2).nextCursor).toBeNull();
   });
 });
 
@@ -119,17 +120,16 @@ describe('toAgentDetail', () => {
     history('EVIDENCE_REJECTED', 'SUBMITTED', 'SYSTEM_RULE', 'evidence-intake', 1, {
       after: { evidenceId: E1 },
     }),
-    history('REVIEW', 'UNDER_REVIEW', 'AGENT', AGENT_ID, 2),
+    history('REVIEW', 'UNDER_REVIEW', 'AGENT', AGENT_ID, 2, { actorLabel: 'Naledi M.' }),
     history('EVIDENCE_ADDED', 'UNDER_REVIEW', 'AGENT', 'legacy-bot', 3, { after: { evidenceId: E2 } }),
   ];
 
-  it('attributes CUSTOMER / SYSTEM / AGENT, names known agents only, and never carries the owner id', () => {
+  it('attributes CUSTOMER / SYSTEM / AGENT, names only labelled AGENT rows, and never carries the owner id', () => {
     const detail = toAgentDetail({
       dispute,
       history: rows,
       evidence: [evidence(E1, 'REJECTED'), evidence(E2, 'STORED')],
       transaction: null,
-      names: new Map([[AGENT_ID, 'Naledi M.']]),
       evidenceDigest: 'd'.repeat(64),
     });
     expect(detail.timeline).toEqual([
@@ -145,17 +145,17 @@ describe('toAgentDetail', () => {
     ]);
     expect(detail.pickedUpBy).toBe('Naledi M.');
     expect(detail.evidence[0]).toMatchObject({ evidenceId: E1, rejectionReason: 'MALWARE' });
+    expect(detail.evidence[1]).not.toHaveProperty('rejectionReason');
     expect(JSON.stringify(detail)).not.toContain(USER_ID);
   });
 
-  it('pickedUpBy is null when the reviewer has no known name', () => {
+  it('pickedUpBy is null when the REVIEW row carries no label', () => {
     expect(
       toAgentDetail({
         dispute,
-        history: rows,
+        history: [history('REVIEW', 'UNDER_REVIEW', 'AGENT', AGENT_ID, 2)],
         evidence: [],
         transaction: null,
-        names: new Map(),
         evidenceDigest: 'd'.repeat(64),
       }).pickedUpBy,
     ).toBeNull();

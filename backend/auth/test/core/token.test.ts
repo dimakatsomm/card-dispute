@@ -118,7 +118,11 @@ const identity = (status: Identity['status']): Identity => ({
   userId: '01990000-0000-7000-8000-000000000002',
   status,
 });
-const agentRow = (status: AgentIdentity['status']): AgentIdentity => ({ agentId: AGENT_ID, status });
+const agentRow = (status: AgentIdentity['status']): AgentIdentity => ({
+  agentId: AGENT_ID,
+  displayName: 'Naledi M.',
+  status,
+});
 
 describe('agentPrincipal', () => {
   const subject: Extract<TokenSubject, { kind: 'agent' }> = { kind: 'agent', sub: 'sub-1', exp: EXP };
@@ -128,7 +132,7 @@ describe('agentPrincipal', () => {
       'ACTIVE agent row',
       agentRow('ACTIVE'),
       null,
-      ok({ principalType: 'agent', agentId: AGENT_ID, scopes: [], exp: EXP }),
+      ok({ principalType: 'agent', agentId: AGENT_ID, displayName: 'Naledi M.', scopes: [], exp: EXP }),
     ],
     ['no agent row', null, null, err('unknown_subject')],
     ['no agent row but a customer row', null, identity('ACTIVE'), err('unknown_subject')],

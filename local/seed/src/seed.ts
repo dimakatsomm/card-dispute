@@ -96,10 +96,10 @@ const SQL = {
   // History has no natural key, so it is written only alongside a dispute inserted in this same transaction.
   history: `
     insert into disputes.dispute_status_history (dispute_id, action, from_status, to_status, actor_type, actor_id,
-      note, after, created_at)
-    select d.id, h.action, h.from_status, h.to_status, h.actor_type, h.actor_id, h.note, h.after, h.created_at
+      actor_label, note, after, created_at)
+    select d.id, h.action, h.from_status, h.to_status, h.actor_type, h.actor_id, h.actor_label, h.note, h.after, h.created_at
     from jsonb_to_recordset($1::jsonb) as h(dispute_id uuid, seq int, action text, from_status text, to_status text,
-      actor_type text, actor_id text, note text, after jsonb, created_at timestamptz)
+      actor_type text, actor_id text, actor_label text, note text, after jsonb, created_at timestamptz)
     join disputes.dispute d on d.dispute_id = h.dispute_id
     where h.dispute_id = any($2::uuid[])
     order by h.dispute_id, h.seq`,

@@ -82,6 +82,7 @@ export type HistoryRow = {
   readonly to_status: DisputeStatus;
   readonly actor_type: ActorType;
   readonly actor_id: string;
+  readonly actor_label: string | null;
   readonly note: string | null;
   readonly after: Readonly<Record<string, string>> | null;
   readonly created_at: string;
@@ -218,12 +219,24 @@ const A_MAIN_CARD = 'A-CHQ-1';
 export const agentId = (username: string): string => stableUuid(`agent:${username}`);
 
 // Subs and display names are fixed in docs/02 "Seeded agents" and must match local/mock-issuer.
+const ACTIVE_AGENT: AgentIdentityRow = {
+  agent_id: agentId('agent.naledi'),
+  cognito_sub: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  display_name: 'Naledi M.',
+  status: 'ACTIVE',
+};
+
 const AGENTS: ReadonlyArray<AgentIdentityRow> = [
-  { agent_id: agentId('agent.naledi'), cognito_sub: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', display_name: 'Naledi M.', status: 'ACTIVE' },
-  { agent_id: agentId('agent.pieter'), cognito_sub: 'ffffffff-ffff-4fff-8fff-ffffffffffff', display_name: 'Pieter V.', status: 'DISABLED' },
+  ACTIVE_AGENT,
+  {
+    agent_id: agentId('agent.pieter'),
+    cognito_sub: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+    display_name: 'Pieter V.',
+    status: 'DISABLED',
+  },
 ];
 
-const AGENT_ID = agentId('agent.naledi');
+const SEED_AGENT = { id: ACTIVE_AGENT.agent_id, label: ACTIVE_AGENT.display_name } as const;
 
 type Merchant = { readonly name: string; readonly mcc: string; readonly minCents: number; readonly maxCents: number };
 
@@ -448,8 +461,12 @@ const DISPUTE_SPECS: ReadonlyArray<DisputeSpec> = [
   },
 ];
 
-const actorOf = (action: HistoryAction): { readonly type: ActorType; readonly id: string } =>
-  action === 'REVIEW' || action === 'RESOLVE' ? { type: 'AGENT', id: AGENT_ID } : { type: 'USER', id: userId('A') };
+type Actor = { readonly type: ActorType; readonly id: string; readonly label: string | null };
+
+const actorOf = (action: HistoryAction): Actor =>
+  action === 'REVIEW' || action === 'RESOLVE'
+    ? { type: 'AGENT', ...SEED_AGENT }
+    : { type: 'USER', id: userId('A'), label: null };
 
 const disputeRows = (now: Date, spec: DisputeSpec): { readonly dispute: DisputeRow; readonly history: ReadonlyArray<HistoryRow> } => {
   const id = disputeId(spec.txnKey);
@@ -462,6 +479,7 @@ const disputeRows = (now: Date, spec: DisputeSpec): { readonly dispute: DisputeR
     to_status: 'SUBMITTED',
     actor_type: 'USER',
     actor_id: user,
+    actor_label: null,
     note: null,
     after: { reasonCode: spec.reason },
     created_at: iso(daysAgo(now, spec.createdDay, 11)),
@@ -479,6 +497,7 @@ const disputeRows = (now: Date, spec: DisputeSpec): { readonly dispute: DisputeR
         to_status: step.to,
         actor_type: actor.type,
         actor_id: actor.id,
+        actor_label: actor.label,
         note: step.note ?? null,
         after: null,
         created_at: iso(daysAgo(now, step.day, 13)),

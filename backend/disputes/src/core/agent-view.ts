@@ -12,8 +12,6 @@ import type {
   TransactionRef,
 } from './types.ts';
 
-export type AgentNames = ReadonlyMap<string, string>;
-
 export type QueueStatus = QueueItem['status'];
 
 export type QueueRecord = {
@@ -23,7 +21,7 @@ export type QueueRecord = {
   readonly reasonCode: ReasonCode;
   readonly version: number;
   readonly createdAt: Date;
-  readonly reviewerId: string | null;
+  readonly reviewerName: string | null;
   readonly position: QueuePosition;
 };
 
@@ -33,29 +31,26 @@ const BY_ACTOR: Readonly<Record<ActorType, AgentTimelineEvent['by']>> = {
   SYSTEM_RULE: 'SYSTEM',
 };
 
-export const agentActorIds = (history: ReadonlyArray<HistoryRecord>): ReadonlyArray<string> => [
-  ...new Set(history.filter((h) => h.actorType === 'AGENT').map((h) => h.actorId)),
-];
+// The label is copied from the agent's token when the agent acts; AGENT rows without one show no name.
+const agentNameOf = (entry: HistoryRecord): string | null =>
+  entry.actorType === 'AGENT' ? entry.actorLabel : null;
 
-const reviewerOf = (history: ReadonlyArray<HistoryRecord>): string | null =>
-  history.filter((h) => h.action === 'REVIEW' && h.actorType === 'AGENT').at(-1)?.actorId ?? null;
-
-const nameOf = (names: AgentNames, agentId: string | null): string | null =>
-  agentId === null ? null : (names.get(agentId) ?? null);
+const pickedUpByOf = (history: ReadonlyArray<HistoryRecord>): string | null => {
+  const review = history.filter((h) => h.action === 'REVIEW' && h.actorType === 'AGENT').at(-1);
+  return review === undefined ? null : agentNameOf(review);
+};
 
 export const buildAgentTimeline = (
   history: ReadonlyArray<HistoryRecord>,
   evidence: ReadonlyArray<EvidenceDetail>,
-  names: AgentNames,
 ): ReadonlyArray<AgentTimelineEvent> =>
   timelineEntries(history, evidence).map(({ type, entry, detail }) => {
-    const by = BY_ACTOR[entry.actorType];
-    const agentName = by === 'AGENT' ? names.get(entry.actorId) : undefined;
+    const agentName = agentNameOf(entry);
     return {
       type,
       at: entry.createdAt.toISOString(),
-      by,
-      ...(agentName === undefined ? {} : { agentName }),
+      by: BY_ACTOR[entry.actorType],
+      ...(agentName === null ? {} : { agentName }),
       ...(detail === undefined ? {} : { detail }),
     };
   });
@@ -65,7 +60,6 @@ export type AgentDetailParts = {
   readonly history: ReadonlyArray<HistoryRecord>;
   readonly evidence: ReadonlyArray<EvidenceDetail>;
   readonly transaction: TransactionRef | null;
-  readonly names: AgentNames;
   readonly evidenceDigest: string;
 };
 
@@ -79,45 +73,41 @@ export const toAgentDetail = (parts: AgentDetailParts): AgentDisputeDetail => {
     reasonCode: resource.reasonCode,
     description: resource.description,
     transaction: resource.transaction,
-    evidence: resource.evidence.map((e, i) => {
-      const reason = parts.evidence[i]?.rejectionReason ?? null;
-      return reason === null ? e : { ...e, rejectionReason: reason };
-    }),
+    evidence: parts.evidence.map((e) => ({
+      evidenceId: e.evidenceId,
+      fileName: e.fileName,
+      contentType: e.contentType,
+      sizeBytes: e.sizeBytes,
+      status: e.status,
+      ...(e.rejectionReason === null ? {} : { rejectionReason: e.rejectionReason }),
+    })),
     evidenceDigest: parts.evidenceDigest,
     version: resource.version,
     createdAt: resource.createdAt,
     updatedAt: resource.updatedAt,
     resolvedAt: resource.resolvedAt,
     resolutionNote: resource.resolutionNote,
-    pickedUpBy: nameOf(parts.names, reviewerOf(parts.history)),
-    timeline: buildAgentTimeline(parts.history, parts.evidence, parts.names),
+    pickedUpBy: pickedUpByOf(parts.history),
+    timeline: buildAgentTimeline(parts.history, parts.evidence),
   };
 };
 
-const toQueueItem = (row: QueueRecord, names: AgentNames): QueueItem => ({
+const toQueueItem = (row: QueueRecord): QueueItem => ({
   disputeId: row.disputeId,
   transactionId: row.transactionId,
   status: row.status,
   reasonCode: row.reasonCode,
   version: row.version,
   createdAt: row.createdAt.toISOString(),
-  pickedUpBy: nameOf(names, row.reviewerId),
+  pickedUpBy: row.reviewerName,
 });
 
 // The repository is asked for limit + 1 rows; the extra row only signals that another page exists.
-export const toQueuePage = (
-  rows: ReadonlyArray<QueueRecord>,
-  limit: number,
-  names: AgentNames,
-): ReviewQueuePage => {
+export const toQueuePage = (rows: ReadonlyArray<QueueRecord>, limit: number): ReviewQueuePage => {
   const items = rows.slice(0, limit);
   const last = items.at(-1);
   return {
-    items: items.map((row) => toQueueItem(row, names)),
+    items: items.map(toQueueItem),
     nextCursor: rows.length > limit && last !== undefined ? encodeQueueCursor(last.position) : null,
   };
 };
-
-export const queueReviewerIds = (rows: ReadonlyArray<QueueRecord>): ReadonlyArray<string> => [
-  ...new Set(rows.flatMap((r) => (r.reviewerId === null ? [] : [r.reviewerId]))),
-];

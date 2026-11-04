@@ -103,6 +103,7 @@ const historyRow = z
     to_status: z.enum(DISPUTE_STATUSES),
     actor_type: z.enum(ACTOR_TYPES),
     actor_id: z.string(),
+    actor_label: z.string().nullable(),
     note: z.string().nullable(),
     before: z.unknown(),
     after: z.unknown(),
@@ -114,6 +115,7 @@ const historyRow = z
     toStatus: r.to_status,
     actorType: r.actor_type,
     actorId: r.actor_id,
+    actorLabel: r.actor_label,
     note: r.note,
     before: r.before ?? null,
     after: r.after ?? null,
@@ -167,7 +169,7 @@ const queueRow = z
     version: z.number().int(),
     created_at: z.date(),
     cursor_at: z.string(),
-    reviewer_id: z.string().nullable(),
+    reviewer_name: z.string().nullable(),
   })
   .transform(
     (r): QueueRecord => ({
@@ -177,7 +179,7 @@ const queueRow = z
       reasonCode: r.reason_code,
       version: r.version,
       createdAt: r.created_at,
-      reviewerId: r.reviewer_id,
+      reviewerName: r.reviewer_name,
       position: { createdAt: r.cursor_at, rowId: r.row_id },
     }),
   );
@@ -186,10 +188,10 @@ const queueRow = z
 export const reviewQueueSql = (keyset: boolean): string =>
   `select d.id::text as row_id, d.dispute_id::text as dispute_id, d.transaction_id::text as transaction_id,
      d.status, d.reason_code, d.version, d.created_at,
-     to_char(d.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at, r.reviewer_id
+     to_char(d.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at, r.reviewer_name
    from dispute d
    left join lateral (
-     select actor_id as reviewer_id from dispute_status_history
+     select actor_label as reviewer_name from dispute_status_history
      where dispute_id = d.id and action = 'REVIEW' and actor_type = 'AGENT'
      order by created_at desc, id desc limit 1
    ) r on true
@@ -308,8 +310,8 @@ const txOps = (client: Queryable): DisputeTx => ({
   insertHistory: async (h: NewHistory) => {
     await client.query(
       `insert into dispute_status_history
-         (dispute_id, action, from_status, to_status, actor_type, actor_id, note, before, after)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         (dispute_id, action, from_status, to_status, actor_type, actor_id, actor_label, note, before, after)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         h.disputeRowId,
         h.action,
@@ -317,6 +319,7 @@ const txOps = (client: Queryable): DisputeTx => ({
         h.toStatus,
         h.actorType,
         h.actorId,
+        h.actorLabel ?? null,
         h.note ?? null,
         h.before === undefined ? null : JSON.stringify(h.before),
         h.after === undefined ? null : JSON.stringify(h.after),
@@ -404,7 +407,7 @@ const readWithHistory = async (client: Queryable, where: Predicate): Promise<Dis
   );
   if (dispute === null) return null;
   const history = await client.query(
-    `select action, from_status, to_status, actor_type, actor_id, note, before, after, created_at
+    `select action, from_status, to_status, actor_type, actor_id, actor_label, note, before, after, created_at
      from dispute_status_history where dispute_id = $1 order by created_at, id`,
     [dispute.id],
   );

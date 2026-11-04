@@ -23,7 +23,6 @@ import { decideDispute } from './use-cases/decide-dispute.ts';
 import { getDispute } from './use-cases/get-dispute.ts';
 import { listDisputes } from './use-cases/list-disputes.ts';
 import { lookupDisputes } from './use-cases/lookup-disputes.ts';
-import type { ResolveAgentNames } from './use-cases/ports.ts';
 import { recordEvidenceResult } from './use-cases/record-evidence-result.ts';
 import { listReviewQueue } from './use-cases/review-queue.ts';
 import { updateDispute } from './use-cases/update-dispute.ts';
@@ -38,11 +37,7 @@ export type Infra = {
   readonly now: () => Date;
   readonly newId: () => string;
   readonly sleep: (ms: number) => Promise<void>;
-  readonly resolveAgentNames: ResolveAgentNames;
 };
-
-// BO-05 gap: no documented source of agent display names yet (disputes may not read auth.agent_identity).
-export const noAgentNames: ResolveAgentNames = async () => new Map();
 
 export const composeServers = (infra: Infra): Servers => {
   const { config, logger } = infra;
@@ -98,7 +93,6 @@ export const composeServers = (infra: Infra): Servers => {
   const agentDispute = getAgentDispute({
     findForAgent: repo.findForAgent,
     findTransaction: transactions.findTransaction,
-    resolveAgentNames: infra.resolveAgentNames,
     evidenceDigest: sha256EvidenceDigest,
   });
 
@@ -131,7 +125,6 @@ export const composeServers = (infra: Infra): Servers => {
     recordEvidenceResult: recordEvidenceResult({ transact: repo.transact, publish, newId: infra.newId }),
     listReviewQueue: listReviewQueue({
       listReviewQueue: repo.listReviewQueue,
-      resolveAgentNames: infra.resolveAgentNames,
     }),
     getAgentDispute: agentDispute,
     decideDispute: decideDispute({
@@ -194,7 +187,6 @@ export const startService = async (env: Env): Promise<{ readonly close: () => Pr
       new Promise((resolve) => {
         setTimeout(resolve, ms);
       }),
-    resolveAgentNames: noAgentNames,
   });
   await servers.listen();
   return {

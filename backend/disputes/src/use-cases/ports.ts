@@ -10,7 +10,7 @@ import type {
   Transaction,
   UploadInstruction,
 } from '../core/types.ts';
-import type { AgentNames, QueueRecord, QueueStatus } from '../core/agent-view.ts';
+import type { QueueRecord, QueueStatus } from '../core/agent-view.ts';
 import type { CursorPosition, QueuePosition } from '../core/cursor.ts';
 import type { DigestInput } from '../core/evidence-digest.ts';
 import type { EvidenceOutcome } from '../core/evidence-result.ts';
@@ -56,6 +56,7 @@ export type NewHistory = {
   readonly toStatus: DisputeStatus;
   readonly actorType: ActorType;
   readonly actorId: string;
+  readonly actorLabel?: string | null;
   readonly note?: string | null;
   readonly before?: unknown;
   readonly after?: unknown;
@@ -156,9 +157,6 @@ export type FindForAgent = (transactionId: string) => Promise<DisputeWithHistory
 
 // One function for the detail read and the decision check, so the two digests can only differ if the evidence did.
 export type EvidenceDigest = (evidence: ReadonlyArray<DigestInput>) => string;
-
-// Display names live with auth; disputes never reads that schema, so names arrive through this port.
-export type ResolveAgentNames = (agentIds: ReadonlyArray<string>) => Promise<AgentNames>;
 
 export type DisputeRepo = {
   readonly transact: Transact;

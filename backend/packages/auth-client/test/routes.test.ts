@@ -14,6 +14,7 @@ import {
 } from '../src/routes.ts';
 import {
   AGENT_ID,
+  AGENT_NAME,
   agentPrincipal,
   fakeFetch,
   invalidResult,
@@ -73,7 +74,7 @@ const build = (authDown = false) => {
           url: '/agent/queue',
           handler: async (request) => {
             handlerRuns.push('/agent/queue');
-            return { agentId: agentPrincipalOf(request).agentId };
+            return { agentId: agentPrincipalOf(request).agentId, displayName: agentPrincipalOf(request).displayName };
           },
         },
       ]);
@@ -184,7 +185,7 @@ describe('agent routes (requireAgent)', () => {
   it('attaches the agent principal for a valid agent token', async () => {
     const res = await get(build().servers.public, '/agent/queue', 'Bearer header.agent-token.signature');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ agentId: AGENT_ID });
+    expect(res.json()).toEqual({ agentId: AGENT_ID, displayName: AGENT_NAME });
   });
 
   it.each([

@@ -149,6 +149,9 @@ Indexes: `(user_id, updated_at desc, dispute_id desc)` for `GET /disputes` pagin
 
 `disputes_app`: INSERT, SELECT only. `disputes_retention`: `UPDATE (note, before, after)` only.
 
+Agent display name (ADR-071, BO-05b): `actor_label text null`, 1–80, set only on rows with `actor_type = AGENT`, copied from
+the agent principal's `displayName` at write time, so disputes never reads `auth`. Shown to agents only; customers see `BANK`.
+
 ### dispute_evidence
 | column | type | notes |
 |---|---|---|

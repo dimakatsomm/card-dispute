@@ -31,6 +31,7 @@ export const principalOf = (valid: ValidUser | ValidService | ValidAgent): Princ
       return {
         principalType: valid.principalType,
         agentId: valid.agentId,
+        displayName: valid.displayName,
         scopes: valid.scopes,
         exp: valid.exp,
       };

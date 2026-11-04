@@ -303,11 +303,18 @@ describe('POST /validate results', () => {
 });
 
 describe('POST /validate agent principal (ADR-071)', () => {
-  it('returns the agent principal with agentId and no scopes for a backoffice token in group agents with an ACTIVE row', async () => {
+  it('returns the agent principal with agentId, displayName and no scopes for a backoffice token in group agents with an ACTIVE row', async () => {
     const claims = agentClaims(AGENT.sub);
     const res = await postValidate(servers.service, { token: signJwt(key, claims) });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ valid: true, principalType: 'agent', agentId, scopes: [], exp: claims.exp });
+    expect(res.json()).toEqual({
+      valid: true,
+      principalType: 'agent',
+      agentId,
+      displayName: AGENT.displayName,
+      scopes: [],
+      exp: claims.exp,
+    });
     expectContract(res.json());
   });
 

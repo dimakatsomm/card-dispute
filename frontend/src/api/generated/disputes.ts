@@ -100,7 +100,7 @@ export type paths = {
         };
         /**
          * Back-office queue — disputes awaiting or under review, oldest first
-         * @description Disputes across all customers, ordered by `createdAt` then `disputeId` ascending. No customer identifiers or
+         * @description Disputes across all customers, oldest `createdAt` first (ties in creation order). No customer identifiers or
          *     contact data. `pickedUpBy` is the display name of the agent who moved it to UNDER_REVIEW, if any.
          */
         get: operations["listReviewQueue"];

@@ -25,7 +25,11 @@ const activeIdentity: Identity = {
   userId: '01990000-0000-7000-8000-000000000002',
   status: 'ACTIVE',
 };
-const activeAgent: AgentIdentity = { agentId: '01990000-0000-7000-8000-0000000000a1', status: 'ACTIVE' };
+const activeAgent: AgentIdentity = {
+  agentId: '01990000-0000-7000-8000-0000000000a1',
+  displayName: 'Naledi M.',
+  status: 'ACTIVE',
+};
 
 const lookupDown = (): Promise<never> => Promise.reject(new Error('database unavailable'));
 

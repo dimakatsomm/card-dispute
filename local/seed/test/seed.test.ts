@@ -100,7 +100,7 @@ describe('runSeed against Postgres 18 (bootstrap + committed migrations)', () =>
     ]);
   });
 
-  it('seeds the docs/02 agents, one ACTIVE and one DISABLED, and the ACTIVE one is the actor on seeded agent history', async () => {
+  it('seeds the docs/02 agents, one ACTIVE and one DISABLED, and the ACTIVE one is the actor and label on seeded agent history', async () => {
     const agents = await adminQuery(
       'select cognito_sub, display_name, status from auth.agent_identity order by cognito_sub',
     );
@@ -109,9 +109,9 @@ describe('runSeed against Postgres 18 (bootstrap + committed migrations)', () =>
       { cognito_sub: 'ffffffff-ffff-4fff-8fff-ffffffffffff', display_name: 'Pieter V.', status: 'DISABLED' },
     ]);
     const actors = await adminQuery(`
-      select distinct a.display_name from disputes.dispute_status_history h
+      select distinct a.display_name, h.actor_label from disputes.dispute_status_history h
       left join auth.agent_identity a on a.agent_id::text = h.actor_id where h.actor_type = 'AGENT'`);
-    expect(actors.rows).toEqual([{ display_name: 'Naledi M.' }]);
+    expect(actors.rows).toEqual([{ display_name: 'Naledi M.', actor_label: 'Naledi M.' }]);
   });
 
   it('stores history in action order per dispute', async () => {

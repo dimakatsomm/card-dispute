@@ -85,6 +85,7 @@ export type HistoryRecord = {
   readonly toStatus: DisputeStatus;
   readonly actorType: 'USER' | 'SYSTEM_RULE' | 'AGENT';
   readonly actorId: string;
+  readonly actorLabel: string | null;
   readonly note: string | null;
   readonly before: unknown;
   readonly after: unknown;

@@ -110,6 +110,7 @@ beforeAll(async () => {
         '003_dispute_evidence.sql',
         '004_retention_erasure.sql',
         '005_review_queue_index.sql',
+        '006_history_actor_label.sql',
       ],
     },
   });
@@ -444,6 +445,39 @@ describe('retention erasure (004)', () => {
       { rel: 'dispute_evidence', tgname: 'dispute_evidence_set_updated_at', tgenabled: 'O' },
       { rel: 'dispute_evidence', tgname: 'dispute_evidence_status_guard', tgenabled: 'O' },
     ]);
+  });
+});
+
+describe('history actor_label (006)', () => {
+  const insertHistory = (disputeId: string, actorType: string, label: string | null): Promise<pg.QueryResult> =>
+    asRole(
+      'disputes_app',
+      `insert into dispute_status_history (dispute_id, action, from_status, to_status, actor_type, actor_id, actor_label)
+       values ($1, 'REVIEW', 'SUBMITTED', 'UNDER_REVIEW', $2, 'a1', $3) returning actor_label`,
+      [disputeId, actorType, label],
+    );
+
+  it('disputes_app can insert an AGENT row with an 80-char label, and the label stays immutable', async () => {
+    const { id } = await freshDispute();
+    const label = 'é'.repeat(80);
+    expect((await insertHistory(id, 'AGENT', label)).rows).toEqual([{ actor_label: label }]);
+    await expect(
+      asRole('disputes_app', `update dispute_status_history set actor_label = 'Someone E.' where dispute_id = $1`, [id]),
+    ).rejects.toMatchObject({ code: PERMISSION_DENIED });
+    await expect(
+      asRole('disputes_retention', `update disputes.dispute_status_history set actor_label = null where dispute_id = $1`, [id]),
+    ).rejects.toMatchObject({ code: PERMISSION_DENIED });
+  });
+
+  it.each<[string, string, string]>([
+    ['a label on a USER row', 'USER', 'Naledi M.'],
+    ['a label on a SYSTEM_RULE row', 'SYSTEM_RULE', 'Naledi M.'],
+    ['an empty label', 'AGENT', ''],
+    ['a blank label', 'AGENT', '   '],
+    ['an 81-char label', 'AGENT', 'x'.repeat(81)],
+  ])('CHECK rejects %s', async (_name, actorType, label) => {
+    const { id } = await freshDispute();
+    await expect(insertHistory(id, actorType, label)).rejects.toMatchObject({ code: CHECK_VIOLATION });
   });
 });
 

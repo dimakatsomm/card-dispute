@@ -150,6 +150,7 @@ const decisionRoute = (useCases: AgentUseCases, url: string, parseDecision: Pars
     const result = await useCases.decideDispute({
       ...body.value,
       agentId: agentPrincipalOf(request).agentId,
+      agentName: agentPrincipalOf(request).displayName,
       transactionId: path.value.transactionId,
       correlationId: request.id,
     });

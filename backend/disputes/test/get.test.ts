@@ -47,7 +47,7 @@ const seedFullHistory = async () => {
     rejectionReason: 'MALWARE',
   });
   const user = { actorType: 'USER', actorId: USER_A.userId } as const;
-  const agent = { actorType: 'AGENT', actorId: AGENT_SUB } as const;
+  const agent = { actorType: 'AGENT', actorId: AGENT_SUB, actorLabel: 'Naledi M.' } as const;
   const intake = { actorType: 'SYSTEM_RULE', actorId: INTAKE_ID } as const;
   // Inserted out of time order to prove the timeline is sorted, not just echoed.
   await seedHistory(db, seeded.rowId, {
@@ -166,6 +166,7 @@ describe('GET /dispute/{transactionId}', () => {
     const raw = (await get(svc, USER_A.token, txn.transactionId)).body;
     for (const secret of [
       AGENT_SUB,
+      'Naledi M.',
       INTAKE_ID,
       USER_A.userId,
       'AGENT',

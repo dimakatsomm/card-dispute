@@ -76,7 +76,7 @@ const stored = async (transactionId: string) =>
 const history = async (transactionId: string) =>
   (
     await db.appQuery(
-      `select h.action, h.from_status, h.to_status, h.actor_type, h.actor_id, h.note
+      `select h.action, h.from_status, h.to_status, h.actor_type, h.actor_id, h.actor_label, h.note
        from dispute_status_history h join dispute d on d.id = h.dispute_id
        where d.transaction_id = $1 order by h.id`,
       [transactionId],
@@ -133,6 +133,7 @@ describe('GET /agent/review-queue', () => {
       toStatus: 'UNDER_REVIEW',
       actorType: 'AGENT',
       actorId: AGENT_B.agentId,
+      actorLabel: AGENT_B.displayName,
       createdAt: ancient(3),
     });
     await seed('WITHDRAWN', 2, ancient(3));
@@ -228,6 +229,7 @@ describe('GET /agent/disputes/{transactionId}', () => {
       toStatus: 'UNDER_REVIEW',
       actorType: 'AGENT',
       actorId: AGENT_A.agentId,
+      actorLabel: AGENT_A.displayName,
       createdAt: '2026-10-01T08:02:00Z',
     });
     const callsBefore = upstreams.calls.length;
@@ -262,14 +264,12 @@ describe('GET /agent/disputes/{transactionId}', () => {
     expect(JSON.stringify(viewed[0])).not.toContain(USER_A.userId);
   });
 
-  it('AGENT actors with a non-uuid or unknown id get no name; transactions or the name source down → still 200', async () => {
-    const failing: Infra['resolveAgentNames'] = () => Promise.reject(new Error('directory down'));
+  it('AGENT rows without a label (incl. a non-uuid actor id) get no name; transactions down → transaction null', async () => {
     const degraded = await startTestService({
       pool: db.appPool,
       upstreams,
       s3Endpoint: UNUSED_S3,
       fault: (url) => (url.origin === URLS.transactions ? Promise.reject(new Error('down')) : undefined),
-      resolveAgentNames: failing,
     });
     try {
       const d = await seed('UNDER_REVIEW', 2);
@@ -341,6 +341,7 @@ describe('PUT /agent/disputes/{transactionId}/review', () => {
         to_status: 'UNDER_REVIEW',
         actor_type: 'AGENT',
         actor_id: AGENT_A.agentId,
+        actor_label: AGENT_A.displayName,
         note: null,
       },
     ]);
@@ -441,6 +442,7 @@ describe('PUT /agent/disputes/{transactionId}/resolution', () => {
         to_status: 'RESOLVED_ACCEPTED',
         actor_type: 'AGENT',
         actor_id: AGENT_A.agentId,
+        actor_label: AGENT_A.displayName,
         note: NOTE,
       },
     ]);
