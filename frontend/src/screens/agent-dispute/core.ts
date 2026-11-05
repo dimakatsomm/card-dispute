@@ -1,6 +1,6 @@
 import { codePointLength } from '../../components/evidence';
 import type { DisputeStatus } from '../disputes/labels';
-import type { AgentDispute, Expected } from './api';
+import type { AgentDispute, DownloadError, Expected } from './api';
 
 export const NOTE_MIN = 10;
 export const NOTE_MAX = 2000;
@@ -21,3 +21,20 @@ export const expectedFrom = (dispute: Pick<AgentDispute, 'version' | 'evidenceDi
 });
 
 export const isOpen = (status: DisputeStatus): boolean => status === 'SUBMITTED' || status === 'UNDER_REVIEW';
+
+export const POPUP_BLOCKED_MESSAGE = 'Your browser blocked the download tab. Allow pop-ups for this site and try again.';
+
+export const downloadErrorMessage = (error: DownloadError): string => {
+  switch (error.kind) {
+    case 'NOT_FOUND':
+      return 'This file could not be found. The evidence list has been refreshed.';
+    case 'NOT_STORED':
+      return "This file isn't available to download.";
+    case 'RATE_LIMITED':
+      return error.retryAfterSeconds === null
+        ? 'Too many downloads — try again shortly.'
+        : `Too many downloads — try again in ${error.retryAfterSeconds} s`;
+    case 'UNAVAILABLE':
+      return 'Download is unavailable right now.';
+  }
+};

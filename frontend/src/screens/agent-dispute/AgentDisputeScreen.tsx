@@ -37,6 +37,7 @@ import {
 } from './api';
 import { AgentTimeline } from './AgentTimeline';
 import { expectedFrom, isOpen } from './core';
+import { EvidenceDownload } from './EvidenceDownload';
 import { ResolveForm } from './ResolveForm';
 
 type Loaded = Result<AgentDispute, LoadError>;
@@ -91,8 +92,16 @@ const TransactionSummary = ({ transaction }: { readonly transaction: AgentDisput
   </section>
 );
 
-// Metadata only: evidence viewing is out of scope for agents (ADR-071), so there is no download link.
-const EvidenceMetadata = ({ evidence }: { readonly evidence: AgentDispute['evidence'] }) => (
+// Download only: untrusted files are never previewed inline (ADR-072).
+const EvidenceList = ({
+  transactionId,
+  evidence,
+  onStale,
+}: {
+  readonly transactionId: string;
+  readonly evidence: AgentDispute['evidence'];
+  readonly onStale: () => void;
+}) => (
   <section aria-labelledby="agent-evidence-heading" className={panelClass}>
     <h2 id="agent-evidence-heading" className={sectionTitleClass}>
       Evidence
@@ -102,16 +111,25 @@ const EvidenceMetadata = ({ evidence }: { readonly evidence: AgentDispute['evide
     ) : (
       <ul aria-label="Evidence" className={listClass}>
         {evidence.map((item) => (
-          <li key={item.evidenceId} className="px-4 py-3 text-sm">
+          <li key={item.evidenceId} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
             {item.status === 'ERASED' ? (
               <span className="text-muted">File removed under the retention policy.</span>
             ) : (
               <>
-                <span className="font-medium break-all text-ink">{item.fileName}</span>{' '}
-                <span className="text-muted tabular-nums">({formatSize(item.sizeBytes)})</span>{' '}
-                <Badge tone={evidenceStatusTone[item.status]} className="align-middle">
-                  {evidenceStatusLabel[item.status]}
-                </Badge>
+                <span>
+                  <span className="font-medium break-all text-ink">{item.fileName}</span>{' '}
+                  <span className="text-muted tabular-nums">({formatSize(item.sizeBytes)})</span>{' '}
+                  <Badge tone={evidenceStatusTone[item.status]} className="align-middle">
+                    {evidenceStatusLabel[item.status]}
+                  </Badge>
+                </span>
+                <EvidenceDownload
+                  transactionId={transactionId}
+                  evidenceId={item.evidenceId}
+                  fileName={item.fileName}
+                  downloadable={item.status === 'STORED'}
+                  onStale={onStale}
+                />
               </>
             )}
           </li>
@@ -218,7 +236,7 @@ const AgentDisputeView = ({ transactionId, dispute }: { readonly transactionId: 
           ) : null}
         </section>
         <TransactionSummary transaction={dispute.transaction} />
-        <EvidenceMetadata evidence={dispute.evidence} />
+        <EvidenceList transactionId={transactionId} evidence={dispute.evidence} onStale={() => void reload()} />
         <AgentTimeline events={dispute.timeline} />
       </div>
     </section>

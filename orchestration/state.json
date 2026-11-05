@@ -861,7 +861,7 @@
       ]
     },
     "BO-10e": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "frontend",
       "blockedBy": [
         "BO-10a"
