@@ -11,44 +11,6 @@ const SPECS = [
 ] as const;
 
 type ZodPluginConfig = Extract<NonNullable<UserConfig['plugins']>[number], { name: 'zod' }>;
-type StringResolver = NonNullable<NonNullable<ZodPluginConfig['$resolvers']>['string']>;
-type StringContext = Parameters<StringResolver>[0];
-
-// JSON Schema lengths count code points; the explicit check keeps that independent of the zod version's own counting.
-const codePointLengthCheck = ({ $, schema }: StringContext) => {
-  const issue = (code: 'too_small' | 'too_big', bound: 'minimum' | 'maximum', limit: number) =>
-    $('ctx')
-      .attr('issues')
-      .attr('push')
-      .call(
-        $.object()
-          .prop('code', $.literal(code))
-          .prop('origin', $.literal('string'))
-          .prop(bound, $.literal(limit))
-          .prop('inclusive', $.literal(true))
-          .prop('input', $('ctx').attr('value')),
-      );
-  const { minLength, maxLength } = schema;
-  const unitLength = $('ctx').attr('value').attr('length');
-  const guards = [
-    // A code point is at most 2 UTF-16 units, so more than 2 * max units is too long without spreading.
-    maxLength === undefined
-      ? []
-      : [$.if(unitLength.gt($.literal(2 * maxLength))).do(issue('too_big', 'maximum', maxLength), $.return())],
-    // A code point is at least 1 unit, so at most max units cannot exceed max code points.
-    maxLength === undefined || minLength !== undefined
-      ? []
-      : [$.if(unitLength.lte($.literal(maxLength))).do($.return())],
-  ].flat();
-  const bounds = [
-    minLength === undefined ? [] : [$.if($('length').lt($.literal(minLength))).do(issue('too_small', 'minimum', minLength))],
-    maxLength === undefined ? [] : [$.if($('length').gt($.literal(maxLength))).do(issue('too_big', 'maximum', maxLength))],
-  ].flat();
-  return $.func()
-    .arrow()
-    .param('ctx')
-    .do(...guards, $.const('length').assign($.array($.spread($('ctx').attr('value'))).attr('length')), ...bounds);
-};
 
 // openapi-ts unescapes every \uXXXX when printing, leaving raw control bytes that make the file binary to git.
 const CONTROL_CHARS = /\p{Cc}/gu;
@@ -65,16 +27,17 @@ const resolvers: NonNullable<ZodPluginConfig['$resolvers']> = {
     return ctx.$(ctx.plugin.imports.z).attr('strictObject').call(ctx.nodes.shape(ctx));
   },
   string(ctx) {
-    const { format, maxLength, minLength, pattern } = ctx.schema;
+    const { format, pattern } = ctx.schema;
     if (format === 'uuid') return ctx.$(ctx.plugin.imports.z).attr('guid').call();
-    const hasLength = minLength !== undefined || maxLength !== undefined;
-    const escaped = pattern === undefined ? undefined : escapeControlChars(pattern);
-    if (!hasLength && escaped === pattern) return undefined;
-    const base = ctx.nodes.format(ctx) ?? ctx.nodes.base(ctx);
-    const checked = hasLength ? base.attr('check').call(codePointLengthCheck(ctx)) : base;
-    if (escaped === undefined) return checked;
-    const schema = { ...ctx.schema, pattern: escaped };
-    return ctx.nodes.pattern({ ...ctx, schema, chain: { current: checked } }) ?? checked;
+    if (pattern === undefined) return undefined;
+    const escaped = escapeControlChars(pattern);
+    if (escaped === pattern) return undefined;
+    const escapedCtx = { ...ctx, schema: { ...ctx.schema, pattern: escaped } };
+    const { nodes, chain } = escapedCtx;
+    chain.current = nodes.format(escapedCtx) ?? nodes.base(escapedCtx);
+    const sizes = nodes.length(escapedCtx) ? [nodes.length] : [nodes.minLength, nodes.maxLength];
+    for (const node of [...sizes, nodes.pattern]) chain.current = node(escapedCtx) ?? chain.current;
+    return chain.current;
   },
 };
 
