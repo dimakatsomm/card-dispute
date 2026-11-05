@@ -868,7 +868,7 @@
       ]
     },
     "BO-10f": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "test-engineer",
       "blockedBy": [
         "BO-10d",
