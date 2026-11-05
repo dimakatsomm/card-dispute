@@ -1,6 +1,7 @@
 import { agentPrincipalOf } from '@cd/auth-client';
 import {
   zGetAgentDisputePath,
+  zGetEvidenceDownloadPath,
   zListReviewQueueQuery,
   zResolveDisputeBody,
   zReviewDisputeBody,
@@ -23,6 +24,11 @@ import type { CursorError } from '../core/cursor.ts';
 import type { AgentDisputeDetail, ReviewQueuePage } from '../core/types.ts';
 import type { GetAgentDisputeError, GetAgentDisputeInput } from '../use-cases/agent-dispute.ts';
 import type { DecideDisputeError, DecideDisputeInput } from '../use-cases/decide-dispute.ts';
+import type {
+  DownloadEvidenceError,
+  DownloadEvidenceInput,
+  EvidenceDownload,
+} from '../use-cases/download-evidence.ts';
 import type { ReviewQueueInput } from '../use-cases/review-queue.ts';
 import { DISPUTE_BODY_LIMIT_BYTES } from './validation.ts';
 
@@ -34,6 +40,9 @@ export type AgentUseCases = {
   readonly decideDispute: (
     input: DecideDisputeInput,
   ) => Promise<Result<AgentDisputeDetail, DecideDisputeError>>;
+  readonly downloadEvidence: (
+    input: DownloadEvidenceInput,
+  ) => Promise<Result<EvidenceDownload, DownloadEvidenceError>>;
 };
 
 const queueQuery = queryOf(zListReviewQueueQuery);
@@ -67,6 +76,47 @@ export const decideDisputeProblem = (error: DecideDisputeError, correlationId: s
         title: 'Conflict',
         code: 'INVALID_TRANSITION',
         detail: 'The dispute cannot change in its current status',
+        correlationId,
+      });
+    default:
+      return assertNever(error);
+  }
+};
+
+export const downloadEvidenceProblem = (error: DownloadEvidenceError, correlationId: string): ProblemBody => {
+  switch (error.kind) {
+    case 'NOT_FOUND':
+      return commonProblem('NOT_FOUND', 'Evidence not found', correlationId);
+    case 'EVIDENCE_NOT_STORED':
+      return problemBody({
+        status: 409,
+        title: 'Conflict',
+        code: 'EVIDENCE_NOT_STORED',
+        detail: 'The evidence item has no stored file to download',
+        correlationId,
+      });
+    case 'RATE_LIMITED':
+      return problemBody({
+        status: 429,
+        title: 'Too Many Requests',
+        code: 'RATE_LIMITED',
+        detail: 'Too many download links requested; try again later',
+        correlationId,
+      });
+    case 'AUDIT_UNAVAILABLE':
+      return problemBody({
+        status: 503,
+        title: 'Service Unavailable',
+        code: 'AUDIT_UNAVAILABLE',
+        detail: 'The download could not be recorded; try again later',
+        correlationId,
+      });
+    case 'VIEWER_UNAVAILABLE':
+      return problemBody({
+        status: 503,
+        title: 'Service Unavailable',
+        code: 'VIEWER_UNAVAILABLE',
+        detail: 'A download link could not be issued; try again later',
         correlationId,
       });
     default:
@@ -118,6 +168,44 @@ const agentDisputeRoute = (useCases: AgentUseCases): RouteOptions => ({
   },
 });
 
+const disputeIdOf = (result: Result<EvidenceDownload, DownloadEvidenceError>): string | undefined => {
+  if (result.ok) return result.value.disputeId;
+  return 'disputeId' in result.error ? result.error.disputeId : undefined;
+};
+
+const downloadEvidenceRoute = (useCases: AgentUseCases): RouteOptions => ({
+  method: 'GET',
+  url: '/agent/disputes/:transactionId/evidence/:evidenceId/download',
+  handler: async (request, reply) => {
+    const path = parseRequest(zGetEvidenceDownloadPath, request.params);
+    if (!path.ok) return sendProblem(reply, validationProblem(path.error, request.id));
+    const { agentId } = agentPrincipalOf(request);
+    const { transactionId, evidenceId } = path.value;
+    const result = await useCases.downloadEvidence({
+      agentId,
+      transactionId,
+      evidenceId,
+      correlationId: request.id,
+    });
+    // Access audit (ADR-072): ids and outcome only, never the bearer URL.
+    request.log.info(
+      {
+        agentId,
+        transactionId,
+        disputeId: disputeIdOf(result),
+        evidenceId,
+        outcome: result.ok ? 'OK' : result.error.kind,
+      },
+      'agent evidence download',
+    );
+    if (result.ok) return reply.code(200).header('cache-control', 'no-store').send(result.value.link);
+    if (result.error.kind === 'RATE_LIMITED') {
+      reply.header('retry-after', String(result.error.retryAfterSeconds));
+    }
+    return sendProblem(reply, downloadEvidenceProblem(result.error, request.id));
+  },
+});
+
 type ParsedDecision = {
   readonly decision: AgentDecision;
   readonly expectedVersion: number;
@@ -164,4 +252,5 @@ export const agentRoutes = (useCases: AgentUseCases): ReadonlyArray<RouteOptions
   agentDisputeRoute(useCases),
   decisionRoute(useCases, '/agent/disputes/:transactionId/review', parseReview),
   decisionRoute(useCases, '/agent/disputes/:transactionId/resolution', parseResolution),
+  downloadEvidenceRoute(useCases),
 ];

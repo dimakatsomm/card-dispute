@@ -211,8 +211,9 @@ export type paths = {
          *     (`evidence_view`: agent id, dispute, evidence, time), then asks the `evidence-viewer` Lambda for a presigned GET.
          *     The link expires 60 s after it is minted, downloads as an attachment named `<evidenceId>.<pdf|jpg|png>` with the
          *     declared content type and `no-store`, and is a bearer link: open it once, do not store or share it. Disputes
-         *     never reads the file. At most 30 links per agent per 10 minutes. Every non-429 attempt is audited, including
-         *     those that fail with 503.
+         *     never reads the file. At most 30 links per agent per 10 minutes. Every attempt that passes the 404, 409 and 429
+         *     checks is audited before the viewer is called, so a 503 `VIEWER_UNAVAILABLE` still leaves a row; if the
+         *     audit row cannot be written the answer is 503 `AUDIT_UNAVAILABLE` and no link is minted.
          */
         get: operations["getEvidenceDownload"];
         put?: never;

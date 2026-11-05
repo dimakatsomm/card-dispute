@@ -25,6 +25,9 @@ export const configSchema = serverConfigSchema.extend({
   QUARANTINE_BUCKET: z.string().min(3),
   SQS_ENDPOINT: z.url().optional(),
   NOTIFICATIONS_QUEUE_URL: z.url(),
+  // Optional so the service deploys before the viewer exists (BO-10g); unset, downloads answer 503.
+  EVIDENCE_VIEWER_FUNCTION: z.string().min(1).optional(),
+  LAMBDA_ENDPOINT: z.url().optional(),
 });
 
 export type Config = z.output<typeof configSchema>;

@@ -853,7 +853,7 @@
       "blockedBy": []
     },
     "BO-10d": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "service-api",
       "blockedBy": [
         "BO-10b",

@@ -1,5 +1,6 @@
+import { evidenceObjectKey } from '@cd/dispute-domain';
 import { err, ok, type Result } from '@cd/shared/fp';
-import { evidenceObjectKey, evidenceResultEvent } from '../core/dispute.ts';
+import { evidenceResultEvent } from '../core/dispute.ts';
 import {
   decideOutcome,
   settlementOf,

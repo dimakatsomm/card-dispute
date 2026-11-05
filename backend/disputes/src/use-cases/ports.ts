@@ -1,4 +1,13 @@
-import type { ActorType, DisputeEvent, DisputeStatus, ReasonCode } from '@cd/dispute-domain';
+import type {
+  ActorType,
+  DisputeEvent,
+  DisputeStatus,
+  EvidenceContentType,
+  EvidenceStatus,
+  EvidenceViewRequest,
+  EvidenceViewResponse,
+  ReasonCode,
+} from '@cd/dispute-domain';
 import type { Result } from '@cd/shared/fp';
 import type {
   Card,
@@ -14,6 +23,7 @@ import type { QueueRecord, QueueStatus } from '../core/agent-view.ts';
 import type { CursorPosition, QueuePosition } from '../core/cursor.ts';
 import type { DigestInput } from '../core/evidence-digest.ts';
 import type { EvidenceOutcome } from '../core/evidence-result.ts';
+import type { RecentViews } from '../core/evidence-view.ts';
 import type { EvidenceDetail, LatestHistory } from '../core/timeline.ts';
 
 export type UpstreamError = 'UPSTREAM_UNAVAILABLE';
@@ -84,6 +94,12 @@ export type EvidenceSettlement = {
   readonly s3Key: string | null;
 };
 
+export type NewEvidenceView = {
+  readonly evidenceRowId: string;
+  readonly disputeRowId: string;
+  readonly agentId: string;
+};
+
 export type DisputeTx = {
   readonly now: () => Promise<Date>;
   readonly findByTransaction: (transactionId: string, userId: string) => Promise<DisputeRecord | null>;
@@ -102,6 +118,9 @@ export type DisputeTx = {
   readonly lockEvidence: (disputeRowId: string, evidenceId: string) => Promise<EvidenceDetail | null>;
   readonly settleEvidence: (settlement: EvidenceSettlement) => Promise<Date | null>;
   readonly updateWithVersion: (update: VersionedUpdate) => Promise<Result<DisputeRecord, 'STALE_VERSION'>>;
+  readonly lockAgentViews: (agentId: string) => Promise<void>;
+  readonly recentViews: (agentId: string, windowMinutes: number) => Promise<RecentViews>;
+  readonly insertEvidenceView: (view: NewEvidenceView) => Promise<void>;
 };
 
 export type Transact = <T, E>(work: (tx: DisputeTx) => Promise<Result<T, E>>) => Promise<Result<T, E>>;
@@ -158,10 +177,25 @@ export type FindForAgent = (transactionId: string) => Promise<DisputeWithHistory
 // One function for the detail read and the decision check, so the two digests can only differ if the evidence did.
 export type EvidenceDigest = (evidence: ReadonlyArray<DigestInput>) => string;
 
+export type EvidenceForAgent = {
+  readonly disputeRowId: string;
+  readonly disputeId: string;
+  readonly evidenceRowId: string;
+  readonly contentType: EvidenceContentType;
+  readonly status: EvidenceStatus;
+};
+
+// Unscoped by owner: agent routes only (ADR-071). Null when the dispute is unknown or the item is not its own.
+export type FindEvidenceForAgent = (
+  transactionId: string,
+  evidenceId: string,
+) => Promise<EvidenceForAgent | null>;
+
 export type DisputeRepo = {
   readonly transact: Transact;
   readonly findLatestWithHistory: (key: DisputeKey) => Promise<DisputeWithHistory | null>;
   readonly findForAgent: FindForAgent;
+  readonly findEvidenceForAgent: FindEvidenceForAgent;
   readonly listReviewQueue: ListReviewQueue;
   readonly listTransactionIds: ListDisputeTransactionIds;
   readonly listPage: ListDisputePage;
@@ -178,3 +212,9 @@ export type SignUploads = (
 ) => Promise<Result<ReadonlyArray<UploadInstruction>, SigningError>>;
 
 export type PublishEvent = (event: DisputeEvent, correlationId: string) => Promise<void>;
+
+export type ViewerError = 'VIEWER_UNAVAILABLE';
+
+export type InvokeViewer = (
+  request: EvidenceViewRequest,
+) => Promise<Result<EvidenceViewResponse, ViewerError>>;

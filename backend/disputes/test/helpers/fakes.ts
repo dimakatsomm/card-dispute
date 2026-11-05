@@ -15,8 +15,16 @@ export const WRONG_SCOPE_CALLER = {
   token: 'hdr.wrong-scope-caller-token.signature',
   scopes: ['transactions/read'],
 };
-export const AGENT_A = { token: 'hdr.agent-a-token.signature', agentId: randomUUID(), displayName: 'Naledi M.' };
-export const AGENT_B = { token: 'hdr.agent-b-token.signature', agentId: randomUUID(), displayName: 'Pieter V.' };
+export const AGENT_A = {
+  token: 'hdr.agent-a-token.signature',
+  agentId: randomUUID(),
+  displayName: 'Naledi M.',
+};
+export const AGENT_B = {
+  token: 'hdr.agent-b-token.signature',
+  agentId: randomUUID(),
+  displayName: 'Pieter V.',
+};
 const AGENTS = [AGENT_A, AGENT_B] as const;
 
 export const INTAKE_CALLER = {
@@ -88,6 +96,15 @@ export const createFakeUpstreams = () => {
     return { token, userId };
   };
 
+  const extraAgents = new Map<string, { readonly agentId: string; readonly displayName: string }>();
+
+  const addAgent = (): { readonly token: string; readonly agentId: string; readonly displayName: string } => {
+    const agentId = randomUUID();
+    const token = `hdr.agent-${agentId}.signature`;
+    extraAgents.set(token, { agentId, displayName: 'Thandi K.' });
+    return { token, agentId, displayName: 'Thandi K.' };
+  };
+
   const addTransaction = (
     userId: string,
     overrides: Partial<FakeTransaction> = {},
@@ -149,7 +166,7 @@ export const createFakeUpstreams = () => {
         exp,
       };
     }
-    const agent = AGENTS.find((a) => a.token === token);
+    const agent = AGENTS.find((a) => a.token === token) ?? extraAgents.get(token);
     if (agent !== undefined) {
       return {
         valid: true,
@@ -213,7 +230,7 @@ export const createFakeUpstreams = () => {
 
   const cardOf = (cardId: string): FakeCard | undefined => cards.get(cardId);
 
-  return { fetch, calls, addTransaction, addUser, cardOf };
+  return { fetch, calls, addTransaction, addUser, addAgent, cardOf };
 };
 
 // Never answers; settles only when the caller's own timeout aborts it.
