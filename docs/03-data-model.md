@@ -169,6 +169,7 @@ the agent principal's `displayName` at write time, so disputes never reads `auth
 | created_at, updated_at | timestamptz | |
 
 - `PENDING` → `STORED` | `REJECTED` (by evidence-intake via the service port), or → `EXPIRED` (retention sweeper: PENDING older than 1 day).
+- `unique (id, dispute_id)` (migration 007) exists only as the target of `evidence_view`'s composite FK.
 - Cap: ≤ 5 rows per dispute with status `PENDING` or `STORED` (app-enforced inside the insert transaction, with the dispute row locked).
 - No file bytes or object metadata from the client are trusted until evidence-intake has checked them.
 
@@ -176,14 +177,14 @@ the agent principal's `displayName` at write time, so disputes never reads `auth
 | column | type | notes |
 |---|---|---|
 | id | bigint PK | |
-| evidence_id | bigint FK → dispute_evidence.id ON DELETE RESTRICT | |
+| evidence_id | bigint | composite FK `(evidence_id, dispute_id)` → `dispute_evidence (id, dispute_id)` ON DELETE RESTRICT, so the item must be this dispute's |
 | dispute_id | bigint FK → dispute.id ON DELETE RESTRICT | |
 | agent_id | uuid not null | the token's `agentId`; never from input |
 | viewed_at | timestamptz not null default now() | |
 
 - One row per download-link attempt that passed the 404/409/429 checks, written before the viewer is invoked (fail closed). A 503 from the viewer keeps its row.
 - Index `(agent_id, viewed_at)` for the rate cap (30 per agent per 10 minutes, `EVIDENCE_VIEW_RATE_LIMIT`).
-- `disputes_app`: INSERT, SELECT only. No customer data and no file name, so retention leaves rows in place (ids and an agent id only).
+- `disputes_app`: INSERT, SELECT only; a guard trigger refuses UPDATE, DELETE and TRUNCATE for every role, the owner included (as for history). No customer data and no file name, so retention leaves rows in place (ids and an agent id only).
 
 ### Removed (owner, 2026-10-10 — ADR-023)
 `idempotency_key`, `outbox`, `processed_event`, `notification_cursor` are not built.

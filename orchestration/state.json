@@ -834,7 +834,7 @@
       "blockedBy": []
     },
     "BO-10b": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "data-schema",
       "blockedBy": [
         "BO-10a"

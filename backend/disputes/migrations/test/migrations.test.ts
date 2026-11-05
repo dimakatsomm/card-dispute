@@ -10,6 +10,7 @@ const PERMISSION_DENIED = '42501';
 const UNIQUE_VIOLATION = '23505';
 const CHECK_VIOLATION = '23514';
 const RESTRICT_VIOLATION = '23001';
+const FK_VIOLATION = '23503';
 
 const MIGRATIONS_DIR = fileURLToPath(new URL('..', import.meta.url));
 const SHA = 'a'.repeat(64);
@@ -111,6 +112,7 @@ beforeAll(async () => {
         '004_retention_erasure.sql',
         '005_review_queue_index.sql',
         '006_history_actor_label.sql',
+        '007_evidence_view.sql',
       ],
     },
   });
@@ -478,6 +480,102 @@ describe('history actor_label (006)', () => {
   ])('CHECK rejects %s', async (_name, actorType, label) => {
     const { id } = await freshDispute();
     await expect(insertHistory(id, actorType, label)).rejects.toMatchObject({ code: CHECK_VIOLATION });
+  });
+});
+
+describe('evidence_view (007)', () => {
+  const insertView = (evidenceId: string, disputeId: string): Promise<pg.QueryResult> =>
+    asRole(
+      'disputes_app',
+      'insert into evidence_view (evidence_id, dispute_id, agent_id) values ($1, $2, $3) returning id',
+      [evidenceId, disputeId, randomUUID()],
+    );
+
+  it('disputes_app can insert a view row and read it back', async () => {
+    const { id, evidenceId } = await freshDispute();
+    const { rows } = await insertView(evidenceId, id);
+    const r = await asRole(
+      'disputes_app',
+      'select evidence_id, dispute_id, viewed_at is not null as stamped from evidence_view where id = $1',
+      [rows[0].id],
+    );
+    expect(r.rows).toEqual([{ evidence_id: evidenceId, dispute_id: id, stamped: true }]);
+  });
+
+  it('rejects evidence that belongs to another dispute', async () => {
+    const { evidenceId } = await freshDispute();
+    const other = await freshDispute();
+    await expect(insertView(evidenceId, other.id)).rejects.toMatchObject({
+      code: FK_VIOLATION,
+      constraint: 'evidence_view_evidence_fkey',
+    });
+  });
+
+  it.each<[string, string]>([
+    ['UPDATE', `update evidence_view set agent_id = gen_random_uuid()`],
+    ['DELETE', 'delete from evidence_view'],
+    ['TRUNCATE', 'truncate evidence_view'],
+  ])('disputes_app is denied %s', async (_name, sql) => {
+    const { id, evidenceId } = await freshDispute();
+    await insertView(evidenceId, id);
+    await expect(asRole('disputes_app', sql)).rejects.toMatchObject({ code: PERMISSION_DENIED });
+  });
+
+  it.each<[string, string]>([
+    ['UPDATE', `update evidence_view set agent_id = gen_random_uuid()`],
+    ['DELETE', 'delete from evidence_view'],
+    ['TRUNCATE', 'truncate evidence_view'],
+  ])('stays insert-only even for its owner: %s', async (_name, sql) => {
+    const { id, evidenceId } = await freshDispute();
+    await insertView(evidenceId, id);
+    await expect(asRole('disputes_migrator', sql)).rejects.toMatchObject({
+      code: PERMISSION_DENIED,
+      message: expect.stringContaining('insert-only'),
+    });
+  });
+
+  it.each<[string, string]>([
+    ['SELECT', 'select 1 from disputes.evidence_view'],
+    ['INSERT', 'insert into disputes.evidence_view (evidence_id, dispute_id, agent_id) values (1, 1, gen_random_uuid())'],
+    ['UPDATE', 'update disputes.evidence_view set agent_id = gen_random_uuid()'],
+    ['DELETE', 'delete from disputes.evidence_view'],
+    ['TRUNCATE', 'truncate disputes.evidence_view'],
+  ])('disputes_retention is denied %s', async (_name, sql) => {
+    await expect(asRole('disputes_retention', sql)).rejects.toMatchObject({ code: PERMISSION_DENIED });
+  });
+
+  it('only disputes_app holds privileges on the table, exactly INSERT and SELECT', async () => {
+    const r = await query(
+      adminUrl,
+      `with t as (select oid, relowner, relacl from pg_class
+                   where relnamespace = 'disputes'::regnamespace and relname = 'evidence_view')
+       select a.grantee::regrole::text as grantee, a.privilege_type
+         from t cross join aclexplode(t.relacl) a where a.grantee <> t.relowner
+       union all
+       select a.grantee::regrole::text, 'column ' || a.privilege_type
+         from t join pg_attribute c on c.attrelid = t.oid cross join aclexplode(c.attacl) a
+       order by 1, 2`,
+    );
+    expect(r.rows).toEqual([
+      { grantee: 'disputes_app', privilege_type: 'INSERT' },
+      { grantee: 'disputes_app', privilege_type: 'SELECT' },
+    ]);
+  });
+
+  it('the rate-cap lookup uses the (agent_id, viewed_at) index', async () => {
+    await asRole(
+      'disputes_migrator',
+      `insert into evidence_view (evidence_id, dispute_id, agent_id, viewed_at)
+       select e.id, e.dispute_id, gen_random_uuid(), now() - g * interval '1 minute'
+         from (select id, dispute_id from dispute_evidence order by id limit 1) e cross join generate_series(1, 5000) g`,
+    );
+    await asRole('disputes_migrator', 'analyze evidence_view');
+    const r = await asRole(
+      'disputes_app',
+      `explain (format json) select count(*) from evidence_view
+        where agent_id = '${randomUUID()}' and viewed_at > now() - interval '10 minutes'`,
+    );
+    expect(JSON.stringify(r.rows[0]['QUERY PLAN'])).toContain('evidence_view_agent_rate_idx');
   });
 });
 
