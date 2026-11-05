@@ -59,6 +59,18 @@ locals {
     })
   }
 
+  email_undeliverable = {
+    namespace   = "cd/dispute-notifier"
+    metric_name = "EmailUndeliverable"
+  }
+
+  log_alarms = {
+    "email-undeliverable" = merge(local.base_alarm, local.email_undeliverable, {
+      description = "SES permanently refused a customer email; the notifier acknowledged it without retry."
+      period      = 900
+    })
+  }
+
   alb_alarms = merge(
     {
       "alb-target-5xx" = merge(local.base_alarm, {
@@ -109,7 +121,7 @@ locals {
     })
   }
 
-  metric_alarms = merge(local.dlq_alarms, local.lambda_alarms, local.emf_alarms, local.alb_alarms, local.aurora_alarms)
+  metric_alarms = merge(local.dlq_alarms, local.lambda_alarms, local.emf_alarms, local.log_alarms, local.alb_alarms, local.aurora_alarms)
 
   event_publish_failed_query = "SELECT SUM(EventPublishFailed) FROM SCHEMA(\"cd/disputes\", eventType)"
 
@@ -148,6 +160,20 @@ resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.alarms.arn
   protocol  = "email"
   endpoint  = var.alert_email
+}
+
+# A log metric filter, not EMF: the notifier only logs the outcome, so the kind field is the contract.
+resource "aws_cloudwatch_log_metric_filter" "email_undeliverable" {
+  name           = "${var.name_prefix}-email-undeliverable"
+  log_group_name = var.notifier_log_group_name
+  pattern        = "{ $.kind = \"EMAIL_UNDELIVERABLE\" }"
+
+  metric_transformation {
+    name      = local.email_undeliverable.metric_name
+    namespace = local.email_undeliverable.namespace
+    value     = "1"
+    unit      = "Count"
+  }
 }
 
 resource "aws_cloudwatch_metric_alarm" "metric" {

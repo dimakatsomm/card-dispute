@@ -729,9 +729,11 @@ locals {
         Sid    = "Cognito"
         Effect = "Allow"
         Action = [
+          "cognito-idp:CreateGroup",
           "cognito-idp:CreateResourceServer",
           "cognito-idp:CreateUserPoolClient",
           "cognito-idp:CreateUserPoolDomain",
+          "cognito-idp:DeleteGroup",
           "cognito-idp:DeleteResourceServer",
           "cognito-idp:DeleteUserPool",
           "cognito-idp:DeleteUserPoolClient",
@@ -739,6 +741,7 @@ locals {
           "cognito-idp:SetUserPoolMfaConfig",
           "cognito-idp:TagResource",
           "cognito-idp:UntagResource",
+          "cognito-idp:UpdateGroup",
           "cognito-idp:UpdateResourceServer",
           "cognito-idp:UpdateUserPool",
           "cognito-idp:UpdateUserPoolClient",

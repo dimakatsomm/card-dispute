@@ -49,7 +49,7 @@ const runAws = async (now: Date): Promise<number> => {
     log.error(config.error, 'seed: missing or invalid environment variables');
     return 1;
   }
-  const { migratorUrls, emailA, ...cognito } = config.value;
+  const { migratorUrls, emailA, agent, ...cognito } = config.value;
   // The address itself is PII and never logged; only whether it was overridden.
   const emailMode = emailA === null ? 'generated' : 'custom';
   const result = await runAwsSeed({
@@ -60,12 +60,15 @@ const runAws = async (now: Date): Promise<number> => {
       newPassword: () => generatePassword(),
     },
     urlFor: (svc) => migratorUrls[svc],
-  })(withEmailA(generateSeedData({ seed: DEFAULT_SEED, now }), emailA));
+  })(withEmailA(generateSeedData({ seed: DEFAULT_SEED, now }), emailA), agent);
   if (!result.ok) {
     log.error({ emailA: emailMode, error: result.error }, 'seed failed');
     return 1;
   }
-  log.info({ target: 'aws', now: now.toISOString(), emailA: emailMode, changed: result.value }, 'seed complete');
+  log.info(
+    { target: 'aws', now: now.toISOString(), emailA: emailMode, changed: result.value.changed, agent: result.value.agent },
+    'seed complete',
+  );
   return 0;
 };
 

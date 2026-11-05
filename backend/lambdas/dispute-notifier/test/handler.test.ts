@@ -171,11 +171,30 @@ describe('service tokens', () => {
 });
 
 describe('SES', () => {
+  it('MessageRejected is acknowledged with one warning and no retry', async () => {
+    ses.on(SendEmailCommand).rejects(sesError('MessageRejected', `Email address is not verified: ${EMAIL_A}`));
+    const { handler, lines } = setup();
+    const event = storedEvent(3);
+    const res = await handler(sqsEvent([['m-1', body(event)]]));
+    expect(res.batchItemFailures).toEqual([]);
+    const warnings = lines.map((l) => JSON.parse(l) as Record<string, unknown>).filter((l) => l['level'] === 40);
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        messageId: 'm-1',
+        disputeId: DISPUTE_A,
+        eventType: 'EvidenceStored',
+        kind: 'EMAIL_UNDELIVERABLE',
+        errorName: 'MessageRejected',
+      }),
+    ]);
+  });
+
   it.each([
-    ['MessageRejected', sesError('MessageRejected', `Email address is not verified: ${EMAIL_A}`)],
     ['throttling', sesError('TooManyRequestsException', 'Too many requests')],
     ['an outage', sesError('InternalServiceErrorException', 'boom')],
-  ])('%s is a failure', async (_, error) => {
+    ['paused account sending', sesError('SendingPausedException', 'paused')],
+    ['access denied', sesError('AccessDeniedException', 'not authorized to perform ses:SendEmail')],
+  ])('%s is a batch item failure', async (_, error) => {
     ses.on(SendEmailCommand).rejects(error);
     const { handler } = setup();
     const res = await handler(sqsEvent([['m-1', body(storedEvent(3))]]));
@@ -217,7 +236,7 @@ describe('logs', () => {
     const res = await handler(
       sqsEvent([['m-ok', body(storedEvent(3))], ['m-rejected', body(storedEvent(3))], ['m-bad', body({ email: EMAIL_A, name: NAME_A })]]),
     );
-    expect(res.batchItemFailures.map((f) => f.itemIdentifier)).toEqual(['m-rejected', 'm-bad']);
+    expect(res.batchItemFailures.map((f) => f.itemIdentifier)).toEqual(['m-bad']);
     const output = lines.join('');
     expect(output).toContain('m-rejected');
     expect(output).not.toContain(EMAIL_A);

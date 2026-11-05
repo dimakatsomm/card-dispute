@@ -340,3 +340,82 @@ describe('SEED_A_EMAIL', () => {
     expect(JSON.stringify(result)).not.toContain(CUSTOM);
   });
 });
+
+describe('SEED_AGENT_*', () => {
+  const env = {
+    COGNITO_USER_POOL_ID: 'eu-north-1_FAKEPOOL',
+    SEED_USER_SECRET_PREFIX: PREFIX,
+    SEED_USER_SECRET_KMS_KEY_ID: KMS,
+    DB_HOST: 'cd-dev.cluster-x.eu-north-1.rds.amazonaws.com',
+    DB_PORT: '5432',
+    DB_NAME: 'disputes',
+    ...Object.fromEntries(
+      ['auth', 'users', 'transactions', 'disputes'].map((svc) => [
+        `MIGRATOR_DATABASE_URL_${svc.toUpperCase()}`,
+        `postgres://${svc}_migrator:fake-pass@cd-dev.cluster-x.eu-north-1.rds.amazonaws.com:5432/disputes?sslmode=verify-full`,
+      ]),
+    ),
+  };
+  const agentEnv = {
+    SEED_AGENT_USERNAME: 'agent.naledi.dev',
+    SEED_AGENT_EMAIL: 'naledi.agent@example.com',
+    SEED_AGENT_DISPLAY_NAME: 'Naledi M.',
+    SEED_AGENT_SECRET_PREFIX: 'cd/dev/agent-users/',
+  };
+
+  it('is off when unset, and reads all three values plus SEED_AGENT_REQUIRE_TOTP when set', () => {
+    const off = resolveAwsSeedConfig(env);
+    expect(off.ok && off.value.agent).toBeNull();
+    const on = resolveAwsSeedConfig({ ...env, ...agentEnv, SEED_AGENT_REQUIRE_TOTP: 'true' });
+    expect(on.ok && on.value.agent).toEqual({
+      username: 'agent.naledi.dev',
+      email: 'naledi.agent@example.com',
+      displayName: 'Naledi M.',
+      requireTotp: true,
+      secretPrefix: 'cd/dev/agent-users/',
+    });
+    const noTotp = resolveAwsSeedConfig({ ...env, ...agentEnv });
+    expect(noTotp.ok && noTotp.value.agent?.requireTotp).toBe(false);
+  });
+
+  it('needs all three plus SEED_AGENT_SECRET_PREFIX together, naming the missing ones', () => {
+    expect(resolveAwsSeedConfig({ ...env, SEED_AGENT_USERNAME: 'agent.naledi.dev' })).toEqual({
+      ok: false,
+      error: { missing: ['SEED_AGENT_EMAIL', 'SEED_AGENT_DISPLAY_NAME', 'SEED_AGENT_SECRET_PREFIX'], invalid: [] },
+    });
+  });
+
+  it.each([
+    [{ SEED_AGENT_USERNAME: 'agent naledi' }, 'SEED_AGENT_USERNAME'],
+    [{ SEED_AGENT_USERNAME: '.agent' }, 'SEED_AGENT_USERNAME'],
+    [{ SEED_AGENT_USERNAME: 'Agent.Naledi' }, 'SEED_AGENT_USERNAME'],
+    [{ SEED_AGENT_SECRET_PREFIX: PREFIX }, 'SEED_AGENT_SECRET_PREFIX'],
+    [{ SEED_AGENT_SECRET_PREFIX: `${PREFIX}agents/` }, 'SEED_AGENT_SECRET_PREFIX'],
+    [{ SEED_AGENT_SECRET_PREFIX: 'cd/dev/' }, 'SEED_AGENT_SECRET_PREFIX'],
+    [{ SEED_AGENT_SECRET_PREFIX: 'cd/dev/agent-users' }, 'SEED_AGENT_SECRET_PREFIX'],
+    [{ SEED_AGENT_EMAIL: 'naledi@' }, 'SEED_AGENT_EMAIL'],
+    [{ SEED_AGENT_DISPLAY_NAME: '   ' }, 'SEED_AGENT_DISPLAY_NAME'],
+    [{ SEED_AGENT_DISPLAY_NAME: 'N'.repeat(81) }, 'SEED_AGENT_DISPLAY_NAME'],
+    [{ SEED_AGENT_DISPLAY_NAME: 'Naledi\nM.' }, 'SEED_AGENT_DISPLAY_NAME'],
+    [{ SEED_AGENT_REQUIRE_TOTP: 'yes' }, 'SEED_AGENT_REQUIRE_TOTP'],
+  ])('rejects %j as %s', (override, name) => {
+    expect(resolveAwsSeedConfig({ ...env, ...agentEnv, ...override })).toEqual({
+      ok: false,
+      error: { missing: [], invalid: [name] },
+    });
+  });
+
+  it('accepts an 80-code-point display name with astral characters', () => {
+    const config = resolveAwsSeedConfig({ ...env, ...agentEnv, SEED_AGENT_DISPLAY_NAME: '😀'.repeat(80) });
+    expect(config.ok).toBe(true);
+  });
+
+  it('refuses SEED_AGENT_REQUIRE_TOTP or SEED_AGENT_SECRET_PREFIX without an agent rather than ignoring them', () => {
+    expect(
+      resolveAwsSeedConfig({ ...env, SEED_AGENT_REQUIRE_TOTP: 'true', SEED_AGENT_SECRET_PREFIX: 'cd/dev/agent-users/' }),
+    ).toEqual({
+      ok: false,
+      error: { missing: [], invalid: ['SEED_AGENT_REQUIRE_TOTP', 'SEED_AGENT_SECRET_PREFIX'] },
+    });
+  });
+});

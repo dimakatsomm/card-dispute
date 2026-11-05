@@ -17,6 +17,8 @@ locals {
 
   secret_arn_base       = "arn:${local.partition}:secretsmanager:${local.region}:${local.account_id}:secret:"
   seed_user_secrets_arn = "${local.secret_arn_base}${var.seed_user_secret_name_prefix}*"
+  # Agent passwords sit outside the seed-user prefix because the e2e CI role reads that one.
+  agent_user_secrets_arn = "${local.secret_arn_base}${var.agent_user_secret_name_prefix}*"
   # Secrets Manager appends "-" and six random characters to every secret ARN.
   probe_user_secret_arn = "${local.secret_arn_base}${var.seed_user_secret_name_prefix}${var.probe_seed_username}-??????"
   secretsmanager_via    = "secretsmanager.${local.region}.amazonaws.com"
@@ -89,17 +91,24 @@ locals {
         Resource = [var.cognito_user_pool_arn]
       },
       {
+        # Cognito has no group ARN, so the pool is the narrowest resource; MFA preference turns on TOTP per agent (ADR-071).
+        Sid      = "ProvisionAgentsInPool"
+        Effect   = "Allow"
+        Action   = ["cognito-idp:AdminAddUserToGroup", "cognito-idp:AdminSetUserMFAPreference"]
+        Resource = [var.cognito_user_pool_arn]
+      },
+      {
         Sid       = "CreateSeedUserSecretsWithDataKey"
         Effect    = "Allow"
         Action    = ["secretsmanager:CreateSecret"]
-        Resource  = [local.seed_user_secrets_arn] # Partial wildcard: dev-seed creates these secrets at run time.
+        Resource  = [local.seed_user_secrets_arn, local.agent_user_secrets_arn] # Partial wildcards: dev-seed creates these secrets at run time.
         Condition = { StringEquals = { "secretsmanager:KmsKeyId" = var.data_kms_key_arn } }
       },
       {
         Sid      = "MaintainSeedUserSecrets"
         Effect   = "Allow"
         Action   = ["secretsmanager:PutSecretValue", "secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"]
-        Resource = [local.seed_user_secrets_arn] # Partial wildcard: dev-seed creates these secrets at run time.
+        Resource = [local.seed_user_secrets_arn, local.agent_user_secrets_arn] # Partial wildcards: dev-seed creates these secrets at run time.
       },
       {
         Sid      = "SeedUserSecretsDataKey"
@@ -108,7 +117,7 @@ locals {
         Resource = [var.data_kms_key_arn]
         Condition = {
           StringEquals = { "kms:ViaService" = local.secretsmanager_via }
-          StringLike   = { "kms:EncryptionContext:SecretARN" = local.seed_user_secrets_arn }
+          StringLike   = { "kms:EncryptionContext:SecretARN" = [local.seed_user_secrets_arn, local.agent_user_secrets_arn] }
         }
       },
     ]

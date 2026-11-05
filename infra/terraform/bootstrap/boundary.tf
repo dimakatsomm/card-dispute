@@ -80,7 +80,7 @@ locals {
         Condition = { StringEquals = { "aws:RequestedRegion" = ["us-west-2"] } }
       },
       {
-        Sid    = "ReachabilityAnalyzerCleanup"
+        Sid    = "InsightsCleanup"
         Effect = "Allow"
         Action = ["ec2:DeleteNetworkInsightsAnalysis", "ec2:DeleteNetworkInsightsPath"]
         Resource = [
@@ -89,7 +89,7 @@ locals {
         ]
       },
       {
-        Sid    = "ReachabilityAnalyzerTagOnCreate"
+        Sid    = "InsightsTagOnCreate"
         Effect = "Allow"
         Action = ["ec2:CreateTags"]
         Resource = [
@@ -134,7 +134,7 @@ locals {
         ]
       },
       {
-        Sid      = "PassWorkloadRolesToEcs"
+        Sid      = "PassRoleToEcs"
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
         Resource = [local.workload_role_arn_pattern]
@@ -171,7 +171,7 @@ locals {
           "secretsmanager:PutSecretValue",
           "secretsmanager:TagResource",
         ]
-        Resource = ["${local.arn.secrets}:secret:${local.p}/dev/seed-users/*"]
+        Resource = ["${local.arn.secrets}:secret:${local.p}/dev/seed-users/*", "${local.arn.secrets}:secret:${local.p}/dev/agent-users/*"]
       },
       {
         Sid    = "KmsUse"
@@ -185,30 +185,24 @@ locals {
         Resource = ["${local.arn.kms}:key/*"]
       },
       {
-        Sid    = "BucketObjects"
+        # Bucket and object actions share one statement to fit 6,144 chars; <prefix>* matches the same objects <prefix>*/* did.
+        Sid    = "Buckets"
         Effect = "Allow"
         Action = [
           "s3:DeleteObject",
+          "s3:GetBucketLocation",
+          "s3:GetBucketNotification",
+          "s3:GetEncryptionConfiguration",
           "s3:GetObject",
           "s3:GetObjectAttributes",
           "s3:GetObjectTagging",
           "s3:GetObjectVersion",
           "s3:GetObjectVersionTagging",
+          "s3:ListBucket",
+          "s3:PutBucketNotification",
           "s3:PutObject",
           "s3:PutObjectTagging",
           "s3:PutObjectVersionTagging",
-        ]
-        Resource = ["${local.arn.s3}*/*"]
-      },
-      {
-        Sid    = "Buckets"
-        Effect = "Allow"
-        Action = [
-          "s3:GetBucketLocation",
-          "s3:GetBucketNotification",
-          "s3:GetEncryptionConfiguration",
-          "s3:ListBucket",
-          "s3:PutBucketNotification",
         ]
         Resource = ["${local.arn.s3}*"]
       },
@@ -235,11 +229,13 @@ locals {
         Sid    = "CognitoAdmin"
         Effect = "Allow"
         Action = [
+          "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminCreateUser",
           "cognito-idp:AdminDisableUser",
           "cognito-idp:AdminEnableUser",
           "cognito-idp:AdminGetUser",
           "cognito-idp:AdminInitiateAuth",
+          "cognito-idp:AdminSetUserMFAPreference",
           "cognito-idp:AdminSetUserPassword",
           "cognito-idp:AdminUpdateUserAttributes",
           "cognito-idp:ListUsers",
@@ -247,7 +243,7 @@ locals {
         Resource = ["${local.arn.cognito}:userpool/*"]
       },
       {
-        Sid    = "LambdaDeployAndInvoke"
+        Sid    = "LambdaDeploy"
         Effect = "Allow"
         Action = [
           "lambda:GetAlias",
@@ -261,7 +257,7 @@ locals {
         Resource = ["${local.arn.lambda}:function:${local.p}-*"]
       },
       {
-        Sid    = "GuardDutyManagedRule"
+        Sid    = "GuardDutyRule"
         Effect = "Allow"
         Action = [
           "events:DeleteRule",
@@ -287,7 +283,7 @@ locals {
         Resource = "*"
       },
       {
-        Sid         = "DenyAssumeRoleOutsideWorkloadPath"
+        Sid         = "DenyOtherAssumeRole"
         Effect      = "Deny"
         Action      = ["sts:AssumeRole"]
         NotResource = [local.workload_role_arn_pattern]

@@ -14,8 +14,12 @@ locals {
   sqs_via            = "sqs.${local.region}.amazonaws.com"
   s3_via             = "s3.${local.region}.amazonaws.com"
   secretsmanager_via = "secretsmanager.${local.region}.amazonaws.com"
+  ses_identities_arn = "arn:${local.partition}:ses:${local.region}:${local.account_id}:identity/*"
 
   db_secrets = module.aurora.role_secret_arns
+
+  agent_redirect_uri = "${module.edge.web_origin}/agent/callback"
+  post_logout_uri    = "${module.edge.web_origin}/"
 
   # Lambdas reach users/disputes :8081 through the internal ALB (vpc_origin) or Cloud Map DNS (public_alb).
   lambda_peer_url = {
@@ -70,6 +74,7 @@ locals {
       AUTH_JWKS_URI           = module.cognito.jwks_url
       AUTH_USER_CLIENT_IDS    = join(",", module.cognito.user_client_ids)
       AUTH_SERVICE_CLIENT_IDS = join(",", values(module.cognito.service_client_ids))
+      AUTH_AGENT_CLIENT_IDS   = join(",", module.cognito.agent_client_ids)
     }
     users        = local.service_client_env["users"]
     transactions = local.service_client_env["transactions"]
@@ -78,13 +83,15 @@ locals {
       QUARANTINE_BUCKET       = module.evidence_buckets.quarantine_bucket_name
     })
     web = {
-      OIDC_ISSUER          = module.cognito.issuer_url
-      OIDC_CLIENT_ID       = module.cognito.spa_client_id
-      OIDC_TOKEN_ORIGIN    = module.cognito.hosted_ui_base_url
-      OIDC_LOGOUT_URL      = "${module.cognito.hosted_ui_base_url}/logout"
-      OIDC_REDIRECT_URI    = "${module.edge.web_origin}/callback"
-      OIDC_POST_LOGOUT_URI = "${module.edge.web_origin}/"
-      UPLOAD_ORIGIN        = module.evidence_buckets.quarantine_bucket_regional_origin
+      OIDC_ISSUER             = module.cognito.issuer_url
+      OIDC_CLIENT_ID          = module.cognito.spa_client_id
+      OIDC_TOKEN_ORIGIN       = module.cognito.hosted_ui_base_url
+      OIDC_LOGOUT_URL         = "${module.cognito.hosted_ui_base_url}/logout"
+      OIDC_REDIRECT_URI       = "${module.edge.web_origin}/callback"
+      OIDC_POST_LOGOUT_URI    = local.post_logout_uri
+      OIDC_AGENT_CLIENT_ID    = module.cognito.backoffice_client_id
+      OIDC_AGENT_REDIRECT_URI = local.agent_redirect_uri
+      UPLOAD_ORIGIN           = module.evidence_buckets.quarantine_bucket_regional_origin
     }
   }
 
@@ -198,10 +205,11 @@ locals {
         Condition = { StringEquals = { "kms:ViaService" = [local.sqs_via] } }
       },
       {
+        # SES also authorizes the sandbox recipient identities, so identity/* in this account; FromAddress pins the sender.
         Sid       = "SendFromSenderIdentityOnly"
         Effect    = "Allow"
         Action    = ["ses:SendEmail"]
-        Resource  = [module.ses.email_identity_arn, module.ses.configuration_set_arn]
+        Resource  = [local.ses_identities_arn, module.ses.configuration_set_arn]
         Condition = { StringEquals = { "ses:FromAddress" = [var.ses_sender] } }
       },
     ])
@@ -317,9 +325,10 @@ module "dev_tools" {
     master_secret_arn = module.aurora.master_secret_arn
     role_secret_arns  = module.aurora.role_secret_arns
   }
-  cognito_user_pool_arn        = module.cognito.user_pool_arn
-  cognito_user_pool_id         = module.cognito.user_pool_id
-  seed_user_secret_name_prefix = local.seed_user_secret_name_prefix
+  cognito_user_pool_arn         = module.cognito.user_pool_arn
+  cognito_user_pool_id          = module.cognito.user_pool_id
+  seed_user_secret_name_prefix  = local.seed_user_secret_name_prefix
+  agent_user_secret_name_prefix = local.agent_user_secret_name_prefix
 
   probe_environment = merge(
     {

@@ -12,10 +12,11 @@ locals {
   permissions_boundary_arn = "arn:${local.partition}:iam::${local.account_id}:policy/${var.name_prefix}-workload-boundary"
   github_oidc_provider_arn = "arn:${local.partition}:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
 
-  vpc_origin                   = var.edge_origin_mode == "vpc_origin"
-  seed_user_secret_name_prefix = "${var.name_prefix}/dev/seed-users/"
-  data_kms_key_arn             = module.security.kms_key_arns["data"]
-  evidence_kms_key_arn         = module.security.kms_key_arns["evidence"]
+  vpc_origin                    = var.edge_origin_mode == "vpc_origin"
+  seed_user_secret_name_prefix  = "${var.name_prefix}/dev/seed-users/"
+  agent_user_secret_name_prefix = "${var.name_prefix}/dev/agent-users/"
+  data_kms_key_arn              = module.security.kms_key_arns["data"]
+  evidence_kms_key_arn          = module.security.kms_key_arns["evidence"]
 
   # A bare git sha keeps the account id out of dev.tfvars (public repo, ADR-041).
   lambda_image_uris = {
@@ -125,7 +126,8 @@ module "cognito" {
 
   name_prefix         = var.name_prefix
   callback_urls       = ["${module.edge.web_origin}/callback"]
-  logout_urls         = ["${module.edge.web_origin}/"]
+  agent_callback_urls = [local.agent_redirect_uri]
+  logout_urls         = [local.post_logout_uri]
   enable_e2e_client   = var.enable_e2e_client
   secrets_kms_key_arn = local.data_kms_key_arn
 }
@@ -187,6 +189,7 @@ module "observability" {
   target_group_arn_suffixes = module.alb.target_group_arn_suffixes
   aurora_cluster_identifier = module.aurora.cluster_identifier
   aurora_max_acu            = var.aurora_max_acu
+  notifier_log_group_name   = module.lambda["dispute-notifier"].log_group_name
   lambda_function_names = {
     for k in local.lambda_keys : k => module.lambda[k].function_name if contains(keys(var.lambda_image_uris), k)
   }

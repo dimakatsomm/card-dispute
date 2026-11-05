@@ -535,3 +535,79 @@ run "subject_prefix_wildcard_is_rejected" {
 
   expect_failures = [var.github_oidc_subject_prefix]
 }
+
+run "back_office_cognito_and_agent_secrets" {
+  command = plan
+
+  assert {
+    condition = toset(one([
+      for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Action if s.Sid == "CognitoAdmin"
+      ])) == toset([
+      "cognito-idp:AdminAddUserToGroup",
+      "cognito-idp:AdminCreateUser",
+      "cognito-idp:AdminDisableUser",
+      "cognito-idp:AdminEnableUser",
+      "cognito-idp:AdminGetUser",
+      "cognito-idp:AdminInitiateAuth",
+      "cognito-idp:AdminSetUserMFAPreference",
+      "cognito-idp:AdminSetUserPassword",
+      "cognito-idp:AdminUpdateUserAttributes",
+      "cognito-idp:ListUsers",
+    ])
+    error_message = "Boundary CognitoAdmin must be exact: agent provisioning yes, offboarding (group removal, global sign-out) no."
+  }
+
+  assert {
+    condition     = one([for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Resource if s.Sid == "CognitoAdmin"]) == ["arn:aws:cognito-idp:eu-north-1:123456789012:userpool/*"]
+    error_message = "Boundary CognitoAdmin stays scoped to user pools in this account and region."
+  }
+
+  assert {
+    condition = toset(one([for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Resource if s.Sid == "SeedUserSecretsWrite"])) == toset([
+      "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/*",
+      "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/agent-users/*",
+    ])
+    error_message = "Workloads may write only seed-user and agent-user secrets."
+  }
+
+  assert {
+    condition = (
+      one([for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Resource if s.Sid == "Buckets"]) == ["arn:aws:s3:::cd-dev-*"]
+      && length([for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s if anytrue([for a in s.Action : startswith(a, "s3:")])]) == 1
+    )
+    error_message = "All S3 actions sit in the one Buckets statement on arn:aws:s3:::cd-dev-* (merged to fit the 6,144-char limit)."
+  }
+
+  assert {
+    condition = length([
+      for s in flatten([for p in aws_iam_policy.infra_apply : jsondecode(p.policy).Statement]) : s
+      if s.Sid == "Cognito"
+      && length(setsubtract(["cognito-idp:CreateGroup", "cognito-idp:UpdateGroup", "cognito-idp:DeleteGroup"], lookup(s, "Action", []))) == 0
+      && s.Resource == ["arn:aws:cognito-idp:eu-north-1:123456789012:userpool/*"]
+    ]) == 1
+    error_message = "The apply role manages user-pool groups only on pools in this account and region."
+  }
+
+  assert {
+    condition = !anytrue([
+      for s in concat(flatten([for p in aws_iam_policy.infra_apply : jsondecode(p.policy).Statement]), jsondecode(aws_iam_policy.boundary.policy).Statement) :
+      length(setintersection(["cognito-idp:AdminRemoveUserFromGroup", "cognito-idp:AdminUserGlobalSignOut"], lookup(s, "Action", []))) > 0
+      if s.Effect == "Allow"
+    ])
+    error_message = "Agent offboarding runs with operator credentials, never through the apply role or a workload."
+  }
+
+  assert {
+    condition = alltrue([
+      for stmts in [
+        flatten([for p in aws_iam_policy.infra_apply : jsondecode(p.policy).Statement]),
+        jsondecode(aws_iam_role_policy.infra_plan.policy).Statement,
+      ] :
+      length(setsubtract(
+        ["arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/seed-users/*", "arn:aws:secretsmanager:eu-north-1:123456789012:secret:cd/dev/agent-users/*"],
+        flatten([for s in stmts : s.Resource if s.Effect == "Deny" && contains(lookup(s, "Action", []), "secretsmanager:GetSecretValue")]),
+      )) == 0
+    ])
+    error_message = "gha-infra-plan and gha-infra-apply must be denied seed-user and agent-user secret values (they read cd/* otherwise)."
+  }
+}

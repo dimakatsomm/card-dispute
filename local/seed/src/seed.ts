@@ -146,9 +146,9 @@ const inserts = (data: SeedData): Readonly<Record<Service, Insert>> => ({
 
 const SEED_ORDER: ReadonlyArray<Service> = ['users', 'auth', 'transactions', 'disputes'];
 
-const messageOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+export const messageOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-const withPool = async <T>(connectionString: string, fn: (pool: pg.Pool) => Promise<T>): Promise<T> => {
+export const withPool = async <T>(connectionString: string, fn: (pool: pg.Pool) => Promise<T>): Promise<T> => {
   const pool = new pg.Pool({ connectionString, max: 1 });
   pool.on('error', () => undefined);
   try {

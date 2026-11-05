@@ -123,6 +123,7 @@ Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (o
 - SQS publish after commit: 3 in-process retries with backoff. On final failure: error log +
   `EventPublishFailed` metric + alarm. The dispute itself is already committed.
 - SQS: visibility timeout 6× Lambda timeout, `maxReceiveCount` 5 → DLQ. CloudWatch alarm on DLQ depth > 0.
+- Notifier (BO-09): an SES refusal tied to that one message (`MessageRejected`, `BadRequestException`) can never succeed on retry, so it is logged once as `EMAIL_UNDELIVERABLE` (no address or body) and acknowledged; a log metric alarm fires on it. Throttling, outages, account-wide refusals and `AccessDenied` (an IAM fault to fix, not a recipient fault) keep the retry → DLQ path so the DLQ alarm sees them. The dispute's state in the DB is unaffected either way.
 - Lambdas use partial batch responses (`ReportBatchItemFailures`).
 
 ## Changes after peer review 01

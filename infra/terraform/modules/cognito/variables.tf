@@ -18,8 +18,18 @@ variable "callback_urls" {
   }
 }
 
+variable "agent_callback_urls" {
+  description = "backoffice OAuth redirect URIs: <web_origin>/agent/callback."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.agent_callback_urls) > 0 && alltrue([for u in var.agent_callback_urls : can(regex("^https://[^/?#]+/agent/callback$", u))])
+    error_message = "agent_callback_urls must be non-empty https URLs ending in /agent/callback."
+  }
+}
+
 variable "logout_urls" {
-  description = "SPA post-logout URIs: <web_origin>/."
+  description = "Post-logout URIs for spa and backoffice: <web_origin>/."
   type        = list(string)
 
   validation {
