@@ -26,7 +26,7 @@ and its DLQ `dispute-notifications-dlq` (redrive after 5 receives). Credentials 
 ## Lambdas and the driver (L-07)
 
 `docker-compose.lambdas.yml` is a third override (`-f docker-compose.yml -f docker-compose.services.yml -f docker-compose.lambdas.yml`).
-It runs the three Lambda images under the Lambda RIE and `local/lambda-driver` as three containers (`scan-stub`, `sqs-poller`, `ses-sink`).
+It runs the four Lambda images under the Lambda RIE and `local/lambda-driver` as three containers (`scan-stub`, `sqs-poller`, `ses-sink`).
 This is emulation: AWS behaviour is proven only in E-03.
 
 | Component                        | Host binding (loopback only) | Notes                                                                           |
@@ -45,7 +45,7 @@ curl -s http://127.0.0.1:58093/2015-03-31/functions/function/invocations -d '{}'
 ```
 
 The RIE answers 200 even when the handler throws; failure is in the body (`errorType`). Lambda base image
-`public.ecr.aws/lambda/nodejs` is pinned by digest in the three Dockerfiles. Local builds are native (amd64 on most
+`public.ecr.aws/lambda/nodejs` is pinned by digest in the four Dockerfiles. Local builds are native (amd64 on most
 dev machines); CI and AWS pass `--platform linux/arm64`.
 
 moto-init also creates `evidence-intake-dlq`, and sets the notifications queue to a 5 s visibility timeout

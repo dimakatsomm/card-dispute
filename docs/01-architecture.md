@@ -32,7 +32,7 @@ Evidence (ADR-028, presigned — disputes never touches file bytes):
            STORED   → copy to S3 evidence bucket at s3Key (private, SSE-KMS, versioned) + delete from quarantine
            REJECTED → delete from quarantine (also when the intake claimed STORED but disputes found a mismatch)
 
-Agent download (ADR-072 — disputes still never touches bytes and cannot read the evidence bucket):
+Agent download (ADR-072 — disputes still never touches bytes and cannot read the evidence bucket; local now, dev from BO-10g):
   SPA (agent) ─GET /agent/disputes/{transactionId}/evidence/{evidenceId}/download─► disputes (public port, agent token)
      checks item is this dispute's and STORED, rate cap, inserts evidence_view audit row
      ─► lambda:Invoke evidence-viewer { disputeId, evidenceId, contentType, correlationId }
