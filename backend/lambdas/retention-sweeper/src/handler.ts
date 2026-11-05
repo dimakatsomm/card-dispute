@@ -12,8 +12,8 @@ const describeError = (error: SweepError): string => {
       return 'retention-sweeper clock returned an invalid date';
     case 'wrong_role':
       return `retention-sweeper must connect as disputes_retention, not ${error.actual}`;
-    case 'erase_failed':
-      return `retention-sweeper failed to erase ${error.failedDisputeIds.length} dispute(s)`;
+    case 'incomplete':
+      return `retention-sweeper failed to erase ${error.eraseFailedIds.length} dispute(s) and to delete the evidence objects of ${error.deleteFailedIds.length}`;
   }
 };
 

@@ -1,6 +1,7 @@
 import { ERASED_TEXT } from '@cd/dispute-domain';
 import { err, ok } from '@cd/shared/fp';
 import type pg from 'pg';
+import { z } from 'zod';
 import type { ErasureCandidate, RetentionStore } from '../use-cases/ports.ts';
 
 export type RetentionPool = Pick<pg.Pool, 'connect' | 'query'>;
@@ -38,6 +39,17 @@ const ERASE_HISTORY_SQL = `
 const ERASE_EVIDENCE_SQL = `
   update disputes.dispute_evidence set status = 'ERASED', file_name = $2
    where dispute_id = $1 and (status <> 'ERASED' or file_name <> $2)`;
+
+// ERASED evidence can never change status again, so its updated_at stays the erase commit time.
+export const ERASED_WITH_EVIDENCE_SQL = `
+  select d.dispute_id from disputes.dispute d join disputes.dispute_evidence e on e.dispute_id = d.id
+   where e.status = 'ERASED' and e.updated_at >= $1 and d.description = '[erased]'
+   group by d.dispute_id
+   order by max(e.updated_at) desc
+   limit $2`;
+
+// The id becomes an S3 delete prefix, so anything but a UUID must never reach it.
+const disputeIdRow = z.object({ dispute_id: z.guid() });
 
 const sqlStateOf = (e: unknown): string =>
   typeof e === 'object' && e !== null && 'code' in e && typeof e.code === 'string' ? e.code : 'unknown';
@@ -84,5 +96,10 @@ export const createRetentionStore = (pool: RetentionPool): RetentionStore => ({
     } finally {
       client.release(broken);
     }
+  },
+
+  findErasedWithEvidence: async (erasedSince, limit) => {
+    const r = await pool.query(ERASED_WITH_EVIDENCE_SQL, [erasedSince, limit]);
+    return r.rows.map((row: unknown) => disputeIdRow.parse(row).dispute_id);
   },
 });

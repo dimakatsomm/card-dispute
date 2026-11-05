@@ -848,12 +848,12 @@
       ]
     },
     "BO-10x": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "async-lambda",
       "blockedBy": []
     },
     "BO-10d": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "service-api",
       "blockedBy": [
         "BO-10b",
@@ -861,7 +861,7 @@
       ]
     },
     "BO-10e": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "frontend",
       "blockedBy": [
         "BO-10a"

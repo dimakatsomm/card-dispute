@@ -16,6 +16,7 @@ describe('sweepRetention', () => {
       expirePendingEvidence: record('expirePendingEvidence'),
       findErasureCandidates: record('findErasureCandidates'),
       eraseDispute: record('eraseDispute'),
+      findErasedWithEvidence: record('findErasedWithEvidence'),
     };
     const sweep = sweepRetention({
       store,

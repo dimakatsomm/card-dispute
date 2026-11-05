@@ -14,6 +14,10 @@ export const configSchema = z
     DB_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(100).max(60_000).default(5000),
     DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).max(300_000).default(30_000),
     SWEEP_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(500),
+    // Unset turns byte deletion off until infra provides the bucket and grants (BO-10g); the lifecycle stays the backstop.
+    EVIDENCE_BUCKET: z.string().min(1).optional(),
+    EVIDENCE_DELETE_RETRY_DAYS: z.coerce.number().int().min(1).max(30).default(7),
+    AWS_ENDPOINT_URL: z.url().optional(),
     METRICS_NAMESPACE: z.string().min(1).default('cd/retention-sweeper'),
     AWS_REGION: z.string().min(1).default('eu-north-1'),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
