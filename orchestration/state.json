@@ -1,6 +1,6 @@
 {
   "_comment": "Orchestrator memory across sessions. Read at session start, written after every task transition. Statuses: todo | in_progress | in_review | done | blocked. This file must reflect reality — a task with a failing test is not done.",
-  "milestone": "M5-rollout",
+  "milestone": "M6-rollout",
   "updatedAt": "2026-11-03",
   "milestones": {
     "M0": "done",
@@ -10,7 +10,7 @@
     "M4": "todo — H-01..H-04 (docs/08 §8)",
     "M5": "done 2026-11-04 — integration-verifier: M5 MET locally (report orchestration/reports/M5.md). 1,437 tests/17 packages; e2e m5 15/15; Playwright agent+customer flows; walkthrough 50/51 (1 script error). m2 Lambda-dependent e2e unrunnable here (Lambda base image blocked by proxy).",
     "M5-rollout": "in_progress — BO-09 (ASAP), then BO-10 evidence viewing; BO-H1..H3 hardening",
-    "M6": "in_progress"
+    "M6": "done 2026-11-05 — integration-verifier: M6 MET locally (report orchestration/reports/M6.md). 1,584 tests/18 packages; e2e 64/64 twice (m6 7/7) with Lambda stand-ins serving real bundles; hand walkthrough sha256 match, 60 s link, attachment/no-store, one audit row; Playwright download; erasure removed all versions. Dev rollout BO-10g owner-gated."
   },
   "tasks": {
     "F-01": {
@@ -880,7 +880,8 @@
       "agent": "owner",
       "blockedBy": [
         "BO-10f"
-      ]
+      ],
+      "note": "owner-gated dev rollout for ADR-072; see backlog BO-10g and reports/M6.md"
     }
   },
   "decisions": [
@@ -1238,7 +1239,10 @@
     "P-05x follow-up: move the evidence cap-counting statuses (PENDING+STORED) and the ADR-050 declaration-matching rule from disputes core into @cd/dispute-domain (rule 2).",
     "tests/ui: card helper now waits for rows and pages; e2e and UI share user A data, which never resets (disputes are permanent) — reseed occasionally on long-lived local stacks.",
     "ACL-TO follow-up: pass the in-scope deadline signal into getToken({ signal }) at disputes service-client, transactions upstream (UpstreamDeps.getToken type), notifier service-client and intake disputes-client; until then token fetches are bounded by the 5 s provider default.",
-    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch."
+    "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch.",
+    "M6-1: Owner — when to run BO-10g (viewer, IAM, key policy, sweeper S3 perms, CI wiring, alarms); dev has no evidence viewing until then.",
+    "M6-2: Owner — add evidence-viewer to the CLAUDE.md layout and .claude/agents/async-lambda.md description?",
+    "V-M6: Verify on real S3 in dev (BO-10g) that the viewer's links are refused after 60 s and with a tampered signature, and decrypt via the viewer role only."
   ],
   "peerReviews": [
     {
