@@ -27,6 +27,34 @@ export type AuthDb = {
   readonly stop: () => Promise<void>;
 };
 
+const ADMIN_SHUTDOWN = '57P01';
+
+const isAdminShutdown = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && 'code' in err && err.code === ADMIN_SHUTDOWN;
+
+const createTestPool = (connectionString: string): pg.Pool => {
+  const pool = new pg.Pool({ connectionString });
+  pool.on('error', (err) => {
+    if (!isAdminShutdown(err)) throw err;
+  });
+  return pool;
+};
+
+// pool.end() resolves before its clients' sockets close, so wait for every 'remove' before the container stops.
+const endPool = async (pool: pg.Pool): Promise<void> => {
+  const open = pool.totalCount;
+  const closed = new Promise<void>((resolve) => {
+    let left = open;
+    if (left === 0) resolve();
+    pool.on('remove', () => {
+      left -= 1;
+      if (left === 0) resolve();
+    });
+  });
+  await pool.end();
+  await closed;
+};
+
 const roleUrl = (base: string, user: string, password: string): string => {
   const url = new URL(base);
   url.username = user;
@@ -53,11 +81,9 @@ export const startAuthDb = async (): Promise<AuthDb> => {
   });
   if (!migrated.ok) throw new Error(`migrate failed: ${migrated.error.kind}`);
 
-  const appPool = new pg.Pool({ connectionString: roleUrl(adminUrl, 'auth_app', passwords.auth_app) });
+  const appPool = createTestPool(roleUrl(adminUrl, 'auth_app', passwords.auth_app));
   // auth_app may only read agent_identity; agents are provisioned out of band, as here by the schema owner.
-  const operatorPool = new pg.Pool({
-    connectionString: roleUrl(adminUrl, 'auth_migrator', passwords.auth_migrator),
-  });
+  const operatorPool = createTestPool(roleUrl(adminUrl, 'auth_migrator', passwords.auth_migrator));
   return {
     appPool,
     seedIdentity: async (row) => {
@@ -75,8 +101,7 @@ export const startAuthDb = async (): Promise<AuthDb> => {
       return rows[0]?.agent_id ?? '';
     },
     stop: async () => {
-      await operatorPool.end();
-      await appPool.end();
+      await Promise.all([endPool(operatorPool), endPool(appPool)]);
       await pgc.stop();
     },
   };

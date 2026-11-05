@@ -27,18 +27,7 @@ export const zEvidenceRejected = z.strictObject({
     ]),
     sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     sizeBytes: z.int().gte(1).optional(),
-    contentType: z.string().check(ctx => {
-        const length = [...ctx.value].length;
-        if (length < 1) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 1,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).optional()
+    contentType: z.string().min(1).optional()
 });
 
 export const zDisputeStatus = z.enum([
@@ -125,16 +114,5 @@ export const zRecordEvidenceResultPath = z.object({
 export const zRecordEvidenceResultResponse = z.object({
     evidenceId: zUuid,
     status: z.enum(['STORED', 'REJECTED']),
-    s3Key: z.string().check(ctx => {
-        const length = [...ctx.value].length;
-        if (length < 1) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 1,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).optional()
+    s3Key: z.string().min(1).optional()
 });

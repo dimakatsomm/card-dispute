@@ -14,73 +14,13 @@ export const zReviewDisputeRequest = z.strictObject({
 
 export const zResolveDisputeRequest = z.strictObject({
     outcome: z.enum(['ACCEPTED', 'REJECTED']),
-    note: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 10) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 10,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }),
+    note: z.string().min(10).max(2000),
     expectedVersion: z.int().gte(1),
     expectedEvidenceDigest: zEvidenceDigest
 });
 
 export const zEvidenceDeclaration = z.strictObject({
-    fileName: z.string().check(ctx => {
-        if (ctx.value.length > 510) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 255,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 1) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 1,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 255) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 255,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).regex(/^[^\x00-\x1F\x7F-\x9F]+$/),
+    fileName: z.string().min(1).max(255).regex(/^[^\x00-\x1F\x7F-\x9F]+$/),
     contentType: z.enum([
         'application/pdf',
         'image/jpeg',
@@ -92,68 +32,14 @@ export const zEvidenceDeclaration = z.strictObject({
 
 export const zWithdrawDispute = z.strictObject({
     action: z.literal('WITHDRAW'),
-    note: z.string().check(ctx => {
-        if (ctx.value.length > 1000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 500,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 500) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 500) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 500,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).optional()
+    note: z.string().max(500).optional()
 });
 
 /**
  * Responses only; requests keep 10..2000. Retention replaces an erased dispute's description with the tombstone (ADR-017).
  */
 export const zResponseDescription = z.union([
-    z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 10) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 10,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }),
+    z.string().min(10).max(2000),
     z.literal('[erased]')
 ]);
 
@@ -175,37 +61,7 @@ export const zCurrency = z.string().regex(/^[A-Z]{3}$/);
  * The decoded content is checked by the service; a mismatch is 400 `INVALID_CURSOR`.
  *
  */
-export const zCursor = z.string().check(ctx => {
-    if (ctx.value.length > 1024) {
-        ctx.issues.push({
-            code: 'too_big',
-            origin: 'string',
-            maximum: 512,
-            inclusive: true,
-            input: ctx.value
-        });
-        return;
-    }
-    const length = [...ctx.value].length;
-    if (length < 1) {
-        ctx.issues.push({
-            code: 'too_small',
-            origin: 'string',
-            minimum: 1,
-            inclusive: true,
-            input: ctx.value
-        });
-    }
-    if (length > 512) {
-        ctx.issues.push({
-            code: 'too_big',
-            origin: 'string',
-            maximum: 512,
-            inclusive: true,
-            input: ctx.value
-        });
-    }
-}).regex(/^[A-Za-z0-9_-]+$/);
+export const zCursor = z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/);
 
 export const zDisputeStatus = z.enum([
     'SUBMITTED',
@@ -244,73 +100,13 @@ export const zReasonCode = z.enum([
 
 export const zCreateDisputeRequest = z.strictObject({
     reasonCode: zReasonCode,
-    description: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 10) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 10,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }),
+    description: z.string().min(10).max(2000),
     evidence: z.array(zEvidenceDeclaration).max(5).optional()
 });
 
 export const zEditDispute = z.strictObject({
     action: z.literal('EDIT'),
-    description: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 10) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 10,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).optional(),
+    description: z.string().min(10).max(2000).optional(),
     reasonCode: zReasonCode.optional()
 });
 
@@ -329,70 +125,10 @@ export const zAgentTimelineEvent = z.strictObject({
         'AGENT',
         'SYSTEM'
     ]),
-    agentName: z.string().check(ctx => {
-        if (ctx.value.length > 160) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 80,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length < 1) {
-            ctx.issues.push({
-                code: 'too_small',
-                origin: 'string',
-                minimum: 1,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-        if (length > 80) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 80,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).optional(),
+    agentName: z.string().min(1).max(80).optional(),
     detail: z.strictObject({
         fields: z.array(z.enum(['description', 'reasonCode'])).min(1).max(2).optional(),
-        fileName: z.string().check(ctx => {
-            if (ctx.value.length > 510) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 255,
-                    inclusive: true,
-                    input: ctx.value
-                });
-                return;
-            }
-            const length = [...ctx.value].length;
-            if (length < 1) {
-                ctx.issues.push({
-                    code: 'too_small',
-                    origin: 'string',
-                    minimum: 1,
-                    inclusive: true,
-                    input: ctx.value
-                });
-            }
-            if (length > 255) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 255,
-                    inclusive: true,
-                    input: ctx.value
-                });
-            }
-        }).optional(),
+        fileName: z.string().min(1).max(255).optional(),
         reason: z.enum([
             'MALWARE',
             'TYPE_MISMATCH',
@@ -400,31 +136,7 @@ export const zAgentTimelineEvent = z.strictObject({
             'SIZE',
             'SCAN_FAILED'
         ]).optional(),
-        note: z.string().check(ctx => {
-            if (ctx.value.length > 4000) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 2000,
-                    inclusive: true,
-                    input: ctx.value
-                });
-                return;
-            }
-            if (ctx.value.length <= 2000) {
-                return;
-            }
-            const length = [...ctx.value].length;
-            if (length > 2000) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 2000,
-                    inclusive: true,
-                    input: ctx.value
-                });
-            }
-        }).optional()
+        note: z.string().max(2000).optional()
     }).optional()
 });
 
@@ -434,37 +146,7 @@ export const zTimelineEvent = z.strictObject({
     by: z.enum(['CUSTOMER', 'BANK']),
     detail: z.strictObject({
         fields: z.array(z.enum(['description', 'reasonCode'])).min(1).max(2).optional(),
-        fileName: z.string().check(ctx => {
-            if (ctx.value.length > 510) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 255,
-                    inclusive: true,
-                    input: ctx.value
-                });
-                return;
-            }
-            const length = [...ctx.value].length;
-            if (length < 1) {
-                ctx.issues.push({
-                    code: 'too_small',
-                    origin: 'string',
-                    minimum: 1,
-                    inclusive: true,
-                    input: ctx.value
-                });
-            }
-            if (length > 255) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 255,
-                    inclusive: true,
-                    input: ctx.value
-                });
-            }
-        }).optional(),
+        fileName: z.string().min(1).max(255).optional(),
         reason: z.enum([
             'MALWARE',
             'TYPE_MISMATCH',
@@ -472,37 +154,7 @@ export const zTimelineEvent = z.strictObject({
             'SIZE',
             'SCAN_FAILED'
         ]).optional(),
-        note: z.string().check(ctx => {
-            if (ctx.value.length > 4000) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 2000,
-                    inclusive: true,
-                    input: ctx.value
-                });
-                return;
-            }
-            const length = [...ctx.value].length;
-            if (length < 1) {
-                ctx.issues.push({
-                    code: 'too_small',
-                    origin: 'string',
-                    minimum: 1,
-                    inclusive: true,
-                    input: ctx.value
-                });
-            }
-            if (length > 2000) {
-                ctx.issues.push({
-                    code: 'too_big',
-                    origin: 'string',
-                    maximum: 2000,
-                    inclusive: true,
-                    input: ctx.value
-                });
-            }
-        }).optional()
+        note: z.string().min(1).max(2000).optional()
     }).optional()
 });
 
@@ -515,31 +167,7 @@ export const zQueueItem = z.strictObject({
     reasonCode: zReasonCode,
     version: z.int().gte(1),
     createdAt: zTimestamp,
-    pickedUpBy: z.string().check(ctx => {
-        if (ctx.value.length > 160) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 80,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 80) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 80) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 80,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).nullable()
+    pickedUpBy: z.string().max(80).nullable()
 });
 
 export const zUploadInstruction = z.strictObject({
@@ -614,56 +242,8 @@ export const zAgentDisputeDetail = z.strictObject({
     createdAt: zTimestamp,
     updatedAt: zTimestamp,
     resolvedAt: zTimestamp.nullable(),
-    resolutionNote: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 2000) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).nullable(),
-    pickedUpBy: z.string().check(ctx => {
-        if (ctx.value.length > 160) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 80,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 80) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 80) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 80,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).nullable(),
+    resolutionNote: z.string().max(2000).nullable(),
+    pickedUpBy: z.string().max(80).nullable(),
     timeline: z.array(zAgentTimelineEvent)
 });
 
@@ -679,31 +259,7 @@ export const zDispute = z.strictObject({
     createdAt: zTimestamp,
     updatedAt: zTimestamp,
     resolvedAt: zTimestamp.nullable(),
-    resolutionNote: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 2000) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).nullable()
+    resolutionNote: z.string().max(2000).nullable()
 });
 
 /**
@@ -721,31 +277,7 @@ export const zDisputeCreated = z.strictObject({
     createdAt: zTimestamp,
     updatedAt: zTimestamp,
     resolvedAt: zTimestamp.nullable(),
-    resolutionNote: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 2000) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).nullable(),
+    resolutionNote: z.string().max(2000).nullable(),
     uploads: z.array(zUploadInstruction).max(5)
 });
 
@@ -764,31 +296,7 @@ export const zDisputeDetail = z.strictObject({
     createdAt: zTimestamp,
     updatedAt: zTimestamp,
     resolvedAt: zTimestamp.nullable(),
-    resolutionNote: z.string().check(ctx => {
-        if (ctx.value.length > 4000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-            return;
-        }
-        if (ctx.value.length <= 2000) {
-            return;
-        }
-        const length = [...ctx.value].length;
-        if (length > 2000) {
-            ctx.issues.push({
-                code: 'too_big',
-                origin: 'string',
-                maximum: 2000,
-                inclusive: true,
-                input: ctx.value
-            });
-        }
-    }).nullable(),
+    resolutionNote: z.string().max(2000).nullable(),
     timeline: z.array(zTimelineEvent)
 });
 

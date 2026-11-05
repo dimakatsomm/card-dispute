@@ -8,6 +8,7 @@ import {
   TRANSACTION_STATUSES,
 } from '@cd/dispute-domain';
 import { describe, expect, it } from 'vitest';
+import { zValidAgent } from '../src/auth.service/zod.ts';
 import {
   zCreateDisputeRequest,
   zDisputeStatus,
@@ -64,6 +65,14 @@ describe('generator rules', () => {
       expect(result.error.issues).toHaveLength(1);
       expect(result.error.issues[0]?.path).toEqual(['description']);
     }
+  });
+
+  it.each([
+    ['80 emoji', '😀'.repeat(80), true],
+    ['81 emoji', '😀'.repeat(81), false],
+    ['empty', '', false],
+  ])('plain zod min/max counts displayName (1-80) in code points: %s', (_name, displayName, ok) => {
+    expect(zValidAgent.shape.displayName.safeParse(displayName).success).toBe(ok);
   });
 
   it.each([

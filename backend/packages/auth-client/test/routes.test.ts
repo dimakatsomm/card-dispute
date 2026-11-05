@@ -359,9 +359,44 @@ describe('unguarded-route backstop', () => {
     ).resolves.toBeUndefined();
   });
 
+  it.each(['/:seg/x', '/*'])('rejects a user route whose first segment is dynamic (%s) on an opted-in server', async (url) => {
+    const { authClient } = build();
+    await expect(
+      startPublic(['user', 'agent'], (app) => {
+        registerPublicRoutes(app, authClient, [{ method: 'GET', url, handler: async () => ({}) }]);
+      }),
+    ).rejects.toThrow(/first path segment is a parameter or wildcard/);
+  });
+
+  it('allows a dynamic first segment on a server that did not opt in to agents', async () => {
+    const { authClient } = build();
+    await expect(
+      startPublic(undefined, (app) => {
+        registerPublicRoutes(app, authClient, [
+          { method: 'GET', url: '/:seg/x', handler: async () => ({}) },
+          { method: 'GET', url: '/*', handler: async () => ({}) },
+        ]);
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('guards a non-GET/HEAD method on /health like any route', () => {
+    const app = Fastify();
+    guardAllRoutes(app, ['user']);
+    expect(() => app.post('/health', async () => ({}))).toThrow(/POST \/health: unguarded/);
+    expect(() => app.route({ method: ['GET', 'POST'], url: '/ready', handler: async () => ({}) })).toThrow(/unguarded/);
+  });
+
+  it('exempts GET and HEAD on /health from the guard', () => {
+    const app = Fastify();
+    guardAllRoutes(app, ['user', 'agent']);
+    expect(() => app.route({ method: ['GET', 'HEAD'], url: '/health', handler: async () => ({}) })).not.toThrow();
+  });
+
   it('still serves health and ready without a guard', async () => {
     const { servers } = build();
     expect((await get(servers.public, '/health')).statusCode).toBe(200);
+    expect((await get(servers.public, '/health', undefined, 'HEAD')).statusCode).toBe(200);
     expect((await get(servers.service, '/ready')).statusCode).toBe(200);
   });
 });

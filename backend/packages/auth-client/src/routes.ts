@@ -52,6 +52,7 @@ export const registerServiceRoutes = (
 };
 
 const UNGUARDED_PATHS: ReadonlySet<string> = new Set(['/health', '/ready']);
+const UNGUARDED_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD']);
 
 export type PublicGuardKind = Exclude<GuardKind, 'service'>;
 
@@ -62,8 +63,16 @@ const guardKindsOf = (route: RouteOptions): ReadonlySet<GuardKind | undefined> =
 
 const isAgentPath = (url: string): boolean => url === '/agent' || url.startsWith('/agent/');
 
+const isProbe = (route: RouteOptions): boolean =>
+  UNGUARDED_PATHS.has(route.url) && [route.method].flat().every((method) => UNGUARDED_METHODS.has(method.toUpperCase()));
+
+// A leading :param or * segment would also match /agent/..., letting a user guard shadow agent routes.
+const hasDynamicFirstSegment = (url: string): boolean => /^\/?[:*]/.test(url);
+
 const backstopViolation = (route: RouteOptions, allowed: readonly GuardKind[]): string | undefined => {
-  if (UNGUARDED_PATHS.has(route.url)) return undefined;
+  if (isProbe(route)) return undefined;
+  if (allowed.includes('agent') && hasDynamicFirstSegment(route.url))
+    return 'first path segment is a parameter or wildcard on a server opted in to agents';
   const kinds = guardKindsOf(route);
   if (kinds.has('agent') && !allowed.includes('agent')) return 'agent guard on a server that did not opt in to agents';
   if (kinds.has('agent') && !isAgentPath(route.url)) return 'agent guard outside /agent/*';
