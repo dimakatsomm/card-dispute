@@ -5,7 +5,7 @@ import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 const SERVICES = ['auth', 'users', 'transactions', 'disputes'];
-const LAMBDAS = ['evidence-intake', 'dispute-notifier', 'retention-sweeper'];
+const LAMBDAS = ['evidence-intake', 'dispute-notifier', 'retention-sweeper', 'evidence-viewer'];
 const PACKAGES = ['shared', 'auth-client', 'dispute-domain', 'db', 'contracts'];
 const LAYERS = ['core', 'use-cases', 'routes'];
 
@@ -89,6 +89,7 @@ const ALLOWED_CONTRACTS = {
   'evidence-intake': ['disputes.service'],
   'dispute-notifier': ['users.service', 'disputes.service'],
   'retention-sweeper': [],
+  'evidence-viewer': [],
 };
 
 const disallowedContracts = (self) =>

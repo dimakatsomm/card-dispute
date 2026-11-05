@@ -841,7 +841,7 @@
       ]
     },
     "BO-10c": {
-      "status": "in_progress",
+      "status": "done",
       "agent": "async-lambda",
       "blockedBy": [
         "BO-10a"
