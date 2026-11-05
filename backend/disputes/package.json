@@ -11,17 +11,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "fastify": "catalog:",
-    "pg": "catalog:",
-    "zod": "catalog:",
-    "@cd/shared": "workspace:*",
+    "@aws-sdk/client-lambda": "catalog:",
+    "@aws-sdk/client-s3": "catalog:",
+    "@aws-sdk/client-sqs": "catalog:",
+    "@aws-sdk/s3-request-presigner": "catalog:",
     "@cd/auth-client": "workspace:*",
+    "@cd/contracts": "workspace:*",
     "@cd/db": "workspace:*",
     "@cd/dispute-domain": "workspace:*",
-    "@cd/contracts": "workspace:*",
-    "@aws-sdk/client-s3": "catalog:",
-    "@aws-sdk/s3-request-presigner": "catalog:",
-    "@aws-sdk/client-sqs": "catalog:"
+    "@cd/shared": "workspace:*",
+    "fastify": "catalog:",
+    "pg": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

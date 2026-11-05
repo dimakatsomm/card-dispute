@@ -18,6 +18,9 @@ catalogs:
     '@aws-sdk/client-ecs':
       specifier: 3.1161.0
       version: 3.1161.0
+    '@aws-sdk/client-lambda':
+      specifier: 3.1161.0
+      version: 3.1161.0
     '@aws-sdk/client-s3':
       specifier: 3.1161.0
       version: 3.1161.0
@@ -219,6 +222,9 @@ importers:
 
   backend/disputes:
     dependencies:
+      '@aws-sdk/client-lambda':
+        specifier: 'catalog:'
+        version: 3.1161.0
       '@aws-sdk/client-s3':
         specifier: 'catalog:'
         version: 3.1161.0
@@ -346,8 +352,42 @@ importers:
         specifier: 'catalog:'
         version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(jsdom@30.1.3)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 
+  backend/lambdas/evidence-viewer:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 'catalog:'
+        version: 3.1161.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: 'catalog:'
+        version: 3.1161.0
+      '@cd/dispute-domain':
+        specifier: workspace:*
+        version: link:../../packages/dispute-domain
+      '@cd/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.2
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(jsdom@30.1.3)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+
   backend/lambdas/retention-sweeper:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 'catalog:'
+        version: 3.1161.0
       '@aws-sdk/client-secrets-manager':
         specifier: 'catalog:'
         version: 3.1161.0
@@ -840,6 +880,10 @@ packages:
 
   '@aws-sdk/client-ecs@3.1161.0':
     resolution: {integrity: sha512-JUJfskVw/BbVL0FHNiS5cvJF5SMSb0FuySL6/CXZWJtjWN6JPebw2afnmXjruN/H5Be1CgMtjtNZnvxU9DszxA==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-lambda@3.1161.0':
+    resolution: {integrity: sha512-kEz+hGRtgH37TsAzRgW5Gct0XSmfmoCiSTbA68jWjTMHu5ijyu5D1Dl/MvQQBMnQqr1mdGQ3nq11EJHD5n+xuQ==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-s3@3.1161.0':
@@ -3526,6 +3570,17 @@ snapshots:
       tslib: 2.8.1
 
   '@aws-sdk/client-ecs@3.1161.0':
+    dependencies:
+      '@aws-sdk/core': 3.979.1
+      '@aws-sdk/credential-provider-node': 3.972.92
+      '@aws-sdk/types': 3.975.0
+      '@smithy/core': 3.38.0
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.14.0
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
+
+  '@aws-sdk/client-lambda@3.1161.0':
     dependencies:
       '@aws-sdk/core': 3.979.1
       '@aws-sdk/credential-provider-node': 3.972.92
