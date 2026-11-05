@@ -33,7 +33,8 @@ This is emulation: AWS behaviour is proven only in E-03.
 | -------------------------------- | ---------------------------- | ------------------------------------------------------------------------------- |
 | evidence-intake (RIE)            | `127.0.0.1:58091`            | runs as `65534:65534` (Dockerfile `USER`), verified under the RIE               |
 | dispute-notifier (RIE)           | `127.0.0.1:58092`            |                                                                                 |
-| retention-sweeper (RIE)          | `127.0.0.1:58093`            | connects as `disputes_retention`                                                |
+| retention-sweeper (RIE)          | `127.0.0.1:58093`            | connects as `disputes_retention`; with `EVIDENCE_BUCKET` set it also deletes erased disputes' evidence versions in moto |
+| evidence-viewer (RIE)            | none (no host port)          | invoked only by disputes (`LAMBDA_ENDPOINT`), so every link has an audit row; signs URLs for `localhost:55000` (moto) |
 | driver `ses-sink`                | `127.0.0.1:55901`            | only so the host e2e can read `GET /sent`; unauthenticated, keep it on loopback |
 | driver `scan-stub`, `sqs-poller` | none                         | reach the RIEs and moto on the compose network                                  |
 

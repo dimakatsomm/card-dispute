@@ -68,6 +68,14 @@ const xmlText = (value: string): string =>
     .replaceAll('&gt;', '>')
     .replaceAll('&amp;', '&');
 
+// Every version and delete marker under the prefix; an unversioned bucket lists its objects as version "null".
+export const objectVersionKeys = async (bucket: string, prefix: string): Promise<readonly string[]> => {
+  const res = await fetch(`${MOTO}/${bucket}?versions&prefix=${encodeURIComponent(prefix)}`, { headers: awsAuth('s3') });
+  const xml = await res.text();
+  if (res.status !== 200) throw new Error(`ListObjectVersions ${bucket}/${prefix} returned ${res.status}: ${xml.slice(0, 200)}`);
+  return [...xml.matchAll(/<(?:Version|DeleteMarker)>[\s\S]*?<Key>([\s\S]*?)<\/Key>/g)].map((match) => xmlText(match[1] ?? ''));
+};
+
 const sqs = async (queue: string, params: Record<string, string>): Promise<string> => {
   const res = await fetch(`${MOTO}/${ACCOUNT}/${queue}`, {
     method: 'POST',
@@ -147,6 +155,16 @@ const docker = (args: readonly string[], input?: string): string =>
     ...(input !== undefined ? { input } : {}),
     stdio: ['pipe', 'pipe', 'pipe'],
   });
+
+// compose stop succeeds silently on a missing container, which would make a "service down" test vacuous.
+export const stopService = (service: string): void => {
+  if (docker(['ps', '-q', '--status', 'running', service]).trim() === '') throw new Error(`${service} is not running`);
+  docker(['stop', service]);
+};
+
+export const startService = (service: string): void => {
+  docker(['start', service]);
+};
 
 // Superuser on the compose Postgres, the same admin the host-side seed uses (DB_ADMIN_URL); psql runs inside the container.
 export const adminRows = (sql: string, options: { readonly raw?: boolean } = {}): readonly Json[] => {
