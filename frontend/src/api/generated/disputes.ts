@@ -192,6 +192,37 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/agent/disputes/{transactionId}/evidence/{evidenceId}/download": {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+                evidenceId: components["parameters"]["EvidenceIdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Short-lived download link for one STORED evidence file (ADR-072)
+         * @description Disputes checks the dispute exists, the item is this dispute's and is STORED, records an audit row
+         *     (`evidence_view`: agent id, dispute, evidence, time), then asks the `evidence-viewer` Lambda for a presigned GET.
+         *     The link expires 60 s after it is minted, downloads as an attachment named `<evidenceId>.<pdf|jpg|png>` with the
+         *     declared content type and `no-store`, and is a bearer link: open it once, do not store or share it. Disputes
+         *     never reads the file. At most 30 links per agent per 10 minutes. Every non-429 attempt is audited, including
+         *     those that fail with 503.
+         */
+        get: operations["getEvidenceDownload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -241,6 +272,14 @@ export type components = {
             pickedUpBy: string | null;
             /** @description Ascending by `at`. */
             timeline: components["schemas"]["AgentTimelineEvent"][];
+        };
+        EvidenceDownload: {
+            /**
+             * Format: uri
+             * @description Presigned S3 GET; opaque. Open it with a top-level navigation, never inline.
+             */
+            url: string;
+            expiresAt: components["schemas"]["Timestamp"];
         };
         ReviewDisputeRequest: {
             expectedVersion: number;
@@ -522,6 +561,7 @@ export type components = {
         };
     };
     parameters: {
+        EvidenceIdPath: components["schemas"]["Uuid"];
         CorrelationIdHeader: string;
         Limit: number;
         /** @description Opaque cursor from a previous page's `nextCursor`. */
@@ -944,6 +984,58 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["InvalidTransition"];
             412: components["responses"]["StaleView"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getEvidenceDownload: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-correlation-id"?: components["parameters"]["CorrelationIdHeader"];
+            };
+            path: {
+                /** @description One dispute per transaction, ever, so this also identifies the dispute. */
+                transactionId: components["parameters"]["TransactionIdPath"];
+                evidenceId: components["parameters"]["EvidenceIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Download link */
+            200: {
+                headers: {
+                    /** @description Always `no-store`. */
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceDownload"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `EVIDENCE_NOT_STORED` — the item is PENDING, REJECTED, EXPIRED or ERASED; there is nothing to download. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `RATE_LIMITED` — this agent reached 30 links in the last 10 minutes. No audit row is written. */
+            429: {
+                headers: {
+                    /** @description Seconds until the oldest counted link leaves the window. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             503: components["responses"]["ServiceUnavailable"];
         };
     };

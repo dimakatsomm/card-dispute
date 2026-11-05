@@ -140,6 +140,11 @@ export const zAgentTimelineEvent = z.strictObject({
     }).optional()
 });
 
+export const zEvidenceDownload = z.strictObject({
+    url: z.url(),
+    expiresAt: zTimestamp
+});
+
 export const zTimelineEvent = z.strictObject({
     type: zTimelineType,
     at: zTimestamp,
@@ -330,6 +335,8 @@ export const zAgentToken = z.unknown();
  */
 export const zUserToken = z.unknown();
 
+export const zEvidenceIdPath = zUuid;
+
 export const zCorrelationIdHeader = z.string().regex(/^[A-Za-z0-9-]{8,64}$/);
 
 /**
@@ -490,3 +497,17 @@ export const zResolveDisputePath = z.object({
  * Current state
  */
 export const zResolveDisputeResponse = zAgentDisputeDetail;
+
+export const zGetEvidenceDownloadHeaders = z.object({
+    'x-correlation-id': z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional()
+});
+
+export const zGetEvidenceDownloadPath = z.object({
+    transactionId: zUuid,
+    evidenceId: zUuid
+});
+
+/**
+ * Download link
+ */
+export const zGetEvidenceDownloadResponse = zEvidenceDownload;

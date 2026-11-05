@@ -172,6 +172,19 @@ the agent principal's `displayName` at write time, so disputes never reads `auth
 - Cap: ≤ 5 rows per dispute with status `PENDING` or `STORED` (app-enforced inside the insert transaction, with the dispute row locked).
 - No file bytes or object metadata from the client are trusted until evidence-intake has checked them.
 
+### evidence_view (insert-only, ADR-072)
+| column | type | notes |
+|---|---|---|
+| id | bigint PK | |
+| evidence_id | bigint FK → dispute_evidence.id ON DELETE RESTRICT | |
+| dispute_id | bigint FK → dispute.id ON DELETE RESTRICT | |
+| agent_id | uuid not null | the token's `agentId`; never from input |
+| viewed_at | timestamptz not null default now() | |
+
+- One row per download-link attempt that passed the 404/409/429 checks, written before the viewer is invoked (fail closed). A 503 from the viewer keeps its row.
+- Index `(agent_id, viewed_at)` for the rate cap (30 per agent per 10 minutes, `EVIDENCE_VIEW_RATE_LIMIT`).
+- `disputes_app`: INSERT, SELECT only. No customer data and no file name, so retention leaves rows in place (ids and an agent id only).
+
 ### Removed (owner, 2026-10-10 — ADR-023)
 `idempotency_key`, `outbox`, `processed_event`, `notification_cursor` are not built.
 - Idempotency → `unique (transaction_id)`.
@@ -210,7 +223,7 @@ D-04 rulings (orchestrator, 2026-10-19):
 ## Retention (POPIA — interim policy, owner decision 2026-10-09, ADR-017)
 1 year after a dispute reaches a terminal state. The terminal time is `resolved_at` for `RESOLVED_*` and the `WITHDRAW` history row's `created_at` for `WITHDRAWN`; the cutoff is one UTC calendar year.
 - `dispute.description` → `'[erased]'`; `resolution_note` and history `note`/`before`/`after` → `null` (the rows stay — financial record).
-- `dispute_evidence` rows marked `ERASED` (`s3_key` and `rejection_reason` nulled by the guard trigger) and `file_name` set to `'[erased]'`; the S3 objects go with the 365-day lifecycle on `evidence/` (the sweeper does not touch S3).
+- `dispute_evidence` rows marked `ERASED` (`s3_key` and `rejection_reason` nulled by the guard trigger) and `file_name` set to `'[erased]'`; after the erase commits the sweeper deletes every version of `evidence/{disputeId}/*` (ADR-072, BO-10x; a failed delete retries next run without re-erasing); the 365-day lifecycle on `evidence/` stays as a backstop.
 - Erasure does not bump `dispute.updated_at` (so the customer list order is unchanged); `status`, `version`, `user_id`, `transaction_id` and `reason_code` are untouched.
 Responses carry the tombstone as is: `description` is `'[erased]'` (the 10-char minimum applies to requests only), `resolutionNote` and timeline `note` are `null`/absent, evidence `fileName` is `'[erased]'` and its `status` is `ERASED`; the UI shows "removed under our retention policy".
 Run by a scheduled `retention-sweeper` job (M2), connecting as `disputes_retention` (column-scoped UPDATE on dispute text fields, history `note/before/after`, evidence `status` and `file_name`). The same job moves `PENDING` evidence older than 24 hours to `EXPIRED`. This is an interim policy; revisit with compliance before production.

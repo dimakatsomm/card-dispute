@@ -73,6 +73,16 @@ export {
   type EvidenceStatus,
 } from './evidence.ts';
 export {
+  EVIDENCE_VIEW_RATE_LIMIT,
+  EVIDENCE_VIEW_URL_TTL_SECONDS,
+  evidenceDownloadFileName,
+  evidenceObjectKey,
+  evidenceViewRequestSchema,
+  evidenceViewResponseSchema,
+  type EvidenceViewRequest,
+  type EvidenceViewResponse,
+} from './evidence-viewer.ts';
+export {
   PENDING_EVIDENCE_MAX_AGE_HOURS,
   RETENTION_YEARS,
   erasureCutoff,

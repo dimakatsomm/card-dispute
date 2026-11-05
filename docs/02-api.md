@@ -53,6 +53,7 @@ port, so it doesn't exist from the internet (404) even with a stolen service tok
 | disputes | `GET /agent/disputes/{transactionId}` | public | agent | — |
 | disputes | `PUT /agent/disputes/{transactionId}/review` | public | agent | — |
 | disputes | `PUT /agent/disputes/{transactionId}/resolution` | public | agent | — |
+| disputes | `GET /agent/disputes/{transactionId}/evidence/{evidenceId}/download` | public | agent | — (ADR-072) |
 | all | `GET /health`, `GET /ready` | both | none | — |
 
 Notation: `GET :8081/transactions` means the service-port route.
@@ -226,5 +227,7 @@ Retry-safe (ADR-050): a declaration matching an existing `PENDING` item of the d
   - `PUT /agent/disputes/{transactionId}/review` → SUBMITTED → UNDER_REVIEW; body `{ expectedVersion, expectedEvidenceDigest }`.
   - `PUT /agent/disputes/{transactionId}/resolution` → `{ outcome: ACCEPTED|REJECTED, note (10–2000, customer-visible), expectedVersion, expectedEvidenceDigest }`.
   - 412 `STALE_VERSION` / `STALE_EVIDENCE`, 409 `INVALID_TRANSITION`; same-state replays → 200 with the stored state.
+  - `GET /agent/disputes/{transactionId}/evidence/{evidenceId}/download` (ADR-072) → 200 `{ url, expiresAt }` with `Cache-Control: no-store`: a 60 s presigned S3 GET, attachment named `<evidenceId>.<pdf|jpg|png>`, declared content type. Order: dispute exists and the item is this dispute's (else 404) → item is `STORED` (else 409 `EVIDENCE_NOT_STORED`) → rate cap, 30 rows in `evidence_view` for this agent in the last 10 minutes (else 429 `RATE_LIMITED` + `Retry-After`, no row written) → insert the audit row (insert fails → 503, fail closed) → invoke `evidence-viewer` (failure, timeout or a response that fails parsing → 503 `VIEWER_UNAVAILABLE`; the audit row stands). Disputes never reads the bytes or takes a key from input.
+  - `evidence-viewer` Lambda invoke contract (`@cd/dispute-domain` `evidenceViewRequestSchema` / `evidenceViewResponseSchema`, strict, parsed on both sides): request `{ disputeId, evidenceId, contentType, correlationId }`, response `{ url, expiresAt }`. The viewer builds the key with `evidenceObjectKey(disputeId, evidenceId)` and makes no other calls; an invalid request is a function error.
 - Seeded agents (local mock issuer and seed, BO-01/BO-04): `eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee` `agent.naledi` "Naledi M." ACTIVE; `ffffffff-ffff-4fff-8fff-ffffffffffff` `agent.pieter` "Pieter V." DISABLED.
 All writes idempotent: repeating an applied transition returns 200 with current state. Stale `expectedVersion` → 412.

@@ -32,9 +32,16 @@ Evidence (ADR-028, presigned — disputes never touches file bytes):
            STORED   → copy to S3 evidence bucket at s3Key (private, SSE-KMS, versioned) + delete from quarantine
            REJECTED → delete from quarantine (also when the intake claimed STORED but disputes found a mismatch)
 
+Agent download (ADR-072 — disputes still never touches bytes and cannot read the evidence bucket):
+  SPA (agent) ─GET /agent/disputes/{transactionId}/evidence/{evidenceId}/download─► disputes (public port, agent token)
+     checks item is this dispute's and STORED, rate cap, inserts evidence_view audit row
+     ─► lambda:Invoke evidence-viewer { disputeId, evidenceId, contentType, correlationId }
+          builds evidence/{disputeId}/{evidenceId} itself, presigns GetObject (60 s, attachment, no-store)
+     ◄─ { url, expiresAt } ─► SPA opens url in a new tab ─► S3 evidence bucket (viewer role's signature)
+
 Supporting: Cognito, Secrets Manager (DB creds), KMS (data + S3 keys), ECR, CloudWatch Logs/Alarms/Dashboard, SNS alerts, AWS Budgets (X-Ray dropped, ADR-063)
 ```
-Lambdas: evidence-intake, dispute-notifier, retention-sweeper. No auto-review (owner, Q-14 → ADR-033): new disputes wait in SUBMITTED until an agent picks them up from the review queue.
+Lambdas: evidence-intake, dispute-notifier, retention-sweeper, evidence-viewer (ADR-072). No auto-review (owner, Q-14 → ADR-033): new disputes wait in SUBMITTED until an agent picks them up from the review queue.
 
 ## Source of truth (ADR-023)
 - **The database is the source of truth.** A dispute's state and timeline are whatever is in
