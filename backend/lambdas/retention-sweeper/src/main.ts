@@ -1,6 +1,8 @@
+import { S3Client } from '@aws-sdk/client-s3';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { createLogger, createSecretResolver, emitMetric, type Env } from '@cd/shared/lambda';
 import { createPool, resolveDbTarget } from './adapters/connection.ts';
+import { createEvidenceObjects } from './adapters/evidence-objects.ts';
 import { createRetentionStore, type RetentionPool } from './adapters/retention-store.ts';
 import { loadSweeperConfig } from './config.ts';
 import { createHandler } from './handler.ts';
@@ -8,8 +10,15 @@ import { sweepRetention, type SweepSummary } from './use-cases/sweep-retention.t
 
 export type SweeperHandler = (event?: unknown) => Promise<SweepSummary>;
 
+export type EvidenceInput = {
+  readonly s3: Pick<S3Client, 'send'>;
+  readonly bucket: string;
+  readonly retryDays: number;
+};
+
 export type ComposeInput = {
   readonly pool: RetentionPool;
+  readonly evidence?: EvidenceInput;
   readonly batchSize: number;
   readonly namespace: string;
   readonly log: ReturnType<typeof createLogger>;
@@ -25,6 +34,14 @@ export const composeHandler = (input: ComposeInput): SweeperHandler =>
       log: input.log,
       metric: (name, value) =>
         emitMetric(input.log, { namespace: input.namespace, name, value, timestamp: input.now().getTime() }),
+      ...(input.evidence === undefined
+        ? {}
+        : {
+            evidence: {
+              objects: createEvidenceObjects({ s3: input.evidence.s3, bucket: input.evidence.bucket }),
+              retryDays: input.evidence.retryDays,
+            },
+          }),
     }),
   });
 
@@ -43,6 +60,18 @@ const init = async (env: Env): Promise<SweeperHandler> => {
       connectTimeoutMs: config.DB_CONNECT_TIMEOUT_MS,
       statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
     }),
+    ...(config.EVIDENCE_BUCKET === undefined
+      ? {}
+      : {
+          evidence: {
+            s3: new S3Client({
+              region: config.AWS_REGION,
+              ...(config.AWS_ENDPOINT_URL ? { endpoint: config.AWS_ENDPOINT_URL, forcePathStyle: true } : {}),
+            }),
+            bucket: config.EVIDENCE_BUCKET,
+            retryDays: config.EVIDENCE_DELETE_RETRY_DAYS,
+          },
+        }),
     batchSize: config.SWEEP_BATCH_SIZE,
     namespace: config.METRICS_NAMESPACE,
     log,

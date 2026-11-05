@@ -1,17 +1,27 @@
 import { randomUUID } from 'node:crypto';
+import {
+  CreateBucketCommand,
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectVersionsCommand,
+  PutBucketVersioningCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { fileURLToPath } from 'node:url';
 import { migrate } from '@cd/db';
 import { bootstrap, ROLES, type Role } from '@cd/db/bootstrap';
 import { startTestPostgres, type TestPostgres } from '@cd/db/testing';
 import { createLogger } from '@cd/shared/lambda';
 import pg from 'pg';
+import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   ERASURE_CANDIDATES_SQL,
   EXPIRE_PENDING_SQL,
   type RetentionPool,
 } from '../src/adapters/retention-store.ts';
-import { composeHandler } from '../src/main.ts';
+import { composeHandler, type EvidenceInput } from '../src/main.ts';
 
 const MIGRATIONS_DIR = fileURLToPath(new URL('../../../disputes/migrations', import.meta.url));
 const TEMPLATE_DB = 'sweeper_tpl';
@@ -100,12 +110,13 @@ const insertDispute = async (
   status: string,
   createdAt: Date,
   resolvedAt: Date | null,
+  disputeId: string = randomUUID(),
 ): Promise<Seeded> => {
   const r = await owner.query<{ id: string; dispute_id: string }>(
-    `insert into disputes.dispute (transaction_id, user_id, reason_code, description, status, resolved_at,
+    `insert into disputes.dispute (dispute_id, transaction_id, user_id, reason_code, description, status, resolved_at,
                                    resolution_note, created_by, updated_by, created_at, updated_at)
-     values ($1, $2, 'DUPLICATE', $3, $4, $5, $6, 'USER:u', 'AGENT:a', $7, $7) returning id, dispute_id`,
-    [randomUUID(), randomUUID(), DESCRIPTION, status, resolvedAt, resolvedAt ? RESOLUTION_NOTE : null, createdAt],
+     values ($8, $1, $2, 'DUPLICATE', $3, $4, $5, $6, 'USER:u', 'AGENT:a', $7, $7) returning id, dispute_id`,
+    [randomUUID(), randomUUID(), DESCRIPTION, status, resolvedAt, resolvedAt ? RESOLUTION_NOTE : null, createdAt, disputeId],
   );
   const row = r.rows[0];
   if (!row) throw new Error('seed failed');
@@ -146,10 +157,11 @@ const seedTerminal = async (
   owner: pg.Pool,
   status: 'RESOLVED_ACCEPTED' | 'RESOLVED_REJECTED' | 'WITHDRAWN',
   terminalAt: Date,
+  disputeId?: string,
 ): Promise<Seeded> => {
   const createdAt = new Date(terminalAt.getTime() - 7 * DAY);
   const resolved = status !== 'WITHDRAWN';
-  const d = await insertDispute(owner, status, createdAt, resolved ? terminalAt : null);
+  const d = await insertDispute(owner, status, createdAt, resolved ? terminalAt : null, disputeId);
   await insertHistory(owner, d.id, 'CREATE', null, 'SUBMITTED', createdAt);
   await (resolved
     ? insertHistory(owner, d.id, 'RESOLVE', 'UNDER_REVIEW', status, terminalAt)
@@ -212,11 +224,17 @@ const failingEvidenceErase = (pool: pg.Pool, victimId: string): RetentionPool =>
   }) as pg.Pool['connect'],
 });
 
-type HandlerOptions ={ readonly now: Date; readonly batchSize?: number; readonly lines?: string[] };
+type HandlerOptions = {
+  readonly now: Date;
+  readonly batchSize?: number;
+  readonly lines?: string[];
+  readonly evidence?: EvidenceInput;
+};
 
-const sweeper = (pool: RetentionPool, { now, batchSize = 100, lines = [] }: HandlerOptions) =>
+const sweeper = (pool: RetentionPool, { now, batchSize = 100, lines = [], evidence }: HandlerOptions) =>
   composeHandler({
     pool,
+    ...(evidence === undefined ? {} : { evidence }),
     batchSize,
     namespace: 'cd/retention-sweeper',
     now: () => now,
@@ -248,7 +266,7 @@ describe('retention-sweeper against the real disputes migrations', () => {
     const before = await snapshot(owner, d.id);
     const handler = sweeper(db.pool('disputes_retention'), { now });
 
-    expect(await handler()).toEqual({ expired: 1, erased: 0 });
+    expect(await handler()).toEqual({ expired: 1, erased: 0, evidenceVersionsDeleted: 0 });
     const after = await snapshot(owner, d.id);
     expect(after.evidence).toEqual([
       { ...before.evidence[0], status: 'EXPIRED', updated_at: expect.any(String) },
@@ -257,7 +275,7 @@ describe('retention-sweeper against the real disputes migrations', () => {
     ]);
     expect(after.dispute).toEqual(before.dispute);
 
-    expect(await handler()).toEqual({ expired: 0, erased: 0 });
+    expect(await handler()).toEqual({ expired: 0, erased: 0, evidenceVersionsDeleted: 0 });
     expect(await snapshot(owner, d.id)).toEqual(after);
   });
 
@@ -270,10 +288,10 @@ describe('retention-sweeper against the real disputes migrations', () => {
       const d = await seedTerminal(owner, status, T);
       const before = await snapshot(owner, d.id);
 
-      expect(await sweeper(retention, { now: new Date(T_PLUS_1Y.getTime() - 1) })()).toEqual({ expired: 0, erased: 0 });
+      expect(await sweeper(retention, { now: new Date(T_PLUS_1Y.getTime() - 1) })()).toEqual({ expired: 0, erased: 0, evidenceVersionsDeleted: 0 });
       expect(await snapshot(owner, d.id)).toEqual(before);
 
-      expect(await sweeper(retention, { now: T_PLUS_1Y })()).toEqual({ expired: 0, erased: 1 });
+      expect(await sweeper(retention, { now: T_PLUS_1Y })()).toEqual({ expired: 0, erased: 1, evidenceVersionsDeleted: 0 });
       expectErased(before, await snapshot(owner, d.id));
     },
   );
@@ -293,6 +311,7 @@ describe('retention-sweeper against the real disputes migrations', () => {
     expect(await sweeper(db.pool('disputes_retention'), { now: new Date('2030-01-01T00:00:00.000Z') })()).toEqual({
       expired: 0,
       erased: 0,
+      evidenceVersionsDeleted: 0,
     });
     expect([await snapshot(owner, submitted.id), await snapshot(owner, underReview.id)]).toEqual(before);
   });
@@ -315,7 +334,7 @@ describe('retention-sweeper against the real disputes migrations', () => {
       expect.objectContaining({ disputeId: victim.disputeId, sqlState: 'XX000', msg: 'dispute erasure failed' }),
     );
 
-    expect(await sweeper(retention, { now })()).toEqual({ expired: 0, erased: 1 });
+    expect(await sweeper(retention, { now })()).toEqual({ expired: 0, erased: 1, evidenceVersionsDeleted: 0 });
     expectErased(before.victim, await snapshot(owner, victim.id));
   });
 
@@ -327,10 +346,10 @@ describe('retention-sweeper against the real disputes migrations', () => {
     const withdrawn = await seedTerminal(owner, 'WITHDRAWN', T);
     await insertEvidence(owner, resolved.id, 'PENDING', T);
 
-    expect(await sweeper(retention, { now: T_PLUS_1Y })()).toEqual({ expired: 1, erased: 2 });
+    expect(await sweeper(retention, { now: T_PLUS_1Y })()).toEqual({ expired: 1, erased: 2, evidenceVersionsDeleted: 0 });
     const after = [await snapshot(owner, resolved.id), await snapshot(owner, withdrawn.id)];
 
-    expect(await sweeper(retention, { now: T_PLUS_1Y })()).toEqual({ expired: 0, erased: 0 });
+    expect(await sweeper(retention, { now: T_PLUS_1Y })()).toEqual({ expired: 0, erased: 0, evidenceVersionsDeleted: 0 });
     expect([await snapshot(owner, resolved.id), await snapshot(owner, withdrawn.id)]).toEqual(after);
   });
 
@@ -346,11 +365,11 @@ describe('retention-sweeper against the real disputes migrations', () => {
     const handler = sweeper(retention, { now: T_PLUS_1Y, batchSize: 2 });
     const isErased = async (id: string) => (await snapshot(owner, id)).dispute['description'] === '[erased]';
 
-    expect(await handler()).toEqual({ expired: 2, erased: 2 });
+    expect(await handler()).toEqual({ expired: 2, erased: 2, evidenceVersionsDeleted: 0 });
     expect([await isErased(oldest.id), await isErased(newest.id)]).toEqual([true, false]);
-    expect(await handler()).toEqual({ expired: 1, erased: 1 });
+    expect(await handler()).toEqual({ expired: 1, erased: 1, evidenceVersionsDeleted: 0 });
     expect(await isErased(newest.id)).toBe(true);
-    expect(await handler()).toEqual({ expired: 0, erased: 0 });
+    expect(await handler()).toEqual({ expired: 0, erased: 0, evidenceVersionsDeleted: 0 });
   });
 
   it('ignores the schedule event content: {now:"2099-…"} changes nothing, only the injected clock counts', async () => {
@@ -365,6 +384,7 @@ describe('retention-sweeper against the real disputes migrations', () => {
     expect(await handler({ now: '2099-01-01T00:00:00.000Z', time: '2099-01-01T00:00:00Z' })).toEqual({
       expired: 0,
       erased: 0,
+      evidenceVersionsDeleted: 0,
     });
     expect(await snapshot(owner, d.id)).toEqual(before);
     expect(await evidenceStatuses(owner)).toEqual(['STORED', 'REJECTED', 'PENDING']);
@@ -421,5 +441,169 @@ describe('retention-sweeper against the real disputes migrations', () => {
     } finally {
       client.release();
     }
+  });
+});
+
+const MOTO_IMAGE = 'motoserver/moto:5.2.4';
+const REGION = 'eu-north-1';
+
+describe('retention-sweeper deletes evidence bytes after the erase commits (moto S3, versioned bucket)', () => {
+  let moto: StartedTestContainer;
+  let s3: S3Client;
+
+  beforeAll(async () => {
+    moto = await new GenericContainer(MOTO_IMAGE)
+      .withExposedPorts(5000)
+      .withWaitStrategy(Wait.forHttp('/moto-api/', 5000))
+      .start();
+    s3 = new S3Client({
+      region: REGION,
+      endpoint: `http://${moto.getHost()}:${moto.getMappedPort(5000)}`,
+      forcePathStyle: true,
+      credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
+    });
+  });
+
+  afterAll(async () => {
+    await moto?.stop();
+  });
+
+  const versionedBucket = async (): Promise<string> => {
+    const Bucket = `evidence-${randomUUID().slice(0, 8)}`;
+    await s3.send(new CreateBucketCommand({ Bucket, CreateBucketConfiguration: { LocationConstraint: REGION } }));
+    await s3.send(new PutBucketVersioningCommand({ Bucket, VersioningConfiguration: { Status: 'Enabled' } }));
+    return Bucket;
+  };
+
+  const put = (Bucket: string, Key: string, body: string) => s3.send(new PutObjectCommand({ Bucket, Key, Body: body }));
+
+  const versionsUnder = async (Bucket: string, Prefix: string): Promise<string[]> => {
+    const r = await s3.send(new ListObjectVersionsCommand({ Bucket, Prefix }));
+    return [
+      ...(r.Versions ?? []).map((v) => `${v.Key}@${v.VersionId}`),
+      ...(r.DeleteMarkers ?? []).map((m) => `${m.Key}@${m.VersionId}:marker`),
+    ].sort();
+  };
+
+  const storedEvidenceId = async (owner: pg.Pool, id: string): Promise<string> => {
+    const r = await owner.query<{ evidence_id: string }>(
+      `select evidence_id from disputes.dispute_evidence where dispute_id = $1 and status = 'STORED'`,
+      [id],
+    );
+    return r.rows[0]?.evidence_id ?? '';
+  };
+
+  // Written out independently of src so a wrong prefix in the sweeper fails the test (ADR-055).
+  const keyOf = (disputeId: string, evidenceId: string): string => `evidence/${disputeId}/${evidenceId}`;
+
+  const evidenceFor = (bucket: string, client: Pick<S3Client, 'send'> = s3): EvidenceInput => ({
+    s3: client,
+    bucket,
+    retryDays: 7,
+  });
+
+  const failingDeletes = (): Pick<S3Client, 'send'> => ({
+    send: ((cmd: unknown) =>
+      cmd instanceof DeleteObjectsCommand
+        ? Promise.reject(Object.assign(new Error('injected'), { name: 'ServiceUnavailable' }))
+        : s3.send(cmd as never)) as S3Client['send'],
+  });
+
+  it('deletes every version and delete marker under the erased dispute only; no objects is fine; a re-run is a no-op', async () => {
+    const db = await freshDb();
+    const owner = db.pool('disputes_migrator');
+    const retention = db.pool('disputes_retention');
+    const bucket = await versionedBucket();
+    const erasedId = randomUUID();
+    const siblingId = `${erasedId.slice(0, -1)}${erasedId.endsWith('0') ? '1' : '0'}`;
+    const erased = await seedTerminal(owner, 'RESOLVED_ACCEPTED', T, erasedId);
+    const noObjects = await seedTerminal(owner, 'WITHDRAWN', T);
+    const sibling = await seedTerminal(owner, 'RESOLVED_REJECTED', new Date(T.getTime() + 30 * DAY), siblingId);
+
+    const erasedKey = keyOf(erasedId, await storedEvidenceId(owner, erased.id));
+    await put(bucket, erasedKey, 'v1');
+    await put(bucket, erasedKey, 'v2');
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: erasedKey }));
+    await put(bucket, keyOf(erasedId, randomUUID()), 'orphan');
+    const siblingKey = keyOf(siblingId, await storedEvidenceId(owner, sibling.id));
+    await put(bucket, siblingKey, 'v1');
+    await put(bucket, siblingKey, 'v2');
+    await put(bucket, `evidence/${erasedId}-copy/stray`, 'x');
+    const othersBefore = [
+      ...(await versionsUnder(bucket, `evidence/${siblingId}`)),
+      ...(await versionsUnder(bucket, `evidence/${erasedId}-copy/`)),
+    ];
+    expect(othersBefore).toHaveLength(3);
+    expect(await versionsUnder(bucket, `evidence/${erasedId}/`)).toHaveLength(4);
+
+    const handler = sweeper(retention, { now: T_PLUS_1Y, evidence: evidenceFor(bucket) });
+    expect(await handler()).toEqual({ expired: 0, erased: 2, evidenceVersionsDeleted: 4 });
+    expect(await versionsUnder(bucket, `evidence/${erasedId}/`)).toEqual([]);
+    expect(await versionsUnder(bucket, `evidence/${noObjects.disputeId}/`)).toEqual([]);
+    expect([
+      ...(await versionsUnder(bucket, `evidence/${siblingId}`)),
+      ...(await versionsUnder(bucket, `evidence/${erasedId}-copy/`)),
+    ]).toEqual(othersBefore);
+    const dbAfter = await snapshot(owner, erased.id);
+
+    expect(await handler()).toEqual({ expired: 0, erased: 0, evidenceVersionsDeleted: 0 });
+    expect(await snapshot(owner, erased.id)).toEqual(dbAfter);
+    expect(await versionsUnder(bucket, 'evidence/')).toEqual(othersBefore.sort());
+  });
+
+  it('an S3 failure keeps the committed erase, fails the run with a metric, and the next run deletes without re-erasing', async () => {
+    const db = await freshDb();
+    const owner = db.pool('disputes_migrator');
+    const retention = db.pool('disputes_retention');
+    const bucket = await versionedBucket();
+    const d = await seedTerminal(owner, 'RESOLVED_REJECTED', T);
+    const key = keyOf(d.disputeId, await storedEvidenceId(owner, d.id));
+    await put(bucket, key, 'v1');
+    await put(bucket, key, 'v2');
+    const before = await snapshot(owner, d.id);
+    const lines: string[] = [];
+
+    await expect(
+      sweeper(retention, { now: T_PLUS_1Y, lines, evidence: evidenceFor(bucket, failingDeletes()) })(),
+    ).rejects.toThrow('failed to erase 0 dispute(s) and to delete the evidence objects of 1');
+    const erasedRow = await snapshot(owner, d.id);
+    expectErased(before, erasedRow);
+    expect(await versionsUnder(bucket, key)).toHaveLength(2);
+    const entries = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+    expect(entries).toContainEqual(
+      expect.objectContaining({ disputeId: d.disputeId, errorName: 'ServiceUnavailable', msg: 'evidence object deletion failed' }),
+    );
+    expect(entries.find((e) => e['msg'] === 'EvidenceDeleteFailed')).toMatchObject({ EvidenceDeleteFailed: 1 });
+    expect(lines.join('\n')).not.toContain('evidence/');
+
+    expect(await sweeper(retention, { now: T_PLUS_1Y, evidence: evidenceFor(bucket) })()).toEqual({
+      expired: 0,
+      erased: 0,
+      evidenceVersionsDeleted: 2,
+    });
+    expect(await versionsUnder(bucket, key)).toEqual([]);
+    expect(await snapshot(owner, d.id)).toEqual(erasedRow);
+  });
+
+  it('stops retrying once the erase is older than the retry window, leaving the bytes to the lifecycle backstop', async () => {
+    const db = await freshDb();
+    const owner = db.pool('disputes_migrator');
+    const retention = db.pool('disputes_retention');
+    const bucket = await versionedBucket();
+    const d = await seedTerminal(owner, 'WITHDRAWN', T);
+    const key = keyOf(d.disputeId, await storedEvidenceId(owner, d.id));
+    await put(bucket, key, 'v1');
+
+    await expect(
+      sweeper(retention, { now: T_PLUS_1Y, evidence: evidenceFor(bucket, failingDeletes()) })(),
+    ).rejects.toThrow();
+    // The erase time is the DB clock, so the window is measured from real time here.
+    const pastWindow = new Date(Date.now() + 8 * DAY);
+    expect(await sweeper(retention, { now: pastWindow, evidence: evidenceFor(bucket) })()).toEqual({
+      expired: 0,
+      erased: 0,
+      evidenceVersionsDeleted: 0,
+    });
+    expect(await versionsUnder(bucket, key)).toHaveLength(1);
   });
 });

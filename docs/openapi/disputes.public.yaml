@@ -380,7 +380,60 @@ paths:
         '412': { $ref: '#/components/responses/StaleView' }
         '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
 
+  /agent/disputes/{transactionId}/evidence/{evidenceId}/download:
+    parameters:
+      - $ref: './common.yaml#/components/parameters/TransactionIdPath'
+      - $ref: '#/components/parameters/EvidenceIdPath'
+      - $ref: './common.yaml#/components/parameters/CorrelationIdHeader'
+    get:
+      operationId: getEvidenceDownload
+      summary: Short-lived download link for one STORED evidence file (ADR-072)
+      description: |
+        Disputes checks the dispute exists, the item is this dispute's and is STORED, records an audit row
+        (`evidence_view`: agent id, dispute, evidence, time), then asks the `evidence-viewer` Lambda for a presigned GET.
+        The link expires 60 s after it is minted, downloads as an attachment named `<evidenceId>.<pdf|jpg|png>` with the
+        declared content type and `no-store`, and is a bearer link: open it once, do not store or share it. Disputes
+        never reads the file. At most 30 links per agent per 10 minutes. Every attempt that passes the 404, 409 and 429
+        checks is audited before the viewer is called, so a 503 `VIEWER_UNAVAILABLE` still leaves a row; if the
+        audit row cannot be written the answer is 503 `AUDIT_UNAVAILABLE` and no link is minted.
+      security:
+        - agentToken: []
+      responses:
+        '200':
+          description: Download link
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EvidenceDownload' }
+        '401': { $ref: './common.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: './common.yaml#/components/responses/Forbidden' }
+        '404': { $ref: './common.yaml#/components/responses/NotFound' }
+        '409':
+          description: '`EVIDENCE_NOT_STORED` — the item is PENDING, REJECTED, EXPIRED or ERASED; there is nothing to download.'
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '429':
+          description: '`RATE_LIMITED` — this agent reached 30 links in the last 10 minutes. No audit row is written.'
+          headers:
+            Retry-After:
+              description: Seconds until the oldest counted link leaves the window.
+              schema: { type: integer, minimum: 1, maximum: 600 }
+          content:
+            application/problem+json:
+              schema: { $ref: './common.yaml#/components/schemas/Problem' }
+        '503': { $ref: './common.yaml#/components/responses/ServiceUnavailable' }
+
 components:
+  parameters:
+    EvidenceIdPath:
+      name: evidenceId
+      in: path
+      required: true
+      schema: { $ref: './common.yaml#/components/schemas/Uuid' }
   securitySchemes:
     userToken: { $ref: './common.yaml#/components/securitySchemes/userToken' }
     agentToken: { $ref: './common.yaml#/components/securitySchemes/agentToken' }
@@ -448,6 +501,13 @@ components:
           type: array
           description: Ascending by `at`.
           items: { $ref: '#/components/schemas/AgentTimelineEvent' }
+    EvidenceDownload:
+      type: object
+      additionalProperties: false
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri, description: 'Presigned S3 GET; opaque. Open it with a top-level navigation, never inline.' }
+        expiresAt: { $ref: './common.yaml#/components/schemas/Timestamp' }
     ReviewDisputeRequest:
       type: object
       additionalProperties: false

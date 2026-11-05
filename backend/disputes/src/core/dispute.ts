@@ -87,9 +87,6 @@ export const disputeChangedEvent = (
 export const quarantineObjectKey = (transactionId: string, evidenceId: string): string =>
   `intake/${transactionId}/${evidenceId}`;
 
-export const evidenceObjectKey = (disputeId: string, evidenceId: string): string =>
-  `evidence/${disputeId}/${evidenceId}`;
-
 // Same ids-only rule as the status events, and the version is unchanged because evidence never bumps it (ADR-055).
 export const evidenceResultEvent = (
   dispute: DisputeRecord,

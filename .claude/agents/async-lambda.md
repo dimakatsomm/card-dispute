@@ -1,6 +1,6 @@
 ---
 name: async-lambda
-description: Owns backend/lambdas/* — evidence-intake, dispute-notifier, retention-sweeper. Use for SQS/S3-triggered or scheduled Lambda tasks. Never writes service routes, migrations or Terraform.
+description: Owns backend/lambdas/* — evidence-intake, dispute-notifier, retention-sweeper, evidence-viewer. Use for SQS/S3-triggered, scheduled or directly invoked Lambda tasks. Never writes service routes, migrations or Terraform.
 tools: Read, Glob, Grep, Bash, Edit, Write
 model: opus
 ---

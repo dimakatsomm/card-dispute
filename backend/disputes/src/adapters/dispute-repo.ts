@@ -10,6 +10,7 @@ import { err, ok } from '@cd/shared/fp';
 import type pg from 'pg';
 import { z } from 'zod';
 import type { QueueRecord } from '../core/agent-view.ts';
+import type { RecentViews } from '../core/evidence-view.ts';
 import type { DisputeRecord, EvidenceRecord, HistoryRecord } from '../core/types.ts';
 import type { EvidenceDetail } from '../core/timeline.ts';
 import type {
@@ -20,8 +21,10 @@ import type {
   DisputeSummaryRecord,
   DisputeTx,
   DisputeWithHistory,
+  EvidenceForAgent,
   EvidenceSettlement,
   NewDispute,
+  NewEvidenceView,
   NewHistory,
   ReviewQueueQuery,
   VersionedUpdate,
@@ -232,6 +235,26 @@ const pageFilter = (q: DisputePageQuery): Filter => {
       );
 };
 
+const recentViewsRow = z
+  .object({ n: z.number().int(), seconds_left: z.number().nullable() })
+  .transform((r): RecentViews => ({ count: r.n, secondsUntilOldestLeaves: r.seconds_left }));
+
+const evidenceForAgentRow = z
+  .object({
+    dispute_row_id: z.string(),
+    dispute_id: z.string(),
+    evidence_row_id: z.string(),
+    declared_content_type: z.enum(EVIDENCE_CONTENT_TYPES),
+    status: z.enum(EVIDENCE_STATUSES),
+  })
+  .transform((r): EvidenceForAgent => ({
+    disputeRowId: r.dispute_row_id,
+    disputeId: r.dispute_id,
+    evidenceRowId: r.evidence_row_id,
+    contentType: r.declared_content_type,
+    status: r.status,
+  }));
+
 type Predicate = { readonly sql: string; readonly params: ReadonlyArray<string> };
 
 const keyPredicate = (key: DisputeKey): Predicate =>
@@ -399,6 +422,32 @@ const txOps = (client: Queryable): DisputeTx => ({
     const updated = firstDispute(res.rows);
     return updated === null ? err('STALE_VERSION') : ok(updated);
   },
+
+  // Two-key form, so it never collides with the single-key migration lock; serialises one agent's count and insert.
+  lockAgentViews: async (agentId) => {
+    await client.query("select pg_advisory_xact_lock(hashtext('evidence_view'), hashtext($1::text))", [
+      agentId,
+    ]);
+  },
+
+  // DB clock on both sides: viewed_at defaults to now(), so the window is measured on the same clock.
+  recentViews: async (agentId, windowMinutes) => {
+    const res = await client.query(
+      `select count(*)::int as n,
+         extract(epoch from min(viewed_at) + make_interval(mins => $2) - now())::float8 as seconds_left
+       from evidence_view where agent_id = $1 and viewed_at > now() - make_interval(mins => $2)`,
+      [agentId, windowMinutes],
+    );
+    return recentViewsRow.parse(res.rows[0]);
+  },
+
+  insertEvidenceView: async (v: NewEvidenceView) => {
+    await client.query('insert into evidence_view (evidence_id, dispute_id, agent_id) values ($1, $2, $3)', [
+      v.evidenceRowId,
+      v.disputeRowId,
+      v.agentId,
+    ]);
+  },
 });
 
 const readWithHistory = async (client: Queryable, where: Predicate): Promise<DisputeWithHistory | null> => {
@@ -448,6 +497,17 @@ export const createDisputeRepo = (pool: Connectable & Pick<pg.Pool, 'query'>): D
 
   // Unscoped by owner on purpose: only the agent routes call this (ADR-071).
   findForAgent: (transactionId) => readSnapshot(pool, { sql: 'transaction_id = $1', params: [transactionId] }),
+
+  findEvidenceForAgent: async (transactionId, evidenceId) => {
+    const res = await pool.query(
+      `select d.id::text as dispute_row_id, d.dispute_id::text as dispute_id, e.id::text as evidence_row_id,
+         e.declared_content_type, e.status
+       from dispute d join dispute_evidence e on e.dispute_id = d.id
+       where d.transaction_id = $1 and e.evidence_id = $2`,
+      [transactionId, evidenceId],
+    );
+    return res.rows[0] === undefined ? null : evidenceForAgentRow.parse(res.rows[0]);
+  },
 
   // Unnamed on purpose: a named statement may switch to a generic plan, which cannot use the partial index.
   listReviewQueue: async (query) => {

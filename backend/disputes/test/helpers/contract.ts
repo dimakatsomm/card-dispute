@@ -2,6 +2,7 @@ import {
   zAgentDisputeDetail,
   zAddEvidenceResponse,
   zCreateDisputeResponse,
+  zGetEvidenceDownloadResponse,
   zGetDisputeResponse,
   zListMyDisputesResponse,
   zListReviewQueueResponse,
@@ -20,6 +21,7 @@ const RESPONSES = {
   recordEvidenceResult: zRecordEvidenceResultResponse,
   reviewQueue: zListReviewQueueResponse,
   agentDetail: zAgentDisputeDetail,
+  evidenceDownload: zGetEvidenceDownloadResponse,
 } as const;
 
 // Public responses are strict, so an extra field fails here as well as a missing or malformed one (ADR-057).

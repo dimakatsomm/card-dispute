@@ -45,7 +45,7 @@ Hard rules the stack implies:
 ```
 backend/                      Node 24 — one folder per deployable
   auth/ users/ transactions/ disputes/     src/ migrations/ test/ Dockerfile package.json
-  lambdas/{evidence-intake,dispute-notifier,retention-sweeper}/   container-image Lambdas
+  lambdas/{evidence-intake,dispute-notifier,retention-sweeper,evidence-viewer}/   container-image Lambdas
   packages/{shared,auth-client,dispute-domain,db}/                                     shared libs, not deployable
 frontend/                     React + Vite + TS SPA (nginx container); API types generated from docs/openapi
 infra/terraform/              bootstrap/, modules/*, envs/dev

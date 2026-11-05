@@ -14,10 +14,17 @@ Each run, using only the injected clock (the schedule event's content is ignored
 At most `SWEEP_BATCH_SIZE` rows per step per run; the backlog drains over later runs. A dispute that fails to erase is
 rolled back whole, the rest of the batch continues, and the invocation then fails so the error alarm fires.
 
-**It does not touch S3.** Evidence objects are removed by the 365-day lifecycle rule on the evidence bucket's
-`evidence/` prefix (docs/05).
+3. Evidence bytes (ADR-072, BO-10x): after the erase step, for every erased dispute with `ERASED` evidence whose erase
+   (the evidence row's `updated_at`) is within `EVIDENCE_DELETE_RETRY_DAYS`, newest first and at most `SWEEP_BATCH_SIZE`,
+   it lists every version and delete marker under `evidence/{disputeId}/` and deletes them (`DeleteObjects`, ≤ 1000 per
+   call). An empty prefix is a no-op, so re-runs only cost one list call per dispute. A failed delete never touches the
+   committed erase; it fails the invocation and is retried by the next run while inside the window. Past the window the
+   365-day lifecycle on `evidence/` (noncurrent versions after 30 days) remains the backstop. Skipped when
+   `EVIDENCE_BUCKET` is unset.
 
-Metrics (EMF, namespace `METRICS_NAMESPACE`): `EvidenceExpired`, `RetentionErased`, and `RetentionFailed` (no dimensions, only when a dispute fails to erase; alarm on it). Logs carry the `disputeId` only.
+Metrics (EMF, namespace `METRICS_NAMESPACE`, no dimensions): `EvidenceExpired`, `RetentionErased`,
+`EvidenceVersionsDeleted`, and, only on failure, `RetentionFailed` and `EvidenceDeleteFailed` (alarm on both). Logs
+carry the `disputeId` only, never an object key.
 
 | Env | Default | |
 |---|---|---|
@@ -26,5 +33,8 @@ Metrics (EMF, namespace `METRICS_NAMESPACE`): `EvidenceExpired`, `RetentionErase
 | `DB_SSL` | `false` | Must be `true` when `DATABASE_SECRET_ID` is set (`rds.force_ssl=1`); verifies against the RDS CA |
 | `SWEEP_BATCH_SIZE` | `500` | Batch cap per step |
 | `DB_CONNECT_TIMEOUT_MS` / `DB_STATEMENT_TIMEOUT_MS` | `5000` / `30000` | |
+| `EVIDENCE_BUCKET` | | Evidence bucket name; unset disables byte deletion |
+| `EVIDENCE_DELETE_RETRY_DAYS` | `7` | How long after its erase a dispute's prefix is re-checked (1–30) |
+| `AWS_ENDPOINT_URL` | | Local only (moto) |
 | `METRICS_NAMESPACE` | `cd/retention-sweeper` | |
 | `AWS_REGION`, `LOG_LEVEL` | `eu-north-1`, `info` | |

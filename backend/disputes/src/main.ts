@@ -10,6 +10,12 @@ import { UPSTREAM_DEADLINE_MS } from './adapters/deadline.ts';
 import { createDisputeRepo } from './adapters/dispute-repo.ts';
 import { sha256EvidenceDigest } from './adapters/evidence-digest.ts';
 import { createEventPublisher, createSqsSend, type SendMessage } from './adapters/event-publisher.ts';
+import {
+  createLambdaInvoke,
+  createLambdaViewer,
+  unconfiguredViewer,
+  VIEWER_TIMEOUT_MS,
+} from './adapters/evidence-viewer.ts';
 import { withValidateDeadline } from './adapters/service-client.ts';
 import { createTransactionsClient } from './adapters/transactions-client.ts';
 import { createUploadSigner, guardSigner, type PresignUploads } from './adapters/upload-signer.ts';
@@ -20,11 +26,13 @@ import { addEvidence } from './use-cases/add-evidence.ts';
 import { getAgentDispute } from './use-cases/agent-dispute.ts';
 import { createDispute } from './use-cases/create-dispute.ts';
 import { decideDispute } from './use-cases/decide-dispute.ts';
+import { downloadEvidence } from './use-cases/download-evidence.ts';
 import { getDispute } from './use-cases/get-dispute.ts';
 import { listDisputes } from './use-cases/list-disputes.ts';
 import { lookupDisputes } from './use-cases/lookup-disputes.ts';
 import { recordEvidenceResult } from './use-cases/record-evidence-result.ts';
 import { listReviewQueue } from './use-cases/review-queue.ts';
+import type { InvokeViewer } from './use-cases/ports.ts';
 import { updateDispute } from './use-cases/update-dispute.ts';
 
 export type Infra = {
@@ -33,6 +41,7 @@ export type Infra = {
   readonly fetch: Fetch;
   readonly sendMessage: SendMessage;
   readonly presignUploads: PresignUploads;
+  readonly invokeViewer: InvokeViewer;
   readonly logger: FastifyBaseLogger;
   readonly now: () => Date;
   readonly newId: () => string;
@@ -134,6 +143,11 @@ export const composeServers = (infra: Infra): Servers => {
       evidenceDigest: sha256EvidenceDigest,
       getAgentDispute: agentDispute,
     }),
+    downloadEvidence: downloadEvidence({
+      findEvidenceForAgent: repo.findEvidenceForAgent,
+      transact: repo.transact,
+      invokeViewer: infra.invokeViewer,
+    }),
   };
 
   return createApp({
@@ -160,6 +174,20 @@ export const createConfiguredUploadSigner = (config: Config, now: () => Date): P
   });
 };
 
+export const createConfiguredViewer = (config: Config, log: FastifyBaseLogger): InvokeViewer =>
+  config.EVIDENCE_VIEWER_FUNCTION === undefined
+    ? unconfiguredViewer(log)
+    : createLambdaViewer({
+        invoke: createLambdaInvoke({
+          region: config.AWS_REGION,
+          timeoutMs: VIEWER_TIMEOUT_MS,
+          ...(config.LAMBDA_ENDPOINT === undefined ? {} : { endpoint: config.LAMBDA_ENDPOINT }),
+        }),
+        functionName: config.EVIDENCE_VIEWER_FUNCTION,
+        timeoutMs: VIEWER_TIMEOUT_MS,
+        log,
+      });
+
 export const startService = async (env: Env): Promise<{ readonly close: () => Promise<void> }> => {
   const config = loadDisputesConfig(env);
   const logger = createLogger({ level: config.LOG_LEVEL });
@@ -180,6 +208,7 @@ export const startService = async (env: Env): Promise<{ readonly close: () => Pr
       ...(config.SQS_ENDPOINT === undefined ? {} : { endpoint: config.SQS_ENDPOINT }),
     }),
     presignUploads: createConfiguredUploadSigner(config, now),
+    invokeViewer: createConfiguredViewer(config, logger),
     logger,
     now,
     newId: randomUUID,

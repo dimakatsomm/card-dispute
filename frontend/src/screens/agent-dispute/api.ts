@@ -62,3 +62,48 @@ export const resolveDispute =
     });
     return data ? ok(data) : err(actionErrorFor(response.status));
   };
+
+export type DownloadError =
+  | { readonly kind: 'NOT_FOUND' }
+  | { readonly kind: 'NOT_STORED' }
+  | { readonly kind: 'RATE_LIMITED'; readonly retryAfterSeconds: number | null }
+  | { readonly kind: 'UNAVAILABLE' };
+
+const parseRetryAfter = (value: string | null): number | null => {
+  const seconds = value !== null && /^\d+$/.test(value.trim()) ? Number(value.trim()) : NaN;
+  return seconds >= 1 && seconds <= 600 ? seconds : null;
+};
+
+const downloadErrorFor = (response: Response): DownloadError => {
+  switch (response.status) {
+    case 404:
+      return { kind: 'NOT_FOUND' };
+    case 409:
+      return { kind: 'NOT_STORED' };
+    case 429:
+      return { kind: 'RATE_LIMITED', retryAfterSeconds: parseRetryAfter(response.headers.get('Retry-After')) };
+    default:
+      return { kind: 'UNAVAILABLE' };
+  }
+};
+
+// The blank tab shares our origin until it navigates, so a javascript: or data: URL would run as us.
+const isNavigableDownloadUrl = (url: string): boolean => {
+  const parsed = URL.parse(url);
+  if (parsed?.protocol === 'https:') return true;
+  return parsed?.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1');
+};
+
+export const getEvidenceDownloadUrl =
+  (api: ApiClient) =>
+  async (input: { readonly transactionId: string; readonly evidenceId: string }): Promise<Result<string, DownloadError>> => {
+    try {
+      const { data, response } = await api.GET('/agent/disputes/{transactionId}/evidence/{evidenceId}/download', {
+        params: { path: { transactionId: input.transactionId, evidenceId: input.evidenceId } },
+      });
+      if (!data) return err(downloadErrorFor(response));
+      return isNavigableDownloadUrl(data.url) ? ok(data.url) : err({ kind: 'UNAVAILABLE' });
+    } catch {
+      return err({ kind: 'UNAVAILABLE' });
+    }
+  };

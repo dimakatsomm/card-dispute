@@ -13,6 +13,13 @@ export type RetentionStore = {
   readonly expirePendingEvidence: (cutoff: Date, limit: number) => Promise<number>;
   readonly findErasureCandidates: (cutoff: Date, limit: number) => Promise<ReadonlyArray<ErasureCandidate>>;
   readonly eraseDispute: (id: string) => Promise<Result<EraseOutcome, EraseFailure>>;
+  readonly findErasedWithEvidence: (erasedSince: Date, limit: number) => Promise<ReadonlyArray<string>>;
+};
+
+export type DeleteFailure = { readonly errorName: string };
+
+export type EvidenceObjects = {
+  readonly deleteAllVersions: (prefix: string) => Promise<Result<number, DeleteFailure>>;
 };
 
 export type SweepLog = {
@@ -20,4 +27,9 @@ export type SweepLog = {
   readonly error: (obj: object, msg: string) => void;
 };
 
-export type MetricName = 'EvidenceExpired' | 'RetentionErased' | 'RetentionFailed';
+export type MetricName =
+  | 'EvidenceExpired'
+  | 'RetentionErased'
+  | 'RetentionFailed'
+  | 'EvidenceVersionsDeleted'
+  | 'EvidenceDeleteFailed';

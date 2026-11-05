@@ -1,4 +1,4 @@
-# Override on top of docker-compose.yml + docker-compose.services.yml: the three Lambdas under the Lambda RIE,
+# Override on top of docker-compose.yml + docker-compose.services.yml: the four Lambdas under the Lambda RIE,
 # and the local driver standing in for GuardDuty/EventBridge, the SQS event-source mapping, the schedule and SES.
 # Emulation only: AWS behaviour is proven in E-03. Published ports are loopback only; 8081 is never published.
 x-aws-local: &aws-local
@@ -89,8 +89,10 @@ services:
       dockerfile: backend/lambdas/retention-sweeper/Dockerfile
     image: cd-retention-sweeper:local
     environment:
-      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      <<: *aws-local
       DATABASE_URL: postgres://disputes_retention:${DB_PASSWORD_DISPUTES_RETENTION:?set in local/.env.example}@postgres:5432/${POSTGRES_DB:-disputes}
+      AWS_ENDPOINT_URL: http://moto:5000
+      EVIDENCE_BUCKET: ${EVIDENCE_BUCKET:?set in local/.env.example}
       LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
     ports:
       - '127.0.0.1:${SWEEPER_HOST_PORT:-58093}:8080'
@@ -99,7 +101,29 @@ services:
         condition: service_healthy
       disputes-migrate:
         condition: service_completed_successfully
+      moto-init:
+        condition: service_completed_successfully
     networks: [local]
+
+  # Invoked only by disputes over the compose network (ADR-072), so no host port: nothing local may mint URLs around the audit row.
+  evidence-viewer:
+    build:
+      context: .
+      dockerfile: backend/lambdas/evidence-viewer/Dockerfile
+    image: cd-evidence-viewer:local
+    environment:
+      <<: *aws-local
+      # The viewer only signs (no S3 calls), so the URL carries moto's host address and a host browser or the e2e fetches it as minted.
+      AWS_ENDPOINT_URL: http://localhost:${MOTO_HOST_PORT:-55000}
+      EVIDENCE_BUCKET: ${EVIDENCE_BUCKET:?set in local/.env.example}
+      LOG_LEVEL: ${SERVICE_LOG_LEVEL:?set in local/.env.example}
+    networks: [local]
+
+  # The RIE serves one function, named `function`; the SDK's Invoke URL is {endpoint}/2015-03-31/functions/{name}/invocations.
+  disputes:
+    environment:
+      LAMBDA_ENDPOINT: http://evidence-viewer:8080
+      EVIDENCE_VIEWER_FUNCTION: function
 
   driver-scan-stub:
     <<: *driver

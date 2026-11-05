@@ -1,6 +1,6 @@
 # lambda-driver
 
-Local stand-ins for the AWS pieces that trigger and serve the three Lambdas. Not deployed, and not referenced by any Dockerfile.
+Local stand-ins for the AWS pieces that trigger and serve the three event-driven Lambdas. Not deployed, and not referenced by any Dockerfile. The fourth, `evidence-viewer`, is invoked by disputes only (`LAMBDA_ENDPOINT`), never by the driver.
 
 **This is emulation, not AWS.** It copies the shape of GuardDuty, EventBridge, the Lambda event-source mapping and SES closely enough to run the flows locally. It proves nothing about the real services: S3 enforcement of the presigned PUT (type, length, sha256), GuardDuty verdicts, bucket policies, IAM and real Lambda retry timing are proven only against real AWS (E-03).
 

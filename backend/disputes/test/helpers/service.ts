@@ -5,7 +5,8 @@ import type pg from 'pg';
 import type { QueueMessage, SendMessage } from '../../src/adapters/event-publisher.ts';
 import { createUploadSigner, type PresignUploads } from '../../src/adapters/upload-signer.ts';
 import { loadDisputesConfig } from '../../src/config.ts';
-import { composeServers, type Infra } from '../../src/main.ts';
+import { composeServers, createConfiguredViewer, type Infra } from '../../src/main.ts';
+import type { InvokeViewer } from '../../src/use-cases/ports.ts';
 import { URLS, type FakeUpstreams } from './fakes.ts';
 
 export const QUARANTINE_BUCKET = 'cd-evidence-quarantine';
@@ -26,6 +27,7 @@ export type TestServiceOptions = {
   // Lets a test fault one upstream; anything it returns undefined for goes to the fakes.
   readonly fault?: (url: URL, body: string, init?: RequestInit) => Promise<Response> | undefined;
   readonly presign?: PresignUploads;
+  readonly viewer?: InvokeViewer;
 };
 
 export const startTestService = async (options: TestServiceOptions): Promise<TestService> => {
@@ -52,6 +54,7 @@ export const startTestService = async (options: TestServiceOptions): Promise<Tes
       : (input, init) =>
           fault(new URL(String(input)), typeof init?.body === 'string' ? init.body : '', init) ??
           options.upstreams.fetch(input, init);
+  const logger = createLogger({ level: 'info', destination: { write: (s: string) => void lines.push(s) } });
   const servers = composeServers({
     config,
     pool: options.pool,
@@ -70,7 +73,9 @@ export const startTestService = async (options: TestServiceOptions): Promise<Tes
         forcePathStyle: true,
         now,
       }),
-    logger: createLogger({ level: 'info', destination: { write: (s: string) => void lines.push(s) } }),
+    // Unset, the production fallback answers 503 VIEWER_UNAVAILABLE, so no test ever reaches AWS.
+    invokeViewer: options.viewer ?? createConfiguredViewer(config, logger),
+    logger,
     now,
     newId: randomUUID,
     sleep: async () => undefined,
@@ -113,7 +118,11 @@ export const poolPausingAfter = (pool: pg.Pool, sqlFragment: string, ms: number)
         get: (target, prop, receiver) => {
           if (prop === 'query') {
             return async (sql: unknown, ...rest: unknown[]) => {
-              const result: unknown = await (target.query as (...a: unknown[]) => unknown).call(target, sql, ...rest);
+              const result: unknown = await (target.query as (...a: unknown[]) => unknown).call(
+                target,
+                sql,
+                ...rest,
+              );
               if (typeof sql === 'string' && sql.includes(sqlFragment)) {
                 await new Promise((resolve) => setTimeout(resolve, ms));
               }
