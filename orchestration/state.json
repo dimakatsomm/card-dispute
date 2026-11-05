@@ -834,21 +834,21 @@
       "blockedBy": []
     },
     "BO-10b": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "data-schema",
       "blockedBy": [
         "BO-10a"
       ]
     },
     "BO-10c": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "async-lambda",
       "blockedBy": [
         "BO-10a"
       ]
     },
     "BO-10x": {
-      "status": "todo",
+      "status": "in_progress",
       "agent": "async-lambda",
       "blockedBy": []
     },
