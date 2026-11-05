@@ -9,7 +9,8 @@
     "M3": "in_progress — decomposed 2026-10-20; waves 0–3 offline, wave 4 owner-gated.",
     "M4": "todo — H-01..H-04 (docs/08 §8)",
     "M5": "done 2026-11-04 — integration-verifier: M5 MET locally (report orchestration/reports/M5.md). 1,437 tests/17 packages; e2e m5 15/15; Playwright agent+customer flows; walkthrough 50/51 (1 script error). m2 Lambda-dependent e2e unrunnable here (Lambda base image blocked by proxy).",
-    "M5-rollout": "in_progress — BO-09 (ASAP), then BO-10 evidence viewing; BO-H1..H3 hardening"
+    "M5-rollout": "in_progress — BO-09 (ASAP), then BO-10 evidence viewing; BO-H1..H3 hardening",
+    "M6": "todo — agent evidence viewing (ADR-072), decomposed 2026-11-05"
   },
   "tasks": {
     "F-01": {
@@ -812,12 +813,12 @@
       "notes": "contracts generator adds a redundant code-point length check (zod 4.6 min/max already count code points); remove and regenerate. Owner 2026-11-04: after BO-09, one PR each."
     },
     "BO-10": {
-      "status": "todo",
+      "status": "done",
       "agent": "orchestrator",
       "blockedBy": [
         "BO-09"
       ],
-      "notes": "Owner scheduled 2026-11-04: agent evidence viewing; design + peer review first."
+      "notes": "Design + review 03 + ADR-072 (owner 2026-11-05: B′ accepted with residual risk; no CloudTrail data events; erasure deletes bytes). Decomposed into BO-10a..g + BO-10x."
     },
     "BO-11": {
       "status": "todo",
@@ -826,6 +827,60 @@
         "BO-09"
       ],
       "notes": "Agent TOTP enrolment screen + backoffice scope; without it TOTP cannot be enforced in the shared pool."
+    },
+    "BO-10a": {
+      "status": "todo",
+      "agent": "orchestrator",
+      "blockedBy": []
+    },
+    "BO-10b": {
+      "status": "todo",
+      "agent": "data-schema",
+      "blockedBy": [
+        "BO-10a"
+      ]
+    },
+    "BO-10c": {
+      "status": "todo",
+      "agent": "async-lambda",
+      "blockedBy": [
+        "BO-10a"
+      ]
+    },
+    "BO-10x": {
+      "status": "todo",
+      "agent": "async-lambda",
+      "blockedBy": []
+    },
+    "BO-10d": {
+      "status": "todo",
+      "agent": "service-api",
+      "blockedBy": [
+        "BO-10b",
+        "BO-10c"
+      ]
+    },
+    "BO-10e": {
+      "status": "todo",
+      "agent": "frontend",
+      "blockedBy": [
+        "BO-10a"
+      ]
+    },
+    "BO-10f": {
+      "status": "todo",
+      "agent": "test-engineer",
+      "blockedBy": [
+        "BO-10d",
+        "BO-10e"
+      ]
+    },
+    "BO-10g": {
+      "status": "todo",
+      "agent": "owner",
+      "blockedBy": [
+        "BO-10f"
+      ]
     }
   },
   "decisions": [
@@ -1170,7 +1225,8 @@
       "text": "CloudFront on the default *.cloudfront.net certificate cannot set a TLS 1.2 minimum security policy (AWS forces TLSv1); accepted with no custom domain (ADR-046) — modern browsers negotiate TLS 1.2/1.3. A domain + ACM certificate in us-east-1 is required before real data, together with HTTPS on the internal hop. WAF keeps a label rule blocking oversize bodies outside /api/dispute* (+$1/mo); PriceClass_All."
     },
     "2026-11-04 owner: BO-09 ASAP; agents in the same Cognito pool with per-agent TOTP; agent evidence viewing scheduled (BO-10)",
-    "2026-11-04 owner: BO-H1..H3 after BO-09, as separate PRs"
+    "2026-11-04 owner: BO-H1..H3 after BO-09, as separate PRs",
+    "2026-11-05 owner: BO-10 B′ accepted incl. residual risk; no CloudTrail S3 data events; retention erasure deletes evidence bytes"
   ],
   "openQuestions": [
     "V-08: Confirm against real S3 in dev that a tampered body is rejected for a presigned PUT with signed checksum (moto behaviour unverified) — E-03.",

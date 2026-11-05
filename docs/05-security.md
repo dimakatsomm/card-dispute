@@ -13,7 +13,7 @@
 | EoP | Service role reading another schema | Per-schema DB roles, no cross grants | migration test: cross-schema SELECT fails |
 | Replay | Retried POST creates 2 disputes | `unique (transaction_id)` → 409 ALREADY_DISPUTED | concurrent-POST integration test |
 | Malicious upload | Executable renamed .pdf; malware in a PDF; oversized file | Presigned PUT signs Content-Type, Content-Length and sha256 (S3 enforces them); file lands in an isolated quarantine bucket; malware scan; evidence-intake checks magic bytes before promoting; only the clean copy goes to the evidence bucket; disputes never reads the bytes | evidence-intake tests (renamed exe, EICAR test file, checksum mismatch) |
-| Cardholder data in evidence (PCI) | Receipt photo shows a full PAN | Bytes never transit the disputes service or the ALB; buckets SSE-KMS, private, access only by evidence-intake (quarantine) and back-office read role (evidence) | IAM policy review; S3 access logs |
+| Cardholder data in evidence (PCI) | Receipt photo shows a full PAN | Bytes never transit the disputes service or the ALB; buckets SSE-KMS, private, access only by evidence-intake (quarantine) and the `evidence-viewer` role (evidence, ADR-072) | IAM policy review; per-view `evidence_view` audit row + viewer log (no S3 access logs or CloudTrail data events — owner, 2026-11-05) |
 
 ## Identity
 - Cognito user pool: admin-create-only; users authenticate via hosted UI / PKCE (client concern). The `spa` client's access tokens last 15 min, refresh 1 day (dev).
