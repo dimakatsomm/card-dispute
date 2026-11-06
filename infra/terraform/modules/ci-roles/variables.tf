@@ -60,16 +60,16 @@ variable "github_oidc_provider_arn" {
 }
 
 variable "ecr_repository_arns" {
-  description = "ECR repository ARN by repo key (ecr.repository_arns); all nine keys."
+  description = "ECR repository ARN by repo key (ecr.repository_arns); all ten keys."
   type        = map(string)
 
   validation {
     condition = toset(keys(var.ecr_repository_arns)) == toset([
       "svc-auth", "svc-users", "svc-transactions", "svc-disputes", "web",
-      "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper",
+      "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper", "lambda-evidence-viewer",
       "dev-tools",
     ])
-    error_message = "ecr_repository_arns must have exactly the nine ECR repo keys in modules/README.md section 2."
+    error_message = "ecr_repository_arns must have exactly the ten ECR repo keys in modules/README.md section 2."
   }
 
   validation {
@@ -116,8 +116,8 @@ variable "lambda_function_names" {
   type        = map(string)
 
   validation {
-    condition     = toset(keys(var.lambda_function_names)) == toset(["evidence-intake", "dispute-notifier", "retention-sweeper"])
-    error_message = "lambda_function_names must have exactly the keys evidence-intake, dispute-notifier, retention-sweeper."
+    condition     = toset(keys(var.lambda_function_names)) == toset(["evidence-intake", "dispute-notifier", "retention-sweeper", "evidence-viewer"])
+    error_message = "lambda_function_names must have exactly the keys evidence-intake, dispute-notifier, retention-sweeper, evidence-viewer."
   }
 
   validation {

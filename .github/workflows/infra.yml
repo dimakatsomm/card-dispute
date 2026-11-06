@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       lambda_image_uris:
-        description: 'Optional JSON object {"evidence-intake","dispute-notifier","retention-sweeper"} -> <account>.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>; replaces the dev.tfvars value'
+        description: 'Optional JSON object {"evidence-intake","dispute-notifier","retention-sweeper","evidence-viewer"} -> <account>.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>; replaces the dev.tfvars value'
         required: false
         type: string
         default: ""
@@ -134,7 +134,7 @@ jobs:
           [[ "$TF_STATE_KMS_KEY_ARN" =~ ^arn:aws:kms:eu-north-1:${AWS_ACCOUNT_ID}:key/[0-9a-f-]{36}$ ]] || { echo "::error::TF_STATE_KMS_KEY_ARN must be a key ARN in eu-north-1"; exit 1; }
           [[ "$TF_STATE_BUCKET" =~ ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$ ]] || { echo "::error::TF_STATE_BUCKET is not a bucket name"; exit 1; }
 
-      # All three keys are required: the input replaces the whole map, so an omitted key would destroy that Lambda.
+      # All four keys are required: the input replaces the whole map, so an omitted key would destroy that Lambda.
       - name: Validate lambda_image_uris
         if: env.LAMBDA_IMAGE_URIS != ''
         run: |
@@ -144,11 +144,11 @@ jobs:
               and (.value | length) < 200
               and (.value | startswith($acct + ".dkr.ecr.eu-north-1.amazonaws.com/" + $p + "-lambda-" + $k + ":"));
             if type == "object"
-              and keys == ["dispute-notifier", "evidence-intake", "retention-sweeper"]
+              and keys == ["dispute-notifier", "evidence-intake", "evidence-viewer", "retention-sweeper"]
               and (to_entries | all(.[]; ok))
             then { lambda_image_uris: . } else false end
           ' > "$LAMBDA_VAR_FILE" || {
-            echo "::error::lambda_image_uris must be a JSON object with exactly evidence-intake, dispute-notifier and retention-sweeper, each <AWS_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/${NAME_PREFIX}-lambda-<key>:<40-hex sha>"
+            echo "::error::lambda_image_uris must be a JSON object with exactly evidence-intake, dispute-notifier, retention-sweeper and evidence-viewer, each <AWS_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/${NAME_PREFIX}-lambda-<key>:<40-hex sha>"
             exit 1
           }
           echo "LAMBDA_VAR_ARGS=-var-file=$LAMBDA_VAR_FILE" >> "$GITHUB_ENV"

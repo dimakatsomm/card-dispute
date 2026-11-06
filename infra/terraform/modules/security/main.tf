@@ -248,7 +248,7 @@ locals {
   ])
 
   # Explicit so S3 (ECR layers, evidence objects) stays reachable if the NAT :443 rule is ever narrowed.
-  s3_egress = toset(["auth", "users", "transactions", "disputes", "web", "dev-tools", "evidence-intake"])
+  s3_egress = toset(["auth", "users", "transactions", "disputes", "web", "dev-tools", "evidence-intake", "retention-sweeper"])
 }
 
 resource "aws_security_group" "this" {

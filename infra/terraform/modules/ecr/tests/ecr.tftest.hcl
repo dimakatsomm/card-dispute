@@ -23,10 +23,10 @@ run "repositories_are_immutable_scanned_and_encrypted" {
   assert {
     condition = toset(keys(aws_ecr_repository.this)) == toset([
       "svc-auth", "svc-users", "svc-transactions", "svc-disputes", "web",
-      "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper",
+      "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper", "lambda-evidence-viewer",
       "dev-tools",
     ])
-    error_message = "Exactly the nine contract repositories must exist."
+    error_message = "Exactly the ten contract repositories must exist."
   }
 
   assert {
@@ -80,8 +80,8 @@ run "only_lambda_repos_have_a_source_arn_scoped_pull_policy" {
   command = apply
 
   assert {
-    condition     = toset(keys(aws_ecr_repository_policy.lambda)) == toset(["lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper"])
-    error_message = "Only the three Lambda repositories may carry a repository policy."
+    condition     = toset(keys(aws_ecr_repository_policy.lambda)) == toset(["lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper", "lambda-evidence-viewer"])
+    error_message = "Only the four Lambda repositories may carry a repository policy."
   }
 
   assert {

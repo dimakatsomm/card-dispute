@@ -9,11 +9,11 @@ locals {
   partition = data.aws_partition.current.partition
 
   service_keys = ["auth", "users", "transactions", "disputes", "web"]
-  lambda_keys  = ["evidence-intake", "dispute-notifier", "retention-sweeper"]
+  lambda_keys  = ["evidence-intake", "dispute-notifier", "retention-sweeper", "evidence-viewer"]
   tool_keys    = ["db-bootstrap", "dev-seed", "net-probe"]
   repo_keys = [
     "svc-auth", "svc-users", "svc-transactions", "svc-disputes", "web",
-    "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper",
+    "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper", "lambda-evidence-viewer",
     "dev-tools",
   ]
 

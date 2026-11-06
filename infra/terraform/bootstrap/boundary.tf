@@ -185,20 +185,17 @@ locals {
         Resource = ["${local.arn.kms}:key/*"]
       },
       {
-        # Bucket and object actions share one statement to fit 6,144 chars; <prefix>* matches the same objects <prefix>*/* did.
+        # One statement and read-only globs (GetObject*, ListBucket*) fit 6,144 chars; <prefix>* matches the objects <prefix>*/* did.
         Sid    = "Buckets"
         Effect = "Allow"
         Action = [
           "s3:DeleteObject",
+          "s3:DeleteObjectVersion",
           "s3:GetBucketLocation",
           "s3:GetBucketNotification",
           "s3:GetEncryptionConfiguration",
-          "s3:GetObject",
-          "s3:GetObjectAttributes",
-          "s3:GetObjectTagging",
-          "s3:GetObjectVersion",
-          "s3:GetObjectVersionTagging",
-          "s3:ListBucket",
+          "s3:GetObject*",
+          "s3:ListBucket*",
           "s3:PutBucketNotification",
           "s3:PutObject",
           "s3:PutObjectTagging",

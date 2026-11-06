@@ -12,6 +12,7 @@ locals {
 
   create_function = var.image_uri != null
   has_schedule    = var.schedule != null
+  in_vpc          = var.subnet_ids != null
 
   # Built from names so role policies exist before (or without) the function.
   alias_arn_by_name = "arn:${local.partition}:lambda:${local.region}:${local.account_id}:function:${local.name}:${local.alias_name}"
@@ -22,6 +23,7 @@ locals {
     evidence-intake   = { LOG_LEVEL = "info", EVIDENCE_REQUIRE_SCAN = "true" }
     dispute-notifier  = { LOG_LEVEL = "info" }
     retention-sweeper = { LOG_LEVEL = "info", DB_SSL = "true", METRICS_NAMESPACE = "cd/retention-sweeper" }
+    evidence-viewer   = { LOG_LEVEL = "info" }
   }
 
   environment = merge(local.default_environment[var.function_key], var.environment)
@@ -44,6 +46,8 @@ locals {
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = ["${aws_cloudwatch_log_group.this.arn}:log-stream:*"]
       },
+    ],
+    [for s in [
       {
         Sid    = "VpcEniManagement"
         Effect = "Allow"
@@ -61,7 +65,7 @@ locals {
         Action   = ["ec2:DescribeNetworkInterfaces"]
         Resource = ["*"] # Describe actions have no resource-level permission.
       },
-    ],
+    ] : s if local.in_vpc],
     [for s in [
       {
         Sid      = "SendAsyncFailures"
@@ -144,6 +148,7 @@ resource "aws_lambda_function" "this" {
   #checkov:skip=CKV_AWS_115:No reserved concurrency: new-account concurrency quota (OWN-1).
   #checkov:skip=CKV_AWS_116:Failures go to on-failure destinations, ESM redrive or the scheduler DLQ, not a function DLQ.
   #checkov:skip=CKV_AWS_272:Code signing does not apply to container images.
+  #checkov:skip=CKV_AWS_117:VPC is per function: the evidence viewer only signs URLs locally and has no network peer (ADR-072).
   #checkov:skip=CKV_AWS_173:Environment holds only ids and secret references; cd-data admits no Lambda ViaService, so the AWS-managed key is used.
   count         = local.create_function ? 1 : 0
   function_name = local.name
@@ -159,9 +164,12 @@ resource "aws_lambda_function" "this" {
     variables = local.environment
   }
 
-  vpc_config {
-    subnet_ids         = var.subnet_ids
-    security_group_ids = [var.security_group_id]
+  dynamic "vpc_config" {
+    for_each = local.in_vpc ? [1] : []
+    content {
+      subnet_ids         = var.subnet_ids
+      security_group_ids = [var.security_group_id]
+    }
   }
 
   tracing_config {

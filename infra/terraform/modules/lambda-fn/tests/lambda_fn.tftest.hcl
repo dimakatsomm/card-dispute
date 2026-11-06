@@ -480,3 +480,63 @@ run "mixed_condition_statements" {
     error_message = "A list mixing no Condition, StringEquals and ArnLike renders as given; no null Condition key."
   }
 }
+
+run "viewer_runs_outside_the_vpc_with_logs_only" {
+  command = apply
+
+  variables {
+    function_key         = "evidence-viewer"
+    image_uri            = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-viewer:initial"
+    timeout_seconds      = 5
+    subnet_ids           = null
+    security_group_id    = null
+    async_on_failure_arn = null
+    environment          = { EVIDENCE_BUCKET = "cd-dev-evidence-123456789012" }
+    policy_statements = [{
+      Sid      = "ReadEvidenceObjects"
+      Effect   = "Allow"
+      Action   = ["s3:GetObject"]
+      Resource = ["arn:aws:s3:::cd-dev-evidence-123456789012/evidence/*"]
+    }]
+  }
+
+  assert {
+    condition     = length(aws_lambda_function.this[0].vpc_config) == 0
+    error_message = "The viewer signs locally and must run outside the VPC."
+  }
+
+  assert {
+    condition     = [for s in jsondecode(aws_iam_role_policy.function.policy).Statement : s.Sid] == ["WriteOwnLogGroup", "ReadEvidenceObjects"]
+    error_message = "Outside the VPC the role gets only its log statement plus the caller's: no ENI or DLQ statements."
+  }
+
+  assert {
+    condition     = aws_lambda_function.this[0].environment[0].variables == tomap({ LOG_LEVEL = "info", EVIDENCE_BUCKET = "cd-dev-evidence-123456789012" })
+    error_message = "Viewer env is LOG_LEVEL and EVIDENCE_BUCKET; Lambda sets AWS_REGION itself."
+  }
+
+  assert {
+    condition     = aws_lambda_function.this[0].timeout == 5 && aws_lambda_function.this[0].function_name == "cd-evidence-viewer"
+    error_message = "cd-evidence-viewer with the given timeout."
+  }
+
+  assert {
+    condition     = length(aws_lambda_event_source_mapping.sqs) == 0 && length(aws_scheduler_schedule.this) == 0 && length(aws_iam_role.scheduler) == 0
+    error_message = "The viewer has no event source and no schedule; disputes invokes it synchronously."
+  }
+
+  assert {
+    condition     = length(aws_lambda_function_event_invoke_config.live[0].destination_config) == 0
+    error_message = "The viewer has no async failure destination."
+  }
+}
+
+run "rejects_subnets_without_security_group" {
+  command = plan
+
+  variables {
+    security_group_id = null
+  }
+
+  expect_failures = [var.security_group_id]
+}

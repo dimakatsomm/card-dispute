@@ -20,17 +20,17 @@ Conditionals use only plan-known values: `image_uri`, and the null-ness of `sche
 
 | Resource | Notes |
 |---|---|
-| Function | `package_type = "Image"`, arm64, `memory_mb` (256), `timeout_seconds`, `publish = true`, `ignore_changes = [image_uri]` (the pipeline owns code), tracing PassThrough (ADR-063), private subnets plus its own SG, env on the AWS-managed Lambda key (no secrets in it; cd-data admits no Lambda `ViaService`), logs to the pre-created group. No reserved concurrency (account quota, OWN-1). The image's `CMD ["index.handler"]` is used as is. |
+| Function | `package_type = "Image"`, arm64, `memory_mb` (256), `timeout_seconds`, `publish = true`, `ignore_changes = [image_uri]` (the pipeline owns code), tracing PassThrough (ADR-063), private subnets plus its own SG (or no VPC when `subnet_ids` and `security_group_id` are both null: the viewer), env on the AWS-managed Lambda key (no secrets in it; cd-data admits no Lambda `ViaService`), logs to the pre-created group. No reserved concurrency (account quota, OWN-1). The image's `CMD ["index.handler"]` is used as is. |
 | Alias `live` | `ignore_changes = [function_version]`; the deploy pipeline moves it. Every trigger targets the alias. |
 | Async invoke config | On `live`: `async_max_retries` (2); on-failure destination `async_on_failure_arn` when set (intake: `cd-evidence-intake-dlq`). |
 | SQS event source mapping | When `sqs_event_source != null`: on `live`, `batch_size` (10), `ReportBatchItemFailures`. |
 | Schedule `cd-<key>` | When `schedule != null`: default group, flexible window off, target `live`, retry `schedule_max_retries` (2) / 1 h max age, DLQ `schedule.dlq_arn`. |
-| Role `cd-<key>-role` | Module statements: logs on its own group; ENI actions on `*` (documented exception); `sqs:SendMessage` + KMS via SQS on the on-failure DLQ when set. Then `policy_statements`. |
+| Role `cd-<key>-role` | Module statements: logs on its own group; ENI actions on `*` (documented exception) only for VPC functions; `sqs:SendMessage` + KMS via SQS on the on-failure DLQ when set. Then `policy_statements`. |
 | Scheduler role `cd-<key>-scheduler` | Trust `scheduler.amazonaws.com` with `aws:SourceAccount` and `aws:SourceArn` = the schedule; `lambda:InvokeFunction` on the `live` alias ARN (built from names), `sqs:SendMessage` on the schedule DLQ, KMS via SQS. |
 
 ## Environment
 
-Defaults (the caller wins): all `LOG_LEVEL=info`; intake `EVIDENCE_REQUIRE_SCAN=true`; sweeper `DB_SSL=true`,
+Defaults (the caller wins): all `LOG_LEVEL=info` (the viewer has only this); intake `EVIDENCE_REQUIRE_SCAN=true`; sweeper `DB_SSL=true`,
 `METRICS_NAMESPACE=cd/retention-sweeper`. Secrets are references: intake `SERVICE_CLIENT_SECRET_ID`, notifier
 `SERVICE_CLIENT_SECRET_ARN`, sweeper `DATABASE_SECRET_ID`. Validation rejects `EVIDENCE_REQUIRE_SCAN` other than
 `true`, `DB_SSL` other than `true`, any key ending `_SECRET`, `DATABASE_URL`, `AWS_ENDPOINT_URL`, `SES_ENDPOINT`,

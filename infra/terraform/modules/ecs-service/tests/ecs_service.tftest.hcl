@@ -147,6 +147,26 @@ run "insecure_jwks_is_rejected" {
   expect_failures = [var.environment]
 }
 
+run "lambda_endpoint_alone_is_rejected" {
+  command = plan
+
+  variables {
+    environment = { LAMBDA_ENDPOINT = "http://moto:5000" }
+  }
+
+  expect_failures = [var.environment]
+}
+
+run "sqs_endpoint_alone_is_rejected" {
+  command = plan
+
+  variables {
+    environment = { SQS_ENDPOINT = "http://moto:5000" }
+  }
+
+  expect_failures = [var.environment]
+}
+
 run "service_is_parked_with_circuit_breaker" {
   command = apply
 

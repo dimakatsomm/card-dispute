@@ -30,6 +30,7 @@ variables {
     lambda-evidence-intake   = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-evidence-intake"
     lambda-dispute-notifier  = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-dispute-notifier"
     lambda-retention-sweeper = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-retention-sweeper"
+    lambda-evidence-viewer   = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-evidence-viewer"
     dev-tools                = "arn:aws:ecr:eu-north-1:123456789012:repository/cd-dev-tools"
   }
   ecs_cluster_arn = "arn:aws:ecs:eu-north-1:123456789012:cluster/cd-cluster"
@@ -64,6 +65,7 @@ variables {
     evidence-intake   = "cd-evidence-intake"
     dispute-notifier  = "cd-dispute-notifier"
     retention-sweeper = "cd-retention-sweeper"
+    evidence-viewer   = "cd-evidence-viewer"
   }
   dev_tools = {
     task_definition_families = ["cd-db-bootstrap", "cd-dev-seed", "cd-net-probe"]
@@ -86,12 +88,12 @@ run "roles_match_the_contract" {
   assert {
     condition = toset(keys(output.role_arns)) == toset([
       "publish-svc-auth", "publish-svc-users", "publish-svc-transactions", "publish-svc-disputes", "publish-web",
-      "publish-lambda-evidence-intake", "publish-lambda-dispute-notifier", "publish-lambda-retention-sweeper", "publish-dev-tools",
+      "publish-lambda-evidence-intake", "publish-lambda-dispute-notifier", "publish-lambda-retention-sweeper", "publish-lambda-evidence-viewer", "publish-dev-tools",
       "deploy-auth", "deploy-users", "deploy-transactions", "deploy-disputes", "deploy-web",
-      "deploy-lambda-evidence-intake", "deploy-lambda-dispute-notifier", "deploy-lambda-retention-sweeper",
+      "deploy-lambda-evidence-intake", "deploy-lambda-dispute-notifier", "deploy-lambda-retention-sweeper", "deploy-lambda-evidence-viewer",
       "run-tools", "e2e",
     ])
-    error_message = "role_arns must have exactly the 19 contract keys."
+    error_message = "role_arns must have exactly the 21 contract keys."
   }
 
   assert {
@@ -143,6 +145,7 @@ run "no_role_reaches_another_deployable" {
               evidence-intake   = ["cd-evidence-intake", "cd-lambda-evidence-intake"]
               dispute-notifier  = ["cd-dispute-notifier", "cd-lambda-dispute-notifier"]
               retention-sweeper = ["cd-retention-sweeper", "cd-lambda-retention-sweeper"]
+              evidence-viewer   = ["cd-evidence-viewer", "cd-lambda-evidence-viewer"]
               tools             = ["cd-db-bootstrap", "cd-dev-seed", "cd-net-probe", "cd-dev-tools", "/tools/"]
               } : [
               for m in markers : !strcontains(res, m)
@@ -183,6 +186,38 @@ run "no_role_reaches_another_deployable" {
       ]
     ]))
     error_message = "e2e must not deploy, publish, put events, touch schedules or write to queues and buckets."
+  }
+}
+
+run "viewer_deploy_and_publish_are_scoped_to_the_viewer" {
+  command = plan
+
+  assert {
+    condition = jsondecode(aws_iam_role_policy.this["deploy-lambda-evidence-viewer"].policy).Statement == [
+      {
+        Sid    = "DeployOwnFunction"
+        Effect = "Allow"
+        Action = ["lambda:GetAlias", "lambda:GetFunction", "lambda:PublishVersion", "lambda:UpdateAlias", "lambda:UpdateFunctionCode"]
+        Resource = [
+          "arn:aws:lambda:eu-north-1:123456789012:function:cd-evidence-viewer",
+          "arn:aws:lambda:eu-north-1:123456789012:function:cd-evidence-viewer:live",
+        ]
+      },
+      {
+        Sid      = "ReadOwnRepository"
+        Effect   = "Allow"
+        Action   = ["ecr:BatchGetImage", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer"]
+        Resource = ["arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-evidence-viewer"]
+      },
+    ]
+    error_message = "deploy-lambda-evidence-viewer may update only cd-evidence-viewer and its live alias, from its own repository; it may not invoke it."
+  }
+
+  assert {
+    condition = toset(flatten([
+      for s in jsondecode(aws_iam_role_policy.this["publish-lambda-evidence-viewer"].policy).Statement : s.Resource if s.Sid != "EcrAuthToken"
+    ])) == toset(["arn:aws:ecr:eu-north-1:123456789012:repository/cd-lambda-evidence-viewer"])
+    error_message = "publish-lambda-evidence-viewer may push only to cd-lambda-evidence-viewer."
   }
 }
 

@@ -1,0 +1,76 @@
+name: lambda-evidence-viewer
+
+on:
+  pull_request:
+    paths:
+      - "backend/lambdas/evidence-viewer/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-evidence-viewer.yml"
+      - ".github/workflows/_build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/lambdas/evidence-viewer/**"
+      - "backend/packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "eslint.config.js"
+      - "package.json"
+      - ".nvmrc"
+      - ".github/workflows/lambda-evidence-viewer.yml"
+      - ".github/workflows/_build.yml"
+      - ".github/workflows/_publish.yml"
+      - ".github/workflows/_deploy-lambda.yml"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full git sha of an already published image to deploy (main only); empty builds, publishes and deploys this commit
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_dispatch' || inputs.sha == ''
+    uses: ./.github/workflows/_build.yml
+    with:
+      package-filter: "@cd/evidence-viewer"
+      package-dir: backend/lambdas/evidence-viewer
+      image-name: lambda-evidence-viewer
+      lambda: true
+
+  publish:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.sha == ''))
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_publish.yml
+    with:
+      repo-key: lambda-evidence-viewer
+      dockerfile: backend/lambdas/evidence-viewer/Dockerfile
+
+  deploy:
+    # The viewer is created after the other Lambdas (BO-10g); set repository variable EVIDENCE_VIEWER_DEPLOYED=true once it exists.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && vars.EVIDENCE_VIEWER_DEPLOYED == 'true' && ((github.event_name == 'workflow_dispatch' && inputs.sha != '') || needs.publish.result == 'success') }}
+    needs: publish
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_deploy-lambda.yml
+    with:
+      function-key: evidence-viewer
+      sha: ${{ inputs.sha || github.sha }}

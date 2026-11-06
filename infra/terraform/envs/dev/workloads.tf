@@ -1,6 +1,8 @@
 locals {
   service_keys = ["auth", "users", "transactions", "disputes", "web"]
-  lambda_keys  = ["evidence-intake", "dispute-notifier", "retention-sweeper"]
+  lambda_keys  = ["evidence-intake", "dispute-notifier", "retention-sweeper", "evidence-viewer"]
+  # The viewer only signs URLs locally, so it needs no VPC, ENIs or security group.
+  vpc_lambda_keys = setsubtract(local.lambda_keys, ["evidence-viewer"])
 
   # Nothing runs until an image is deployed; the pipeline or autoscaling owns the count afterwards.
   service_desired_count = 0
@@ -9,12 +11,19 @@ locals {
     evidence-intake   = 60
     dispute-notifier  = 30
     retention-sweeper = 300
+    # Matches disputes' VIEWER_TIMEOUT_MS: disputes has answered 503 by then, so a longer run is wasted.
+    evidence-viewer = 5
   }
 
   sqs_via            = "sqs.${local.region}.amazonaws.com"
   s3_via             = "s3.${local.region}.amazonaws.com"
   secretsmanager_via = "secretsmanager.${local.region}.amazonaws.com"
   ses_identities_arn = "arn:${local.partition}:ses:${local.region}:${local.account_id}:identity/*"
+
+  # Built from the name so the grant exists before the function; disputes invokes this exact qualifier.
+  evidence_viewer_alias_arn = "arn:${local.partition}:lambda:${local.region}:${local.account_id}:function:${var.name_prefix}-evidence-viewer:live"
+  evidence_viewer_deployed  = contains(keys(var.lambda_image_uris), "evidence-viewer")
+  evidence_objects_arn      = "${module.evidence_buckets.evidence_bucket_arn}/evidence/*"
 
   db_secrets = module.aurora.role_secret_arns
 
@@ -78,10 +87,15 @@ locals {
     }
     users        = local.service_client_env["users"]
     transactions = local.service_client_env["transactions"]
-    disputes = merge(local.service_client_env["disputes"], {
-      NOTIFICATIONS_QUEUE_URL = module.messaging.notifications_queue_url
-      QUARANTINE_BUCKET       = module.evidence_buckets.quarantine_bucket_name
-    })
+    disputes = merge(
+      local.service_client_env["disputes"],
+      {
+        NOTIFICATIONS_QUEUE_URL = module.messaging.notifications_queue_url
+        QUARANTINE_BUCKET       = module.evidence_buckets.quarantine_bucket_name
+      },
+      # Unset until the viewer exists: downloads answer 503 instead of failing an invoke.
+      local.evidence_viewer_deployed ? { EVIDENCE_VIEWER_FUNCTION = local.evidence_viewer_alias_arn } : {},
+    )
     web = {
       OIDC_ISSUER             = module.cognito.issuer_url
       OIDC_CLIENT_ID          = module.cognito.spa_client_id
@@ -134,6 +148,12 @@ locals {
         Action    = ["kms:GenerateDataKey", "kms:Decrypt"]
         Resource  = [local.data_kms_key_arn]
         Condition = { StringEquals = { "kms:ViaService" = [local.sqs_via] } }
+      },
+      {
+        Sid      = "InvokeEvidenceViewer"
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
+        Resource = [local.evidence_viewer_alias_arn]
       },
     ]
     web = []
@@ -213,7 +233,38 @@ locals {
         Condition = { StringEquals = { "ses:FromAddress" = [var.ses_sender] } }
       },
     ])
-    retention-sweeper = local.read_secret_statements["retention-sweeper"]
+    retention-sweeper = concat(local.read_secret_statements["retention-sweeper"], [
+      # Every delete names a version id, so no s3:DeleteObject and no delete markers; deletes need no KMS.
+      {
+        Sid      = "DeleteErasedEvidenceVersions"
+        Effect   = "Allow"
+        Action   = ["s3:DeleteObjectVersion"]
+        Resource = [local.evidence_objects_arn]
+      },
+      {
+        Sid       = "ListEvidenceVersions"
+        Effect    = "Allow"
+        Action    = ["s3:ListBucketVersions"]
+        Resource  = [module.evidence_buckets.evidence_bucket_arn]
+        Condition = { StringLike = { "s3:prefix" = ["evidence/*"] } }
+      },
+    ])
+    evidence-viewer = [
+      # Signing is local; these grants are what the presigned URL carries when the agent's browser fetches it.
+      {
+        Sid      = "ReadEvidenceObjects"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = [local.evidence_objects_arn]
+      },
+      {
+        Sid       = "DecryptEvidenceViaS3"
+        Effect    = "Allow"
+        Action    = ["kms:Decrypt"]
+        Resource  = [local.evidence_kms_key_arn]
+        Condition = { StringEquals = { "kms:ViaService" = [local.s3_via] } }
+      },
+    ]
   }
 
   lambda_environment = {
@@ -235,6 +286,10 @@ locals {
     }
     retention-sweeper = {
       DATABASE_SECRET_ID = local.db_secrets["disputes_retention"]
+      EVIDENCE_BUCKET    = module.evidence_buckets.evidence_bucket_name
+    }
+    evidence-viewer = {
+      EVIDENCE_BUCKET = module.evidence_buckets.evidence_bucket_name
     }
   }
 }
@@ -289,8 +344,8 @@ module "lambda" {
   logs_kms_key_arn         = local.data_kms_key_arn
   data_kms_key_arn         = local.data_kms_key_arn
   timeout_seconds          = local.lambda_timeouts[each.key]
-  subnet_ids               = module.network.private_subnet_ids
-  security_group_id        = module.security.security_group_ids[each.key]
+  subnet_ids               = contains(local.vpc_lambda_keys, each.key) ? module.network.private_subnet_ids : null
+  security_group_id        = contains(local.vpc_lambda_keys, each.key) ? module.security.security_group_ids[each.key] : null
   environment              = local.lambda_environment[each.key]
   policy_statements        = local.lambda_policy_statements[each.key]
 

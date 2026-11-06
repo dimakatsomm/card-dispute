@@ -65,10 +65,10 @@ Rules:
 | 4 services | build: `node:24-alpine`; runtime: distroless Node 24 or `node:24-alpine`, ARM64 | multi-stage; `pnpm install --frozen-lockfile --prod --filter @cd/<svc>...` (workspace packages stay symlinks outside node_modules so Node can strip their TS types — `pnpm deploy` breaks this, ADR-052); non-root; read-only root FS; ports 8080 + 8081; `HEALTHCHECK` → `/health` (liveness only; the ALB target group checks `/ready` with lenient thresholds, so a paused DB drains traffic instead of restarting healthy tasks, ADR-066) |
 | migrations | same image as the service | entrypoint `migrate`; run as a one-off ECS task before rollout |
 | frontend | build: `node:24-alpine`; runtime: `nginxinc/nginx-unprivileged` | static SPA; runtime config through `/config.js` generated at container start (API URL, Cognito ids), so **one image is promoted across envs**; strict CSP; SPA fallback |
-| 3 Lambdas | `public.ecr.aws/lambda/nodejs:24` (ARM64) | container-image Lambdas (owner choice); one ECR repo each; handler bundled with esbuild |
+| 4 Lambdas | `public.ecr.aws/lambda/nodejs:24` (ARM64) | container-image Lambdas (owner choice); one ECR repo each; handler bundled with esbuild |
 | dev-tools | built from `local/seed` (ARM64, non-root) | one image, ECR repo `cd-dev-tools`, three one-shot ECS tasks: `db-bootstrap`, `dev-seed`, `net-probe` (ADR-061). Not a service; run by the dev-tools pipeline |
 
-Nine ECR repos (`cd-<key>`): `svc-auth`, `svc-users`, `svc-transactions`, `svc-disputes`, `web`, `lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`, `dev-tools`.
+Ten ECR repos (`cd-<key>`): `svc-auth`, `svc-users`, `svc-transactions`, `svc-disputes`, `web`, `lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`, `lambda-evidence-viewer`, `dev-tools`.
 
 Standard service env (every service, ADR-053): `PUBLIC_PORT`, `SERVICE_PORT`, `LOG_LEVEL`, `DATABASE_URL` (app role), `DB_POOL_MAX`, `MIGRATOR_DATABASE_URL` (migration task only), `AUTH_URL`, `TOKEN_URL`, `SERVICE_CLIENT_ID`, `SERVICE_CLIENT_SECRET`; plus per-service extras documented in each service README.
 
@@ -120,7 +120,7 @@ There is **one** internal ALB (ADR-059). Its `:80` listener is the CloudFront or
 | `svc-users.yml` | same pattern for users | ECS `users` |
 | `svc-transactions.yml` | same pattern | ECS `transactions` |
 | `svc-disputes.yml` | same pattern | ECS `disputes` |
-| `lambda-<name>.yml` ×3 (`lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`) | `backend/lambdas/<name>/**`, `backend/packages/**`, `pnpm-lock.yaml` | Lambda `<name>` (image) |
+| `lambda-<name>.yml` ×4 (`lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`, `lambda-evidence-viewer`) | `backend/lambdas/<name>/**`, `backend/packages/**`, `pnpm-lock.yaml` | Lambda `<name>` (image); the viewer deploys only once repository variable `EVIDENCE_VIEWER_DEPLOYED=true`, the others once `LAMBDAS_DEPLOYED=true` |
 | `web.yml` | `frontend/**`, `docs/openapi/**`, `pnpm-lock.yaml` | ECS `web` |
 | `infra.yml` | `infra/**` | Terraform `dev`; `workflow_dispatch` takes `lambda_image_uris` (CI-02) |
 | `dev-tools.yml` (CI-02) | manual dispatch | one-shot ECS tasks `db-bootstrap`, `dev-seed`, `net-probe` on the `dev-tools` image (environment `dev`) |

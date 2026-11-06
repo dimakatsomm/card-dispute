@@ -8,14 +8,14 @@ variable "repository_keys" {
   type        = list(string)
   default = [
     "svc-auth", "svc-users", "svc-transactions", "svc-disputes", "web",
-    "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper",
+    "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper", "lambda-evidence-viewer",
     "dev-tools",
   ]
 
   validation {
     condition = alltrue([for k in var.repository_keys : contains([
       "svc-auth", "svc-users", "svc-transactions", "svc-disputes", "web",
-      "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper",
+      "lambda-evidence-intake", "lambda-dispute-notifier", "lambda-retention-sweeper", "lambda-evidence-viewer",
       "dev-tools",
     ], k)])
     error_message = "repository_keys must be drawn from the fixed ECR repo keys in modules/README.md section 2."

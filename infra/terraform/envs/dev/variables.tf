@@ -52,8 +52,8 @@ variable "lambda_image_uris" {
   default     = {}
 
   validation {
-    condition     = alltrue([for k in keys(var.lambda_image_uris) : contains(["evidence-intake", "dispute-notifier", "retention-sweeper"], k)])
-    error_message = "lambda_image_uris keys must be evidence-intake, dispute-notifier or retention-sweeper."
+    condition     = alltrue([for k in keys(var.lambda_image_uris) : contains(["evidence-intake", "dispute-notifier", "retention-sweeper", "evidence-viewer"], k)])
+    error_message = "lambda_image_uris keys must be evidence-intake, dispute-notifier, retention-sweeper or evidence-viewer."
   }
 
   validation {

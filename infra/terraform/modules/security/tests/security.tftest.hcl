@@ -209,6 +209,29 @@ run "vpc_origin" {
     condition     = length([for s in jsondecode(aws_kms_key.this["evidence"].policy).Statement : s if can(s.Principal.Service)]) == 0
     error_message = "The evidence key must have no service principals (S3 acts with the caller's identity)."
   }
+
+  # The viewer (Decrypt) needs no key-policy statement of its own: AccountUseViaS3 delegates to IAM, and the only Deny names disputes.
+  assert {
+    condition = length([
+      for s in jsondecode(aws_kms_key.this["evidence"].policy).Statement : s
+      if s.Sid == "AccountUseViaS3" && s.Effect == "Allow" && s.Principal == { AWS = "arn:aws:iam::123456789012:root" }
+      && contains(s.Action, "kms:Decrypt") && try(s.Condition.StringEquals["kms:ViaService"], "") == "s3.eu-north-1.amazonaws.com"
+    ]) == 1
+    error_message = "AccountUseViaS3 must delegate S3-mediated Decrypt to IAM, so only roles granted it in IAM (intake, viewer) can read evidence."
+  }
+
+  assert {
+    condition = [
+      for s in jsondecode(aws_kms_key.this["evidence"].policy).Statement : lookup(s, "Condition", null)
+      if s.Effect == "Deny"
+    ] == [{ ArnEquals = { "aws:PrincipalArn" = "arn:aws:iam::123456789012:role/cd/cd-disputes-task" } }]
+    error_message = "The evidence key's only Deny is DenyDisputesTaskDecrypt, scoped to the disputes task role."
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_egress_rule.https_s3["retention-sweeper"].prefix_list_id == var.s3_prefix_list_id
+    error_message = "The sweeper deletes evidence versions through the S3 gateway endpoint, so it needs explicit :443 egress to its prefix list."
+  }
 }
 
 run "public_alb_fallback" {

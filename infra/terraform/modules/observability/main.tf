@@ -47,6 +47,11 @@ locals {
       namespace   = "cd/retention-sweeper"
       metric_name = "RetentionFailed"
     })
+    "evidence-delete-failed" = merge(local.base_alarm, {
+      description = "retention-sweeper could not delete the stored bytes of at least one erased dispute."
+      namespace   = "cd/retention-sweeper"
+      metric_name = "EvidenceDeleteFailed"
+    })
     "evidence-not-scanned" = merge(local.base_alarm, {
       description = "evidence-intake received an object without a malware scan result."
       namespace   = "cd/evidence-intake"
@@ -335,6 +340,7 @@ locals {
       metrics = [
         [{ expression = "SEARCH('{cd/disputes,eventType} MetricName=\"EventPublishFailed\"', 'Sum', 300)", id = "publish_failed" }],
         ["cd/retention-sweeper", "RetentionFailed"],
+        ["cd/retention-sweeper", "EvidenceDeleteFailed"],
         ["cd/evidence-intake", "EvidenceNotScanned"],
         ["cd/evidence-intake", "EvidenceResultConflict"],
       ]

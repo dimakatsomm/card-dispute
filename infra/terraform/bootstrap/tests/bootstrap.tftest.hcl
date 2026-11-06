@@ -579,6 +579,23 @@ run "back_office_cognito_and_agent_secrets" {
   }
 
   assert {
+    condition = toset(one([for s in jsondecode(aws_iam_policy.boundary.policy).Statement : s.Action if s.Sid == "Buckets"])) == toset([
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:GetBucketLocation",
+      "s3:GetBucketNotification",
+      "s3:GetEncryptionConfiguration",
+      "s3:GetObject*",
+      "s3:ListBucket*",
+      "s3:PutBucketNotification",
+      "s3:PutObject",
+      "s3:PutObjectTagging",
+      "s3:PutObjectVersionTagging",
+    ])
+    error_message = "Buckets: globs only on read-only GetObject*/ListBucket* (covers the sweeper's ListBucketVersions); every write, incl. the sweeper's DeleteObjectVersion, is named."
+  }
+
+  assert {
     condition = length([
       for s in flatten([for p in aws_iam_policy.infra_apply : jsondecode(p.policy).Statement]) : s
       if s.Sid == "Cognito"
