@@ -20,7 +20,7 @@ locals {
 
   # A bare git sha keeps the account id out of dev.tfvars (public repo, ADR-041).
   lambda_image_uris = {
-    for k in ["evidence-intake", "dispute-notifier", "retention-sweeper"] : k => (
+    for k in local.lambda_keys : k => (
       !contains(keys(var.lambda_image_uris), k) ? null :
       can(regex("^[0-9a-f]{40}$", var.lambda_image_uris[k])) ? "${local.account_id}.dkr.ecr.${local.region}.amazonaws.com/${var.name_prefix}-lambda-${k}:${var.lambda_image_uris[k]}" :
       var.lambda_image_uris[k]
@@ -164,7 +164,7 @@ module "ci_roles" {
       pass_role_arns           = [s.task_role_arn, s.execution_role_arn]
     }
   }
-  # All three keys even without an image: deploy roles exist before the functions (ADR-066).
+  # Every key even without an image: deploy roles exist before the functions (ADR-066).
   lambda_function_names = { for k in local.lambda_keys : k => "${var.name_prefix}-${k}" }
   dev_tools = {
     task_definition_families = values(module.dev_tools.task_definition_families)

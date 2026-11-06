@@ -34,7 +34,7 @@ Built to **production patterns**:
 | **Customer** | React web app at the CloudFront default hostname `https://<id>.cloudfront.net` → API at the same origin under `/api`, Cognito login |
 | **Back-office agent** | ⏸ Deferred (owner: client-facing first). Contract kept in `docs/openapi`; not built in M1–M4 |
 | **Services** | auth, users, transactions, disputes, calling each other on the service port with Cognito service tokens |
-| **System jobs** | evidence-intake, dispute-notifier and retention-sweeper Lambdas (housekeeping only; never change dispute status) |
+| **System jobs** | evidence-intake, dispute-notifier, retention-sweeper and evidence-viewer Lambdas (housekeeping and agent download links only; never change dispute status) |
 
 ---
 
@@ -273,7 +273,7 @@ Terminal states reject everything (`INVALID_TRANSITION`). A row lock + version g
 ### 7.4 Repository & containers (docs/09)
 ```
 backend/{auth,users,transactions,disputes}/   src · migrations · test · Dockerfile
-backend/lambdas/{evidence-intake,dispute-notifier,retention-sweeper}/   container-image Lambdas
+backend/lambdas/{evidence-intake,dispute-notifier,retention-sweeper,evidence-viewer}/   container-image Lambdas
 backend/packages/{shared,auth-client,dispute-domain,db}/
 frontend/        React + Vite + TS → nginx-unprivileged image
 infra/terraform/ bootstrap · modules · envs/dev
@@ -301,7 +301,7 @@ Image rules:
 | Pipeline | Trigger paths | PR stage | Main stage |
 |---|---|---|---|
 | `svc-auth` · `svc-users` · `svc-transactions` · `svc-disputes` | own folder + `backend/packages` + own OpenAPI + lockfile | lint, typecheck, unit, integration, contract, build, Trivy, SBOM | push ECR → ⏸ **approval** → migrate → ECS rollout (auto-rollback) → smoke |
-| `lambda-evidence-intake` · `lambda-dispute-notifier` · `lambda-retention-sweeper` | own folder + packages + lockfile | same | push ECR → ⏸ approval → update function → publish version → alias `live` |
+| `lambda-evidence-intake` · `lambda-dispute-notifier` · `lambda-retention-sweeper` · `lambda-evidence-viewer` | own folder + packages + lockfile | same | push ECR → ⏸ approval → update function → publish version → alias `live` |
 | `web` | `frontend/**` + `docs/openapi/**` | lint, typecheck, test, build, Trivy | push ECR → ⏸ approval → ECS rollout → smoke |
 | `infra` | `infra/**` | fmt, validate, `terraform test`, tflint, checkov (offline, no AWS) | plan on main (stored in S3, never an artifact, ADR-060) → ⏸ approval → apply that stored plan |
 | `contract` | `docs/openapi/**` | redocly lint + breaking-change diff | — |
@@ -377,10 +377,10 @@ Also: customer B gets 404 on A's data, bad tokens get 401, service routes are in
 | I-01 network (2 AZs, 1 NAT, S3 gateway endpoint) · I-02 KMS + security groups | infra-terraform |
 | I-03 Cognito (pool, hosted UI, resource server + scopes, customer-facing app clients) | infra-terraform |
 | I-04 Aurora PG18 Serverless v2 + secrets + bootstrap roles | infra-terraform |
-| I-05 ECR repos ×9 (the nine images incl. `dev-tools`; lifecycle keep 10, immutable tags) · I-06 ECS cluster + Service Connect + `ecs-service` module ×5 | infra-terraform |
+| I-05 ECR repos ×9 (the nine images incl. `dev-tools`; lifecycle keep 10, immutable tags; BO-10g adds the tenth, `lambda-evidence-viewer`) · I-06 ECS cluster + Service Connect + `ecs-service` module ×5 | infra-terraform |
 | I-07 CloudFront (`/api/*` + default), strip function, **base WAF (in M3)** · I-08 one internal ALB (`:80` for the CloudFront VPC origin, `:8081` for Lambdas, ADR-059) | infra-terraform |
 | I-09 SQS + DLQ · I-10 quarantine/evidence buckets + GuardDuty + EventBridge | infra-terraform |
-| I-11 container-image Lambdas ×3 + schedules · I-12 SES email identity (dimakatsomm@icloud.com, sandbox) · I-13 observability: **SNS alarm channel**, dashboard, alarms, budget | infra-terraform |
+| I-11 container-image Lambdas ×3 + schedules (BO-10g adds the fourth, `evidence-viewer`) · I-12 SES email identity (dimakatsomm@icloud.com, sandbox) · I-13 observability: **SNS alarm channel**, dashboard, alarms, budget | infra-terraform |
 | I-14 CI roles · I-15 dev-tools task definitions (db-bootstrap, dev-seed, net-probe; ADR-061/067) · I-WIRE wire `envs/dev` | infra-terraform |
 | CI-02 deploy stages: approvals, migrations task, rollout/rollback, Lambda alias, infra apply on main only (ADR-060), dev-tools, e2e-dev and oidc-negative workflows | implementer |
 | X-01 dev seeding + Cognito provisioning (users A–D, `auth_identity.cognito_sub`) · DOC-M3 docs + docs/11-dev-runbook.md | implementer |

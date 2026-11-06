@@ -303,6 +303,7 @@ run "phase_b_functions" {
       evidence-intake   = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-intake:0123abc"
       dispute-notifier  = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-dispute-notifier:0123abc"
       retention-sweeper = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-retention-sweeper:0123abc"
+      evidence-viewer   = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-viewer:0123abc"
     }
   }
 
@@ -325,6 +326,7 @@ run "phase_b_from_git_sha" {
       evidence-intake   = "0123456789abcdef0123456789abcdef01234567"
       dispute-notifier  = "0123456789abcdef0123456789abcdef01234567"
       retention-sweeper = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-retention-sweeper:0123abc"
+      evidence-viewer   = "0123456789abcdef0123456789abcdef01234567"
     }
   }
 
@@ -333,6 +335,7 @@ run "phase_b_from_git_sha" {
       evidence-intake   = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-intake:0123456789abcdef0123456789abcdef01234567"
       dispute-notifier  = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-dispute-notifier:0123456789abcdef0123456789abcdef01234567"
       retention-sweeper = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-retention-sweeper:0123abc"
+      evidence-viewer   = "123456789012.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-evidence-viewer:0123456789abcdef0123456789abcdef01234567"
     }
     error_message = "A bare git sha must resolve to this account's cd-lambda-<key> ECR repo; a full URI passes through."
   }
@@ -340,6 +343,120 @@ run "phase_b_from_git_sha" {
   assert {
     condition     = alltrue([for k in local.lambda_keys : module.lambda[k].function_name == "cd-${k}"])
     error_message = "A git sha alone must still create every function."
+  }
+}
+
+run "evidence_viewer_not_yet_deployed" {
+  command = plan
+
+  variables {
+    lambda_image_uris = {
+      evidence-intake   = "0123456789abcdef0123456789abcdef01234567"
+      dispute-notifier  = "0123456789abcdef0123456789abcdef01234567"
+      retention-sweeper = "0123456789abcdef0123456789abcdef01234567"
+    }
+  }
+
+  assert {
+    condition     = module.lambda["evidence-viewer"].function_name == null && module.lambda["evidence-viewer"].role_arn != null
+    error_message = "Without its image the viewer has a role but no function (ADR-066)."
+  }
+
+  assert {
+    condition     = !contains(keys(local.service_environment["disputes"]), "EVIDENCE_VIEWER_FUNCTION")
+    error_message = "disputes gets EVIDENCE_VIEWER_FUNCTION only once the viewer exists; until then downloads answer 503."
+  }
+
+  assert {
+    condition     = local.lambda_environment["retention-sweeper"]["EVIDENCE_BUCKET"] == module.evidence_buckets.evidence_bucket_name
+    error_message = "The sweeper gets EVIDENCE_BUCKET independently of the viewer, which turns byte deletion on."
+  }
+
+  assert {
+    condition     = !contains(keys(module.observability.alarm_arns), "lambda-evidence-viewer-errors") && contains(keys(module.observability.alarm_arns), "evidence-delete-failed")
+    error_message = "No alarms for a function that does not exist; the EvidenceDeleteFailed alarm is always there."
+  }
+}
+
+run "evidence_viewer_wiring" {
+  command = plan
+
+  variables {
+    lambda_image_uris = {
+      evidence-intake   = "0123456789abcdef0123456789abcdef01234567"
+      dispute-notifier  = "0123456789abcdef0123456789abcdef01234567"
+      retention-sweeper = "0123456789abcdef0123456789abcdef01234567"
+      evidence-viewer   = "0123456789abcdef0123456789abcdef01234567"
+    }
+  }
+
+  assert {
+    condition = local.lambda_policy_statements["evidence-viewer"] == [
+      {
+        Sid      = "ReadEvidenceObjects"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = ["${module.evidence_buckets.evidence_bucket_arn}/evidence/*"]
+      },
+      {
+        Sid       = "DecryptEvidenceViaS3"
+        Effect    = "Allow"
+        Action    = ["kms:Decrypt"]
+        Resource  = ["arn:aws:kms:eu-north-1:123456789012:key/11111111-1111-1111-1111-111111111111"]
+        Condition = { StringEquals = { "kms:ViaService" = ["s3.eu-north-1.amazonaws.com"] } }
+      },
+    ]
+    error_message = "The viewer may only GetObject under evidence/ and Decrypt the evidence key via S3."
+  }
+
+  assert {
+    condition     = local.lambda_environment["evidence-viewer"] == { EVIDENCE_BUCKET = module.evidence_buckets.evidence_bucket_name }
+    error_message = "The viewer gets only EVIDENCE_BUCKET (Lambda sets AWS_REGION; LOG_LEVEL is a module default)."
+  }
+
+  assert {
+    condition = (
+      [for s in local.task_role_statements["disputes"] : s if anytrue([for a in s.Action : startswith(a, "lambda:")])] == [{
+        Sid      = "InvokeEvidenceViewer"
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
+        Resource = ["arn:aws:lambda:eu-north-1:123456789012:function:cd-evidence-viewer:live"]
+      }]
+      && local.service_environment["disputes"]["EVIDENCE_VIEWER_FUNCTION"] == "arn:aws:lambda:eu-north-1:123456789012:function:cd-evidence-viewer:live"
+    )
+    error_message = "disputes may invoke only the viewer's live alias, and EVIDENCE_VIEWER_FUNCTION names that same qualified ARN."
+  }
+
+  assert {
+    condition = [for s in local.lambda_policy_statements["retention-sweeper"] : s if s.Sid != "ReadOwnSecret" && s.Sid != "DecryptOwnSecret"] == [
+      {
+        Sid      = "DeleteErasedEvidenceVersions"
+        Effect   = "Allow"
+        Action   = ["s3:DeleteObjectVersion"]
+        Resource = ["${module.evidence_buckets.evidence_bucket_arn}/evidence/*"]
+      },
+      {
+        Sid       = "ListEvidenceVersions"
+        Effect    = "Allow"
+        Action    = ["s3:ListBucketVersions"]
+        Resource  = [module.evidence_buckets.evidence_bucket_arn]
+        Condition = { StringLike = { "s3:prefix" = ["evidence/*"] } }
+      },
+    ]
+    error_message = "The sweeper may only delete evidence versions and list versions under evidence/: no DeleteObject, no KMS."
+  }
+
+  assert {
+    condition = toset([
+      for k, st in local.lambda_policy_statements : k
+      if anytrue([for s in st : contains(s.Resource, module.security.kms_key_arns["evidence"]) && contains(s.Action, "kms:Decrypt")])
+    ]) == toset(["evidence-intake", "evidence-viewer"])
+    error_message = "Only intake and the viewer may decrypt the evidence key."
+  }
+
+  assert {
+    condition     = contains(keys(module.observability.alarm_arns), "lambda-evidence-viewer-errors") && contains(keys(module.observability.alarm_arns), "lambda-evidence-viewer-throttles")
+    error_message = "The viewer gets the per-Lambda error and throttle alarms."
   }
 }
 

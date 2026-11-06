@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       function-key:
-        description: evidence-intake, dispute-notifier or retention-sweeper
+        description: evidence-intake, dispute-notifier, retention-sweeper or evidence-viewer
         required: true
         type: string
       sha:
@@ -43,7 +43,7 @@ jobs:
           test -n "$AWS_ACCOUNT_ID" || { echo "::error::environment variable AWS_ACCOUNT_ID is not set"; exit 1; }
           echo "::add-mask::$AWS_ACCOUNT_ID"
           case "$FUNCTION_KEY" in
-            evidence-intake|dispute-notifier|retention-sweeper) ;;
+            evidence-intake|dispute-notifier|retention-sweeper|evidence-viewer) ;;
             *) echo "::error::unknown function-key"; exit 1 ;;
           esac
           [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha must be a full 40-character git sha"; exit 1; }

@@ -58,13 +58,13 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         run: |
           roles=("gha-infra-plan" "gha-infra-apply" "cd/cd-gha-run-tools" "cd/cd-gha-e2e")
-          for key in svc-auth svc-users svc-transactions svc-disputes web lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper dev-tools; do
+          for key in svc-auth svc-users svc-transactions svc-disputes web lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper lambda-evidence-viewer dev-tools; do
             roles+=("cd/cd-gha-publish-${key}")
           done
           for key in auth users transactions disputes web; do
             roles+=("cd/cd-gha-deploy-${key}")
           done
-          for key in evidence-intake dispute-notifier retention-sweeper; do
+          for key in evidence-intake dispute-notifier retention-sweeper evidence-viewer; do
             roles+=("cd/cd-gha-deploy-lambda-${key}")
           done
           failed=0

@@ -4,12 +4,12 @@ variable "name_prefix" {
 }
 
 variable "function_key" {
-  description = "Lambda key: evidence-intake, dispute-notifier or retention-sweeper."
+  description = "Lambda key: evidence-intake, dispute-notifier, retention-sweeper or evidence-viewer."
   type        = string
 
   validation {
-    condition     = contains(["evidence-intake", "dispute-notifier", "retention-sweeper"], var.function_key)
-    error_message = "function_key must be evidence-intake, dispute-notifier or retention-sweeper."
+    condition     = contains(["evidence-intake", "dispute-notifier", "retention-sweeper", "evidence-viewer"], var.function_key)
+    error_message = "function_key must be evidence-intake, dispute-notifier, retention-sweeper or evidence-viewer."
   }
 }
 
@@ -76,7 +76,7 @@ variable "memory_mb" {
 }
 
 variable "timeout_seconds" {
-  description = "Function timeout (intake 60, notifier 30, sweeper 300). messaging sets the notifications visibility to 6x the notifier timeout."
+  description = "Function timeout (intake 60, notifier 30, sweeper 300, viewer 5). messaging sets the notifications visibility to 6x the notifier timeout."
   type        = number
 
   validation {
@@ -86,18 +86,25 @@ variable "timeout_seconds" {
 }
 
 variable "subnet_ids" {
-  description = "Private subnet ids (network.private_subnet_ids)."
+  description = "Private subnet ids (network.private_subnet_ids); null runs the function outside the VPC (no ENIs, no ENI permissions)."
   type        = list(string)
+  default     = null
 
   validation {
-    condition     = length(var.subnet_ids) >= 1
-    error_message = "subnet_ids needs at least one private subnet."
+    condition     = var.subnet_ids == null || try(length(var.subnet_ids) >= 1, false)
+    error_message = "subnet_ids needs at least one private subnet, or null for no VPC."
   }
 }
 
 variable "security_group_id" {
-  description = "The function's own security group (security.security_group_ids[<key>])."
+  description = "The function's own security group (security.security_group_ids[<key>]); set exactly when subnet_ids is set."
   type        = string
+  default     = null
+
+  validation {
+    condition     = (var.security_group_id == null) == (var.subnet_ids == null)
+    error_message = "Set subnet_ids and security_group_id together, or neither for a function outside the VPC."
+  }
 }
 
 variable "environment" {

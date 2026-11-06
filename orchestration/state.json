@@ -876,12 +876,12 @@
       ]
     },
     "BO-10g": {
-      "status": "todo",
+      "status": "done",
       "agent": "owner",
       "blockedBy": [
         "BO-10f"
       ],
-      "note": "owner-gated dev rollout for ADR-072; see backlog BO-10g and reports/M6.md"
+      "note": "code done (Terraform, IAM, CI, runbook §13); dev rollout steps are the owner's (applies, image publish, deploy approvals, one-off sweep, smoke check)"
     }
   },
   "decisions": [
@@ -1240,8 +1240,8 @@
     "tests/ui: card helper now waits for rows and pages; e2e and UI share user A data, which never resets (disputes are permanent) — reseed occasionally on long-lived local stacks.",
     "ACL-TO follow-up: pass the in-scope deadline signal into getToken({ signal }) at disputes service-client, transactions upstream (UpstreamDeps.getToken type), notifier service-client and intake disputes-client; until then token fetches are bounded by the 5 s provider default.",
     "Catalog: client-sqs, client-s3, s3-request-presigner, client-sesv2 pinned at 3.1152.0 (published 2026-10-14, added 2026-10-19, under the 2-week rule); align to 3.1146.0 or later-aged release on next dependency touch.",
-    "M6-1: Owner — when to run BO-10g (viewer, IAM, key policy, sweeper S3 perms, CI wiring, alarms); dev has no evidence viewing until then.",
-    "V-M6: Verify on real S3 in dev (BO-10g) that the viewer's links are refused after 60 s and with a tampered signature, and decrypt via the viewer role only."
+    "V-M6: Verify on real S3 in dev (BO-10g) that the viewer's links are refused after 60 s and with a tampered signature, and decrypt via the viewer role only.",
+    "M6-1: Owner — run the BO-10g rollout per docs/11 §13; dev has no evidence viewing and no byte deletion until it is done."
   ],
   "peerReviews": [
     {

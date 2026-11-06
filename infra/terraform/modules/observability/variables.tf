@@ -49,8 +49,8 @@ variable "lambda_function_names" {
   default     = {}
 
   validation {
-    condition     = length(setsubtract(keys(var.lambda_function_names), ["evidence-intake", "dispute-notifier", "retention-sweeper"])) == 0
-    error_message = "lambda_function_names keys must be evidence-intake, dispute-notifier or retention-sweeper."
+    condition     = length(setsubtract(keys(var.lambda_function_names), ["evidence-intake", "dispute-notifier", "retention-sweeper", "evidence-viewer"])) == 0
+    error_message = "lambda_function_names keys must be evidence-intake, dispute-notifier, retention-sweeper or evidence-viewer."
   }
 }
 

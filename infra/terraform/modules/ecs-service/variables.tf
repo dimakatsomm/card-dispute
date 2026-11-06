@@ -188,6 +188,13 @@ variable "environment" {
   }
 
   validation {
+    condition = length(setintersection(keys(var.environment), [
+      "AWS_ENDPOINT_URL", "LAMBDA_ENDPOINT", "SQS_ENDPOINT", "S3_ENDPOINT", "S3_PRESIGN_ENDPOINT",
+    ])) == 0
+    error_message = "AWS_ENDPOINT_URL, LAMBDA_ENDPOINT, SQS_ENDPOINT, S3_ENDPOINT and S3_PRESIGN_ENDPOINT are local only; AWS uses the real endpoints."
+  }
+
+  validation {
     condition = var.service_name != "web" || length(setsubtract([
       "OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_REDIRECT_URI", "OIDC_LOGOUT_URL", "OIDC_POST_LOGOUT_URI",
       "UPLOAD_ORIGIN", "OIDC_TOKEN_ORIGIN",

@@ -33,12 +33,13 @@ The module merges `environment` over these defaults (caller wins):
 
 The caller still supplies (from `../README.md` §4): auth `AUTH_ISSUER_URL`, `AUTH_JWKS_URI`,
 `AUTH_USER_CLIENT_IDS`, `AUTH_SERVICE_CLIENT_IDS`; users/transactions/disputes `TOKEN_URL`, `SERVICE_CLIENT_ID`;
-disputes `QUARANTINE_BUCKET`, `NOTIFICATIONS_QUEUE_URL`; web `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_REDIRECT_URI`,
+disputes `QUARANTINE_BUCKET`, `NOTIFICATIONS_QUEUE_URL`, `EVIDENCE_VIEWER_FUNCTION` (viewer `live` alias ARN, once the viewer exists); web `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_REDIRECT_URI`,
 `OIDC_LOGOUT_URL`, `OIDC_POST_LOGOUT_URI`, `UPLOAD_ORIGIN`, `OIDC_TOKEN_ORIGIN` (validated present).
 Secrets: `DATABASE_URL` (`<svc>_app` key `url`), `SERVICE_CLIENT_SECRET` (raw string, no `json_key`).
 
-Validation rejects `AUTH_ALLOW_INSECURE_JWKS` (local compose only) and `DATABASE_URL`, `MIGRATOR_DATABASE_URL`,
-`SERVICE_CLIENT_SECRET` as plain environment.
+Validation rejects `AUTH_ALLOW_INSECURE_JWKS` (local compose only), `DATABASE_URL`, `MIGRATOR_DATABASE_URL`,
+`SERVICE_CLIENT_SECRET` as plain environment, and the local endpoint overrides `AWS_ENDPOINT_URL`, `LAMBDA_ENDPOINT`,
+`SQS_ENDPOINT`, `S3_ENDPOINT`, `S3_PRESIGN_ENDPOINT`.
 
 ## Inputs beyond the contract row
 

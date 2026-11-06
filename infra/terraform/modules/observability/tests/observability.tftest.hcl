@@ -26,6 +26,7 @@ variables {
     "evidence-intake"   = "cd-evidence-intake"
     "dispute-notifier"  = null
     "retention-sweeper" = "cd-retention-sweeper"
+    "evidence-viewer"   = "cd-evidence-viewer"
   }
   alb_arn_suffix = "app/cd-alb/0123456789abcdef"
   target_group_arn_suffixes = {
@@ -53,7 +54,10 @@ run "alarms_topic_and_budget" {
       "cd-lambda-evidence-intake-throttles",
       "cd-lambda-retention-sweeper-errors",
       "cd-lambda-retention-sweeper-throttles",
+      "cd-lambda-evidence-viewer-errors",
+      "cd-lambda-evidence-viewer-throttles",
       "cd-retention-failed",
+      "cd-evidence-delete-failed",
       "cd-evidence-not-scanned",
       "cd-evidence-result-conflict",
       "cd-email-undeliverable",
@@ -79,9 +83,10 @@ run "alarms_topic_and_budget" {
   assert {
     condition = {
       for k, a in aws_cloudwatch_metric_alarm.metric : k => "${a.namespace}/${a.metric_name}"
-      if contains(["retention-failed", "evidence-not-scanned", "evidence-result-conflict"], k)
+      if contains(["retention-failed", "evidence-delete-failed", "evidence-not-scanned", "evidence-result-conflict"], k)
       } == {
       "retention-failed"         = "cd/retention-sweeper/RetentionFailed"
+      "evidence-delete-failed"   = "cd/retention-sweeper/EvidenceDeleteFailed"
       "evidence-not-scanned"     = "cd/evidence-intake/EvidenceNotScanned"
       "evidence-result-conflict" = "cd/evidence-intake/EvidenceResultConflict"
     }
@@ -90,7 +95,7 @@ run "alarms_topic_and_budget" {
 
   assert {
     condition = alltrue([
-      for k in ["retention-failed", "evidence-not-scanned", "evidence-result-conflict"] :
+      for k in ["retention-failed", "evidence-delete-failed", "evidence-not-scanned", "evidence-result-conflict"] :
       length(aws_cloudwatch_metric_alarm.metric[k].dimensions) == 0
     ])
     error_message = "EMF metrics are emitted without dimensions; the alarms must have none."
@@ -124,6 +129,7 @@ run "alarms_topic_and_budget" {
       aws_cloudwatch_metric_alarm.metric["dlq-retention-scheduler"].threshold == 1,
       aws_cloudwatch_metric_alarm.metric["dlq-retention-scheduler"].comparison_operator == "GreaterThanOrEqualToThreshold",
       aws_cloudwatch_metric_alarm.metric["lambda-retention-sweeper-errors"].dimensions.FunctionName == "cd-retention-sweeper",
+      aws_cloudwatch_metric_alarm.metric["lambda-evidence-viewer-throttles"].dimensions.FunctionName == "cd-evidence-viewer",
       aws_cloudwatch_metric_alarm.metric["alb-target-p95"].extended_statistic == "p95",
       aws_cloudwatch_metric_alarm.metric["alb-target-p95"].threshold == 1,
       aws_cloudwatch_metric_alarm.metric["alb-target-p95"].comparison_operator == "GreaterThanThreshold",
@@ -203,7 +209,7 @@ run "alarms_topic_and_budget" {
   }
 
   assert {
-    condition     = output.dashboard_name == "cd-dev" && length(output.alarm_arns) == 21
+    condition     = output.dashboard_name == "cd-dev" && length(output.alarm_arns) == 24
     error_message = "Outputs must expose the cd-dev dashboard and every alarm ARN."
   }
 

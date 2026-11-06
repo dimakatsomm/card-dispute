@@ -404,7 +404,7 @@ Check phase A:
 
 ```bash
 aws ecs list-services --cluster $(aws ecs list-clusters --query 'clusterArns[0]' --output text)
-aws ecr describe-repositories --query 'repositories[].repositoryName' --output text     # nine cd-* repos
+aws ecr describe-repositories --query 'repositories[].repositoryName' --output text     # ten cd-* repos
 aws cloudfront list-distributions --query 'DistributionList.Items[].DomainName' --output text
 aws rds describe-db-clusters --query 'DBClusters[].[DBClusterIdentifier,Status,ServerlessV2ScalingConfiguration]'
 ```
@@ -430,18 +430,19 @@ paths are under `infra/terraform/`.
 
 Fix the policy, re-run step 3's `apply` with your own credentials when the change is in `bootstrap/`, then retry.
 
-## 5. Publish all nine images
+## 5. Publish all ten images
 
 Images are tagged with the **full git SHA** (immutable tags). Publish runs on `main` with the publish roles and needs
-no approval; the deploy jobs that follow do. Nine images: `svc-auth`, `svc-users`, `svc-transactions`,
-`svc-disputes`, `web`, `lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`, `dev-tools`.
+no approval; the deploy jobs that follow do. Ten images: `svc-auth`, `svc-users`, `svc-transactions`,
+`svc-disputes`, `web`, `lambda-evidence-intake`, `lambda-dispute-notifier`, `lambda-retention-sweeper`,
+`lambda-evidence-viewer`, `dev-tools`.
 
 ```bash
 git checkout main && git pull
 export SHA=$(git rev-parse HEAD)
 
 for wf in svc-auth svc-users svc-transactions svc-disputes web \
-          lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper; do
+          lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper lambda-evidence-viewer; do
   gh workflow run "$wf.yml" --ref main --repo "$REPO"        # no sha: build, publish, then deploy
 done
 ```
@@ -454,11 +455,11 @@ Each service, web and Lambda run publishes, then its deploy job waits at the `de
 yet**: the database is not ready (step 7). Leave them waiting, or cancel them and dispatch the deploy later with this
 `SHA` (step 8 and "Redeploy after a config-only change").
 
-Confirm all nine tags exist:
+Confirm all ten tags exist:
 
 ```bash
 for r in svc-auth svc-users svc-transactions svc-disputes web \
-         lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper dev-tools; do
+         lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper lambda-evidence-viewer dev-tools; do
   printf '%s: ' "cd-$r"
   aws ecr describe-images --repository-name "cd-$r" --image-ids imageTag="$SHA" \
     --query 'imageDetails[0].imageTags' --output text
@@ -469,16 +470,16 @@ Every line must print the tag. If a path filter skipped a workflow for this comm
 
 ## 6. Infra apply, phase B (create the Lambdas)
 
-Phase B passes the three published Lambda image URIs. Terraform then creates the functions, the alias `live`, the SQS
+Phase B passes the four published Lambda image URIs. Terraform then creates the functions, the alias `live`, the SQS
 event source mapping, the EventBridge rule target for evidence-intake and the nightly schedule. This is also the first
 proof that arm64 container-image Lambdas work in eu-north-1 (R-2).
 
 ```bash
-gh workflow run infra.yml --ref main --repo "$REPO" -f lambda_image_uris="{\"evidence-intake\":\"$ECR/cd-lambda-evidence-intake:$SHA\",\"dispute-notifier\":\"$ECR/cd-lambda-dispute-notifier:$SHA\",\"retention-sweeper\":\"$ECR/cd-lambda-retention-sweeper:$SHA\"}"
+gh workflow run infra.yml --ref main --repo "$REPO" -f lambda_image_uris="{\"evidence-intake\":\"$ECR/cd-lambda-evidence-intake:$SHA\",\"dispute-notifier\":\"$ECR/cd-lambda-dispute-notifier:$SHA\",\"retention-sweeper\":\"$ECR/cd-lambda-retention-sweeper:$SHA\",\"evidence-viewer\":\"$ECR/cd-lambda-evidence-viewer:$SHA\"}"
 ```
 
-The plan job rejects the input before touching AWS unless it is a JSON object with exactly these three keys, each
-`<AWS_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>`. All three are required because the
+The plan job rejects the input before touching AWS unless it is a JSON object with exactly these four keys, each
+`<AWS_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/cd-lambda-<key>:<40-hex sha>`. All four are required because the
 input replaces the whole `dev.tfvars` map, so an omitted key would destroy that function.
 
 Read the plan summary in the run (only creates and updates of the Lambda-dependent resources; no destroys), then approve
@@ -490,7 +491,7 @@ a PR (`image_uri` is ignored after creation, so these URIs only need to stay val
 Always read the plan summary for `delete` and `replace` lines before approving any infra run.
 
 ```bash
-for k in evidence-intake dispute-notifier retention-sweeper; do
+for k in evidence-intake dispute-notifier retention-sweeper evidence-viewer; do
   aws lambda get-function --function-name "cd-$k" \
     --query 'Configuration.[FunctionName,PackageType,Architectures[0],State]' --output text
 done
@@ -500,6 +501,7 @@ Expect `Image arm64 Active` for each. Then let the Lambda pipelines deploy on pu
 
 ```bash
 gh variable set LAMBDAS_DEPLOYED --body true --repo "$REPO"
+gh variable set EVIDENCE_VIEWER_DEPLOYED --body true --repo "$REPO"     # the viewer pipeline has its own gate (BO-10g)
 ```
 
 ## 7. dev-tools `db-bootstrap`
@@ -551,7 +553,7 @@ service log group `/cd/dev/ecs/<svc>`.
 Then deploy the Lambdas the same way (alias `live` is moved to the new version; these runs also need approval):
 
 ```bash
-for wf in lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper; do
+for wf in lambda-evidence-intake lambda-dispute-notifier lambda-retention-sweeper lambda-evidence-viewer; do
   gh workflow run "$wf.yml" --ref main --repo "$REPO" -f sha="$SHA"     # (CI-02)
 done
 ```
@@ -734,6 +736,101 @@ aws cognito-idp admin-user-global-sign-out --user-pool-id <pool> --username <age
 A DISABLED row is never re-enabled by the seed. Removing the group alone takes up to 15 minutes (token lifetime),
 which is why the row is disabled first.
 
+## 13. Evidence viewing and byte deletion rollout (BO-10g, ADR-072)
+
+The merge also triggers every Lambda pipeline and dev-tools (`_publish.yml` and `_deploy-lambda.yml` changed); their deploys wait for approval as usual. Do not dispatch `infra.yml` with a `lambda_image_uris` input until the viewer image exists: the input now needs all four keys.
+
+Ships the agent download and the sweeper's evidence-byte deletion to dev. **Order matters**: the viewer function needs
+its image in ECR before `lambda_image_uris` may name it, and Lambda environment changes only reach alias `live` when a
+deploy publishes a new version (see "Redeploy after a config-only Terraform change"). Until step 4, downloads answer
+503 and only the 365-day lifecycle removes evidence bytes; nothing breaks in between.
+
+**1. Re-apply bootstrap (you, admin credentials).** The workload boundary's `Buckets` statement gains
+`s3:DeleteObjectVersion` and folds the read-only object and list actions into `s3:GetObject*` and `s3:ListBucket*`
+(6,127 → 6,056 of 6,144 characters), so the sweeper's `s3:ListBucketVersions` and `s3:DeleteObjectVersion` are inside
+the cap. Use the 3.1 commands; the plan must show exactly one in-place update, `aws_iam_policy.boundary`. Anything else:
+stop and ask. Without this step the sweeper's deletes are refused by the boundary and `EvidenceDeleteFailed` fires.
+
+**2. Infra apply** (`infra.yml` on the merge to `main`, plan → approve under `dev-infra`; `dev.tfvars` still has no
+`evidence-viewer` key). Creates the ECR repo `cd-lambda-evidence-viewer`, the roles `cd-gha-publish-lambda-evidence-viewer`
+and `cd-gha-deploy-lambda-evidence-viewer`, the viewer's execution role and log group (no function yet), and the
+`cd-evidence-delete-failed` alarm. It adds `InvokeEvidenceViewer` to the disputes task role, `DeleteErasedEvidenceVersions`
+and `ListEvidenceVersions` to the sweeper role, S3 prefix-list egress to the sweeper SG, and `EVIDENCE_BUCKET` to the
+sweeper's `$LATEST`. Expect creates and in-place updates only; no `delete` or `replace` lines.
+
+**3. Publish the viewer image, then create the function.** The merge's own `lambda-evidence-viewer` run may have tried
+to publish before step 2 created its publish role; if its publish job failed, dispatch it again now. Its deploy job is
+skipped until `EVIDENCE_VIEWER_DEPLOYED` is set.
+
+```bash
+gh workflow run lambda-evidence-viewer.yml --ref main --repo "$REPO"     # no sha: build and publish
+export VIEWER_SHA=<the 40-hex sha that run built>
+aws ecr describe-images --repository-name cd-lambda-evidence-viewer --image-ids imageTag="$VIEWER_SHA" \
+  --query 'imageDetails[0].imageTags' --output text
+```
+
+Then, through a PR, add `evidence-viewer = "<VIEWER_SHA>"` to `lambda_image_uris` in `infra/terraform/envs/dev/dev.tfvars`
+(the bare sha resolves to this account's repo; no account id in git). Merge and approve the infra apply: it creates
+`cd-evidence-viewer` (outside the VPC, 5 s timeout, no trigger, no resource policy), alias `live`, the viewer's
+errors/throttles alarms, and puts `EVIDENCE_VIEWER_FUNCTION` (the `live` alias ARN) in a new disputes task-definition
+revision. Check, and open the viewer's deploy gate:
+
+```bash
+aws lambda get-function --function-name cd-evidence-viewer \
+  --query 'Configuration.[PackageType,Architectures[0],State,Timeout,VpcConfig.VpcId]' --output text   # Image arm64 Active 5 and an empty VPC id
+aws lambda get-policy --function-name cd-evidence-viewer --qualifier live 2>&1 | grep -q ResourceNotFoundException && echo "no resource policy"
+gh variable set EVIDENCE_VIEWER_DEPLOYED --body true --repo "$REPO"
+```
+
+**4. Deploy disputes and the sweeper** (approve under `dev`). Disputes picks up the task-definition revision with
+`EVIDENCE_VIEWER_FUNCTION`; the sweeper deploy publishes `$LATEST` with `EVIDENCE_BUCKET` and moves `live`. The sweeper sha
+must contain the M6 byte-deletion code (any `main` sha from the M6 merge on).
+
+```bash
+gh workflow run svc-disputes.yml --ref main --repo "$REPO" -f sha="<running disputes sha>"     # see "Redeploy after a config-only Terraform change"
+gh workflow run lambda-retention-sweeper.yml --ref main --repo "$REPO" -f sha="<M6 or later main sha>"
+aws lambda get-function --function-name cd-retention-sweeper --qualifier live \
+  --query 'Configuration.Environment.Variables.EVIDENCE_BUCKET' --output text     # cd-dev-evidence-<account>
+```
+
+**5. One-off sweeper run with a 30-day retry window** (you, operator credentials; once, when byte deletion is first on).
+Disputes erased in the 30 days before deletion was enabled still have their bytes; the nightly run only looks back
+`EVIDENCE_DELETE_RETRY_DAYS` (7). Older erasures are left to the lifecycle. Run it on `$LATEST` with a temporary
+variable, then restore the saved environment straight away so no later deploy publishes the override:
+
+```bash
+aws lambda get-function-configuration --function-name cd-retention-sweeper --query Environment > sweeper-env.json   # ids only, no secrets
+jq '.Variables.EVIDENCE_DELETE_RETRY_DAYS = "30"' sweeper-env.json > sweeper-env-30.json
+aws lambda update-function-configuration --function-name cd-retention-sweeper --environment file://sweeper-env-30.json --query LastUpdateStatus
+aws lambda wait function-updated-v2 --function-name cd-retention-sweeper
+aws lambda invoke --function-name cd-retention-sweeper --qualifier '$LATEST' --cli-read-timeout 330 sweep-out.json && cat sweep-out.json
+aws lambda update-function-configuration --function-name cd-retention-sweeper --environment file://sweeper-env.json --query LastUpdateStatus
+aws lambda wait function-updated-v2 --function-name cd-retention-sweeper
+rm sweeper-env.json sweeper-env-30.json sweep-out.json
+```
+
+The invoke must return without `FunctionError`. Then check `/aws/lambda/cd-retention-sweeper` for the run's summary and
+that `cd-evidence-delete-failed` stays OK. The next infra plan must show no change to the sweeper (the restore removed
+the drift); if it shows `EVIDENCE_DELETE_RETRY_DAYS`, the restore did not run: re-run its two lines.
+
+**6. Smoke check** (an agent session, as in 12.6). Open a dispute with a `STORED` evidence item and click download:
+
+- The file downloads with its generated name. `/aws/lambda/cd-evidence-viewer` has one `evidence url minted` line with
+  `disputeId`, `evidenceId`, `correlationId` and no URL, and disputes wrote an `evidence_view` row.
+- Copy the link (browser downloads list), wait more than 60 s and fetch it: `curl -s -o /dev/null -w '%{http_code}\n' "<url>"`
+  prints `403` (`Request has expired`).
+- Mint a fresh link, change one character of `X-Amz-Signature` and fetch it within 60 s: `403` (`SignatureDoesNotMatch`).
+
+If the download answers 503, the disputes log line `evidence viewer failed` has the `reason`: `INVOKE_FAILED` with
+`AccessDenied` means the task role or the alias ARN in `EVIDENCE_VIEWER_FUNCTION`; `FUNCTION_ERROR` means the viewer's
+own log; `evidence viewer not configured` means disputes still runs the old task definition (step 4).
+
+**Roll back.** Remove `evidence-viewer` from `lambda_image_uris` and apply: the function and alias go, the disputes
+task definition loses `EVIDENCE_VIEWER_FUNCTION`, and after a disputes redeploy downloads answer 503 again. Byte
+deletion stays on unless `EVIDENCE_BUCKET` is removed as well. Also run `gh variable delete EVIDENCE_VIEWER_DEPLOYED --repo "$REPO"`, or the next viewer push deploy fails against the missing function.
+
+If the sweeper's deletes fail with `AccessDenied` (alarm `cd-evidence-delete-failed`), AWS is requiring `s3:DeleteObject` for versioned `DeleteObjects` too: add it to the sweeper's `DeleteErasedEvidenceVersions` statement (the boundary already allows it).
+
 ---
 
 ## Park and unpark
@@ -816,8 +913,12 @@ gh workflow run svc-users.yml --ref main --repo "$REPO" -f sha="$RUNNING_SHA"   
 ```
 
 Replace `users` for the service you changed. The run also executes the migrate task, which is a no-op when nothing
-is pending. Lambda configuration changed in Terraform applies to the function directly (only `image_uri` is
-ignored), so Lambdas need no redeploy.
+is pending. Lambda configuration changed in Terraform (environment, timeout) lands on `$LATEST` only: alias `live`
+points at a published version, whose configuration is frozen, and Terraform never moves the alias. Roll it out by
+re-running the Lambda's workflow with `-f sha=<running sha>`; the deploy publishes `$LATEST` and moves `live`. The
+pipeline writes the sha into the version description:
+`aws lambda get-function --function-name cd-<key> --qualifier live --query Configuration.Description --output text`
+(empty for a version Terraform published: use the sha in `dev.tfvars`). IAM changes need no redeploy.
 
 ## Redrive a dead-letter queue from the console
 
@@ -855,6 +956,8 @@ tools `/cd/dev/tools/<task>`. Tail one with `aws logs tail <group> --since 30m -
 | DLQ depth >= 1: `cd-retention-scheduler-dlq` | The nightly sweeper could not be invoked | The schedule `cd-retention-sweeper` in EventBridge Scheduler and the function's state; re-invoke by hand |
 | Lambda errors / throttles | A function raised or hit the concurrency limit | The function's log group; for throttles `aws lambda get-account-settings` (new-account concurrency quota) |
 | `RetentionFailed` | The sweeper failed to expire or erase rows | `/aws/lambda/cd-retention-sweeper` and the Aurora connection (`DB_SSL`, `disputes_retention` secret) |
+| `EvidenceDeleteFailed` | The sweeper erased a dispute's rows but could not delete its evidence bytes (it retries for `EVIDENCE_DELETE_RETRY_DAYS`, then the 365-day lifecycle is the backstop) | `/aws/lambda/cd-retention-sweeper` for the S3 error name: `AccessDenied` means the sweeper role or the boundary (13.1); a KMS error is unexpected, deletes need no key |
+| Lambda errors: `cd-evidence-viewer` | The viewer refused a payload or failed to sign; the agent got a 503 | `/aws/lambda/cd-evidence-viewer`, then the disputes log line `evidence viewer failed` (13.6) |
 | `EventPublishFailed` | disputes committed a change but could not publish its SQS event, so that email will not be sent (best-effort, ADR-033) | `/cd/dev/ecs/disputes` for the failing `eventType`: the disputes task role's `sqs:SendMessage` and the KMS key `cd-data`. The dispute state is intact |
 | `EvidenceNotScanned` | Evidence reached intake with no GuardDuty verdict | GuardDuty malware protection plan status for the quarantine bucket and the object tag `GuardDutyMalwareScanStatus`; with `EVIDENCE_REQUIRE_SCAN=true` the item is rejected rather than stored |
 | `EvidenceResultConflict` | disputes refused intake's scan result because the evidence was already in another state | The dispute timeline and the `disputes` log for the evidence id; usually a replay after a decision, and harmless |
